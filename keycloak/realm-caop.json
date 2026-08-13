@@ -1,0 +1,87 @@
+{
+  "realm": "caop",
+  "enabled": true,
+  "displayName": "CAOP",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "SUPER_ADMIN" },
+      { "name": "CUSTOMS_AGENT" },
+      { "name": "CUSTOMS_ASSISTANT" },
+      { "name": "OPERATIONS_MANAGER" },
+      { "name": "OCEAN_OPERATOR" },
+      { "name": "AIR_OPERATOR" },
+      { "name": "DOCUMENT_SPECIALIST" },
+      { "name": "FINANCE" },
+      { "name": "SALES" },
+      { "name": "CUSTOMER" },
+      { "name": "AUDITOR" },
+      { "name": "API_SERVICE" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "caop-frontend",
+      "name": "CAOP Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": { "post.logout.redirect.uris": "http://localhost:3000/*" }
+    },
+    {
+      "clientId": "caop-backend",
+      "name": "CAOP Backend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "caop-backend-dev-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "bearerOnly": false,
+      "protocolMappers": [
+        {
+          "name": "audience-caop-backend",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "caop-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "agente",
+      "enabled": true,
+      "email": "agente@caop.local",
+      "emailVerified": true,
+      "firstName": "Agente",
+      "lastName": "Aduanero",
+      "credentials": [
+        { "type": "password", "value": "agente_dev", "temporary": false }
+      ],
+      "realmRoles": ["CUSTOMS_AGENT"]
+    },
+    {
+      "username": "admin-caop",
+      "enabled": true,
+      "email": "admin@caop.local",
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "admin_dev", "temporary": false }
+      ],
+      "realmRoles": ["SUPER_ADMIN"]
+    }
+  ]
+}
