@@ -6,6 +6,7 @@ from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.models.organization import Organization
 from app.models.role import Role, user_roles
 from app.models.supplier import Supplier
+from app.models.tax import TaxRule
 from app.models.user import User
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "Organization",
     "Role",
     "Supplier",
+    "TaxRule",
     "User",
     "user_roles",
 ]

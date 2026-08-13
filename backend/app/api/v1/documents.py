@@ -8,8 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.document import Document, DocumentVersion
-from app.schemas.document import DocumentRead, PresignedUrl
+from app.models.document import Document, DocumentExtraction, DocumentVersion
+from app.schemas.document import DocumentExtractionRead, DocumentRead, PresignedUrl
+from app.services.extraction import Extractor, get_extractor
 from app.services.storage import StorageService, get_storage, sha256_hex
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -112,13 +113,9 @@ async def get_document(
     return document
 
 
-@router.get("/{document_id}/versions/{version}/download", response_model=PresignedUrl)
-async def download_version(
-    document_id: uuid.UUID,
-    version: int,
-    session: AsyncSession = Depends(get_session),
-    storage: StorageService = Depends(get_storage),
-) -> PresignedUrl:
+async def _get_version_or_404(
+    session: AsyncSession, document_id: uuid.UUID, version: int
+) -> DocumentVersion:
     dv = await session.scalar(
         select(DocumentVersion).where(
             DocumentVersion.document_id == document_id, DocumentVersion.version == version
@@ -126,5 +123,64 @@ async def download_version(
     )
     if dv is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Versión no encontrada")
+    return dv
+
+
+@router.post(
+    "/{document_id}/versions/{version}/extract",
+    response_model=list[DocumentExtractionRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def extract_version(
+    document_id: uuid.UUID,
+    version: int,
+    session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage),
+    extractor: Extractor = Depends(get_extractor),
+) -> list[DocumentExtraction]:
+    dv = await _get_version_or_404(session, document_id, version)
+    data = await run_in_threadpool(storage.get_bytes, dv.object_key)
+    result = extractor.extract(data, dv.content_type, dv.filename)
+
+    rows: list[DocumentExtraction] = []
+    for f in result.fields:
+        row = DocumentExtraction(
+            document_version_id=dv.id,
+            field_name=f.field_name,
+            extracted_value=f.value,
+            confidence_score=f.confidence,
+            source_page=f.source_page,
+            model_version=result.model_version,
+        )
+        session.add(row)
+        rows.append(row)
+    await session.flush()
+    return rows
+
+
+@router.get(
+    "/{document_id}/versions/{version}/extractions",
+    response_model=list[DocumentExtractionRead],
+)
+async def list_extractions(
+    document_id: uuid.UUID,
+    version: int,
+    session: AsyncSession = Depends(get_session),
+) -> list[DocumentExtraction]:
+    dv = await _get_version_or_404(session, document_id, version)
+    result = await session.scalars(
+        select(DocumentExtraction).where(DocumentExtraction.document_version_id == dv.id)
+    )
+    return list(result)
+
+
+@router.get("/{document_id}/versions/{version}/download", response_model=PresignedUrl)
+async def download_version(
+    document_id: uuid.UUID,
+    version: int,
+    session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage),
+) -> PresignedUrl:
+    dv = await _get_version_or_404(session, document_id, version)
     url = await run_in_threadpool(storage.presigned_get_url, dv.object_key, 3600)
     return PresignedUrl(url=url, expires_seconds=3600)

@@ -80,4 +80,17 @@ make test
 
 Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 
-Siguiente: **S2** — OCR/extracción de proforma + Tax Rule Engine (motor de reglas tributarias versionado).
+## Estado de S2 — Tax Rule Engine + Extracción de proforma
+
+- [x] Modelo `TaxRule` versionado (fecha de vigencia, versión, estado, fuente legal) + migración `0003`
+- [x] Motor de cálculo **por ítem** y **en cadena** por dependencias (CIF → AD_VALOREM → FODINFA → ICE → IVA)
+- [x] Selección de regla por **especificidad** (HS > origen/acuerdo; a igualdad, mayor versión) — soporta arancel preferencial
+- [x] Reglas base de Ecuador sembrables (FODINFA, IVA) marcadas **NO verificadas** (pendiente fuente oficial)
+- [x] API: `POST /tax/rules`, `GET /tax/rules`, `POST /tax/rules/seed-ecuador-defaults`, `POST /tax/simulate`
+- [x] Pipeline de **extracción de proforma**: interfaz `Extractor` + extractor heurístico (texto/CSV y PDF con capa de texto); OCR/Document AI real como adapter enchufable
+- [x] API: `POST /documents/{id}/versions/{n}/extract`, `GET .../extractions` (cada dato con `confidence_score`)
+- [x] Tests: 26 passed
+
+> Los porcentajes tributarios NO están en el código: viven en `tax_rule` (versionados). Las reglas sembradas requieren verificación oficial (SENAE/COMEX/SRI) antes de producción.
+
+Siguiente: **S3** — Cotización + Landed Cost (Quote/QuoteItem/QuoteScenario) que consume el Tax Engine, PDF y estados de envío.

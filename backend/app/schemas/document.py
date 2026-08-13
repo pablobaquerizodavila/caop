@@ -31,3 +31,14 @@ class DocumentRead(BaseModel):
 class PresignedUrl(BaseModel):
     url: str
     expires_seconds: int
+
+
+class DocumentExtractionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    field_name: str
+    extracted_value: str | None
+    verified_value: str | None
+    confidence_score: float | None
+    source_page: int | None
+    model_version: str | None
