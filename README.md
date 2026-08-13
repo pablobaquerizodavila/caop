@@ -117,4 +117,15 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] API: `/requirements`, `/cases`, `/cases/{id}` (checklist+eventos+SLA), PATCH checklist, `/quotes/{id}/convert`, `/quotes/{id}/case`
 - [x] Tests: 35 passed
 
-Siguiente: **Notificaciones** (email vía mailcow + WhatsApp) para enviar cotización y solicitar documentos; y endurecimiento de secretos + frontend a producción.
+## Estado de S6 — Notificaciones (email + WhatsApp)
+
+- [x] Modelos Notification + NotificationTemplate (plantillas versionadas) + migración `0006`
+- [x] Servicio de notificaciones con render `{{placeholders}}` y dispatch (registra + envía)
+- [x] **Email** vía SMTP (Mailpit en dev, mailcow en prod) con aiosmtplib
+- [x] **WhatsApp**: conector propio sobre la WhatsApp Business Platform oficial; sin token → modo **SIMULADO** (no inventa credenciales/endpoints)
+- [x] **Auto-notificación**: al crear el expediente se envía DOCUMENT_REQUIRED al cliente con los documentos bloqueantes faltantes (best-effort, registrado en el timeline)
+- [x] Plantillas base sembrables (DOCUMENT_REQUIRED email/whatsapp, QUOTATION_SENT)
+- [x] API: `/notifications/send`, `/notifications`, `/notifications/templates[/seed-defaults]`
+- [x] Tests: 39 passed
+
+Siguiente sugerido: SLA engine + Business Calendar + escalamiento; o Control Tower (frontend).

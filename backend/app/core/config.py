@@ -27,6 +27,20 @@ class Settings(BaseSettings):
     keycloak_issuer: str = "http://localhost:8080/realms/caop"
     keycloak_audience: str = "caop-backend"
 
+    # Email (mailpit en dev, mailcow en prod)
+    smtp_host: str = "mailpit"
+    smtp_port: int = 1025
+    smtp_from: str = "no-reply@caop.local"
+    smtp_use_tls: bool = False
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+
+    # WhatsApp Business Platform (oficial). Sin token -> modo simulado.
+    whatsapp_enabled: bool = False
+    whatsapp_api_url: str = "https://graph.facebook.com/v21.0"
+    whatsapp_phone_id: str | None = None
+    whatsapp_token: str | None = None
+
     # Infra auxiliar
     redis_url: str = "redis://redis:6379/0"
     # Endpoint interno para operaciones (put/get) contenedor->contenedor.
