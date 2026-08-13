@@ -93,4 +93,17 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 
 > Los porcentajes tributarios NO están en el código: viven en `tax_rule` (versionados). Las reglas sembradas requieren verificación oficial (SENAE/COMEX/SRI) antes de producción.
 
-Siguiente: **S3** — Cotización + Landed Cost (Quote/QuoteItem/QuoteScenario) que consume el Tax Engine, PDF y estados de envío.
+## Estado de S3 — Cotización + Landed Cost
+
+- [x] Modelos Quote / QuoteItem / CostLine / QuoteStatusHistory + migración `0004`
+- [x] Servicio de cotización: tributos **por ítem** (Tax Engine) + **landed cost** total y por unidad
+- [x] Separación **precio cliente vs costo interno vs margen** (el cliente NO ve rentabilidad → vista pública)
+- [x] Rubros de costo con **contingencia** y **confianza** (HIGH/MEDIUM/LOW) + exclusiones (NOT INCLUDED)
+- [x] Prorrateo de flete/seguro por valor de línea
+- [x] **PDF corporativo** (reportlab) almacenado en MinIO + descarga por URL prefirmada
+- [x] Ciclo de estados con validación de transiciones e historial (DRAFT→SENT→…→ACCEPTED)
+- [x] Versionamiento (revise = nueva versión sin sobrescribir la enviada)
+- [x] API: `POST /quotes`, `GET /quotes[/{id}]`, `GET /quotes/{id}/public`, `recompute`, `status`, `pdf`, `pdf/download`, `revise`
+- [x] Tests: 31 passed
+
+Siguiente: **S4/S5** — Aceptación → conversión automática **cotización → expediente** (Shipment + CustomsCase + checklist + SLA), el diferenciador del MVP; y envío por email/WhatsApp.
