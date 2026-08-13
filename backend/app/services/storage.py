@@ -27,14 +27,21 @@ class MinioStorage:
     endpoints las ejecutan en un threadpool (fastapi.concurrency.run_in_threadpool)."""
 
     def __init__(self) -> None:
-        endpoint = settings.minio_endpoint.replace("http://", "").replace("https://", "")
-        self._client = Minio(
-            endpoint,
+        creds = dict(
             access_key=settings.minio_access_key,
             secret_key=settings.minio_secret_key,
             secure=settings.minio_secure,
         )
+        # Cliente interno: operaciones put/get (contenedor -> contenedor).
+        self._client = Minio(self._host(settings.minio_endpoint), **creds)
+        # Cliente público: SOLO para firmar URLs alcanzables por el navegador.
+        # presigned_get_object no hace peticiones de red; firma localmente para ese host.
+        self._public_client = Minio(self._host(settings.minio_public_endpoint), **creds)
         self._bucket = settings.minio_bucket
+
+    @staticmethod
+    def _host(url: str) -> str:
+        return url.replace("http://", "").replace("https://", "")
 
     def ensure_bucket(self) -> None:
         if not self._client.bucket_exists(self._bucket):
@@ -60,7 +67,7 @@ class MinioStorage:
     def presigned_get_url(self, key: str, expires_seconds: int = 3600) -> str:
         from datetime import timedelta
 
-        return self._client.presigned_get_object(
+        return self._public_client.presigned_get_object(
             self._bucket, key, expires=timedelta(seconds=expires_seconds)
         )
 

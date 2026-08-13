@@ -29,7 +29,10 @@ class Settings(BaseSettings):
 
     # Infra auxiliar
     redis_url: str = "redis://redis:6379/0"
+    # Endpoint interno para operaciones (put/get) contenedor->contenedor.
     minio_endpoint: str = "http://minio:9000"
+    # Endpoint público usado SOLO para firmar URLs (debe ser alcanzable por el navegador).
+    minio_public_endpoint: str = "http://192.168.0.7:9000"
     minio_bucket: str = "caop-documents"
     minio_access_key: str = "caop_minio"
     minio_secret_key: str = "caop_minio_dev_password"
