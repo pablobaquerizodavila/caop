@@ -31,6 +31,7 @@ class MinioStorage:
             access_key=settings.minio_access_key,
             secret_key=settings.minio_secret_key,
             secure=settings.minio_secure,
+            region=settings.minio_region,
         )
         # Cliente interno: operaciones put/get (contenedor -> contenedor).
         self._client = Minio(self._host(settings.minio_endpoint), **creds)

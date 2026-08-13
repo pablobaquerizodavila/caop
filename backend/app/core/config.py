@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     minio_access_key: str = "caop_minio"
     minio_secret_key: str = "caop_minio_dev_password"
     minio_secure: bool = False
+    # Fijar la región evita que minio-py haga GetBucketLocation por red al firmar.
+    minio_region: str = "us-east-1"
 
     @property
     def cors_origins_list(self) -> list[str]:
