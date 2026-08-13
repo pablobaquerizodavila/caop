@@ -59,8 +59,12 @@ services:
       postgres:
         condition: service_healthy
 
+  # Temporal aún no se usa (los workflows entran en S2). Está detrás del profile
+  # "workflow" para no consumir recursos hasta que haga falta:
+  #   docker compose --profile workflow up -d
   temporal:
     image: temporalio/auto-setup:1.25.0
+    profiles: ["workflow"]
     environment:
       DB: postgres12
       DB_PORT: 5432
@@ -75,6 +79,7 @@ services:
 
   temporal-ui:
     image: temporalio/ui:2.31.2
+    profiles: ["workflow"]
     environment:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_CORS_ORIGINS: http://192.168.0.7:3000
