@@ -67,4 +67,17 @@ make test
 - [x] Frontend Next.js mínimo
 - [x] Suite de tests (health) como base de CI
 
-Siguiente: **S1** — Clientes (KYC/LOPDP) + documentos (subida + versionado + SHA-256).
+## Estado de S1 — Clientes (KYC/LOPDP) + Documentos
+
+- [x] Modelos: Customer, Contact, ConsentRecord (LOPDP), Supplier, Document, DocumentVersion, DocumentExtraction
+- [x] Migración Alembic `0002`
+- [x] Validador de RUC ecuatoriano (provincia + tipo + dígito verificador, módulo 10/11)
+- [x] API de Clientes: CRUD, contactos y consentimientos
+- [x] API de Proveedores
+- [x] API de Documentos: subida a MinIO, **versionado** e integridad **SHA-256**, descarga por URL prefirmada
+- [x] Servicio de almacenamiento abstracto (MinIO en prod, fake en memoria en tests)
+- [x] Tests: 19 passed (RUC, clientes, consentimiento, documentos)
+
+Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
+
+Siguiente: **S2** — OCR/extracción de proforma + Tax Rule Engine (motor de reglas tributarias versionado).

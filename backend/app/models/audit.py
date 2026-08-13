@@ -3,15 +3,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPrimaryKeyMixin
-
-# JSONB en PostgreSQL, JSON genérico en otros motores (p. ej. SQLite en tests).
-JSONVariant = JSON().with_variant(JSONB(), "postgresql")
+from app.db.base import Base, JSONVariant, UUIDPrimaryKeyMixin
 
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
