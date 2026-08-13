@@ -30,9 +30,9 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:3000"],
-      "attributes": { "post.logout.redirect.uris": "http://localhost:3000/*" }
+      "redirectUris": ["http://192.168.0.7:3000/*", "http://localhost:3000/*"],
+      "webOrigins": ["http://192.168.0.7:3000", "http://localhost:3000"],
+      "attributes": { "post.logout.redirect.uris": "http://192.168.0.7:3000/*##http://localhost:3000/*" }
     },
     {
       "clientId": "caop-backend",

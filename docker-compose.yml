@@ -77,7 +77,7 @@ services:
     image: temporalio/ui:2.31.2
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+      TEMPORAL_CORS_ORIGINS: http://192.168.0.7:3000
     ports:
       - "8081:8080"
     depends_on:
