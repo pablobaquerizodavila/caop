@@ -106,4 +106,15 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] API: `POST /quotes`, `GET /quotes[/{id}]`, `GET /quotes/{id}/public`, `recompute`, `status`, `pdf`, `pdf/download`, `revise`
 - [x] Tests: 31 passed
 
-Siguiente: **S4/S5** — Aceptación → conversión automática **cotización → expediente** (Shipment + CustomsCase + checklist + SLA), el diferenciador del MVP; y envío por email/WhatsApp.
+## Estado de S4/S5 — Cotización → Expediente (flujo estrella)
+
+- [x] Modelos Shipment, CustomsCase, CaseEvent, Requirement, ChecklistItem, SLAInstance + migración `0005`
+- [x] **Conversión automática al ACEPTAR**: crea Shipment + CustomsCase + checklist + SLA + eventos, sin redigitar (idempotente)
+- [x] Motor de checklist por requisitos (aplican según modalidad/acuerdo) + **readiness score**
+- [x] Estados del expediente (CASE_CREATED → AWAITING_DOCUMENTS → READY_FOR_CUSTOMS) y `blocker` por documentos faltantes bloqueantes
+- [x] SLA por hito (DOCUMENTS_COMPLETE) y **timeline** de eventos del caso
+- [x] Requisitos base sembrables (factura, packing, BL/AWB, seguro, certificado de origen si hay acuerdo)
+- [x] API: `/requirements`, `/cases`, `/cases/{id}` (checklist+eventos+SLA), PATCH checklist, `/quotes/{id}/convert`, `/quotes/{id}/case`
+- [x] Tests: 35 passed
+
+Siguiente: **Notificaciones** (email vía mailcow + WhatsApp) para enviar cotización y solicitar documentos; y endurecimiento de secretos + frontend a producción.

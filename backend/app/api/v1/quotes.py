@@ -11,12 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
+from app.models.shipment import CustomsCase, Shipment
+from app.schemas.case import CustomsCaseRead
 from app.schemas.quote import (
     QuoteCreate,
     QuoteReadInternal,
     QuoteReadPublic,
     StatusUpdate,
 )
+from app.services.conversion import ConversionError, convert_quote_to_case
 from app.services.quote_pdf import DISCLAIMER, build_quote_pdf
 from app.services.quotation import recompute_quote
 from app.services.storage import StorageService, get_storage
@@ -184,13 +187,53 @@ async def change_status(
             status.HTTP_409_CONFLICT,
             f"Transición inválida {quote.status} → {payload.status}",
         )
+    # Al ACEPTAR se exige cliente vinculado (se convertirá en expediente).
+    if payload.status == "ACCEPTED" and quote.customer_id is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Vincula un cliente a la cotización antes de aceptarla (se convierte en expediente).",
+        )
+
     quote.status = payload.status
     quote.status_history.append(
         QuoteStatusHistory(status=payload.status, channel=payload.channel, meta=payload.meta)
     )
     await session.flush()
+
+    # AUTOMATION FIRST: aceptar => crear expediente automáticamente (idempotente).
+    if payload.status == "ACCEPTED":
+        await convert_quote_to_case(session, quote)
+
     await session.refresh(quote)
     return quote
+
+
+@router.post("/{quote_id}/convert", response_model=CustomsCaseRead, status_code=201)
+async def convert_quote(
+    quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> CustomsCase:
+    """Convierte manualmente la cotización en expediente (idempotente)."""
+    quote = await _load(session, quote_id)
+    try:
+        case = await convert_quote_to_case(session, quote)
+    except ConversionError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    await session.flush()
+    return case
+
+
+@router.get("/{quote_id}/case", response_model=CustomsCaseRead)
+async def get_quote_case(
+    quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> CustomsCase:
+    quote = await _load(session, quote_id)
+    shipment = await session.scalar(select(Shipment).where(Shipment.source_quote_id == quote.id))
+    if shipment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La cotización aún no tiene expediente")
+    case = await session.scalar(
+        select(CustomsCase).where(CustomsCase.shipment_id == shipment.id)
+    )
+    return case
 
 
 @router.post("/{quote_id}/pdf")
