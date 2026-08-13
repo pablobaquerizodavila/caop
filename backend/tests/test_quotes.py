@@ -90,11 +90,12 @@ async def test_status_transitions(client):
 
     ok = await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "SENT", "channel": "EMAIL"})
     assert ok.status_code == 200
-    ok2 = await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "ACCEPTED"})
-    assert ok2.status_code == 200
-    # transición inválida desde ACCEPTED
+    # transición inválida SENT -> DRAFT
     bad = await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "DRAFT"})
     assert bad.status_code == 409
+    # SENT -> REJECTED es válida (no requiere cliente ni conversión)
+    ok2 = await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "REJECTED"})
+    assert ok2.status_code == 200
 
 
 @pytest.mark.asyncio
