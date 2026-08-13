@@ -12,10 +12,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.checklist import ChecklistItem
+from app.models.customer import Contact, Customer
 from app.models.quote import Quote
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
 from app.models.sla import SLAInstance
 from app.services.checklist import CaseContext, generate_checklist, recompute_readiness
+from app.services.notifications import dispatch
 
 DOCS_SLA_HOURS = 24
 
@@ -95,4 +98,76 @@ async def convert_quote_to_case(session: AsyncSession, quote: Quote) -> CustomsC
 
     await recompute_readiness(session, case)
     await session.flush()
+
+    await _notify_documents_required(session, quote, case)
+    await session.flush()
     return case
+
+
+async def _customer_email(session: AsyncSession, customer_id) -> tuple[Customer | None, str | None]:
+    customer = await session.get(Customer, customer_id)
+    if customer and customer.email:
+        return customer, customer.email
+    contact = await session.scalar(
+        select(Contact)
+        .where(Contact.customer_id == customer_id)
+        .order_by(Contact.is_primary.desc())
+    )
+    return customer, (contact.email if contact else None)
+
+
+async def _notify_documents_required(
+    session: AsyncSession, quote: Quote, case: CustomsCase
+) -> None:
+    """Best-effort: solicita al cliente los documentos bloqueantes faltantes."""
+    customer, email = await _customer_email(session, quote.customer_id)
+    missing = list(
+        await session.scalars(
+            select(ChecklistItem).where(
+                ChecklistItem.customs_case_id == case.id,
+                ChecklistItem.blocking.is_(True),
+                ChecklistItem.status != "COMPLETE",
+            )
+        )
+    )
+    missing_docs = ", ".join(m.doc_type for m in missing) or "ninguno"
+    if not email:
+        session.add(
+            CaseEvent(
+                customs_case_id=case.id,
+                event_type="NOTIFY_SKIPPED_NO_EMAIL",
+                event_source="SYSTEM",
+            )
+        )
+        return
+    try:
+        notif = await dispatch(
+            session,
+            channel="EMAIL",
+            template_code="DOCUMENT_REQUIRED",
+            to=email,
+            context={
+                "customer_name": customer.legal_name if customer else "",
+                "case_number": case.case_number,
+                "missing_docs": missing_docs,
+            },
+            customer_id=quote.customer_id,
+            customs_case_id=case.id,
+        )
+        session.add(
+            CaseEvent(
+                customs_case_id=case.id,
+                event_type="DOCUMENT_REQUIRED_SENT",
+                event_source="SYSTEM",
+                normalized_payload={"to": email, "status": notif.status},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        session.add(
+            CaseEvent(
+                customs_case_id=case.id,
+                event_type="NOTIFY_FAILED",
+                event_source="SYSTEM",
+                normalized_payload={"error": str(exc)[:200]},
+            )
+        )

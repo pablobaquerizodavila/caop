@@ -8,11 +8,26 @@ from app.audit.listener import register_audit_listeners
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
+from app.services.notifications import SendResult, set_notifier
 from app.services.storage import get_storage
 
 # Registrar la auditoría también en tests (bajo ASGITransport no corre el lifespan),
 # para ejercitar la serialización de auditoría contra SQLite y detectar regresiones.
 register_audit_listeners()
+
+
+class FakeNotifier:
+    """Notificador de prueba: registra envíos en memoria, no toca SMTP/WhatsApp."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    async def send(self, channel, to, subject, body):
+        self.sent.append({"channel": channel, "to": to, "subject": subject, "body": body})
+        return SendResult("SENT")
+
+
+set_notifier(FakeNotifier())
 
 
 class FakeStorage:
