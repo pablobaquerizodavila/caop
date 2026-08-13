@@ -4,10 +4,15 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.audit.listener import register_audit_listeners
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
 from app.services.storage import get_storage
+
+# Registrar la auditoría también en tests (bajo ASGITransport no corre el lifespan),
+# para ejercitar la serialización de auditoría contra SQLite y detectar regresiones.
+register_audit_listeners()
 
 
 class FakeStorage:

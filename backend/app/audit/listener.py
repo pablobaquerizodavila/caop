@@ -9,6 +9,8 @@ user_id/role/ip desde el request se conectará en S1 vía contextvars.
 
 from __future__ import annotations
 
+import datetime
+import decimal
 import uuid
 
 from sqlalchemy import event, inspect
@@ -20,11 +22,21 @@ from app.models.audit import AuditEvent
 _EXCLUDED_TABLES = {"audit_event"}
 
 
+def _json_safe(value):
+    """Convierte a tipos serializables en JSON (para el old_value/new_value JSONB)."""
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, decimal.Decimal):
+        return str(value)
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.isoformat()
+    return value
+
+
 def _serialize(obj) -> dict:
     data = {}
     for attr in inspect(obj).mapper.column_attrs:
-        value = getattr(obj, attr.key)
-        data[attr.key] = str(value) if isinstance(value, uuid.UUID) else value
+        data[attr.key] = _json_safe(getattr(obj, attr.key))
     return data
 
 
