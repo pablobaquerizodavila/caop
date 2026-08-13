@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     minio_endpoint: str = "http://minio:9000"
     minio_bucket: str = "caop-documents"
+    minio_access_key: str = "caop_minio"
+    minio_secret_key: str = "caop_minio_dev_password"
+    minio_secure: bool = False
 
     @property
     def cors_origins_list(self) -> list[str]:
