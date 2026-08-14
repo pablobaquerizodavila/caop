@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { NavLink } from "@/app/components/NavLink";
@@ -7,6 +8,8 @@ import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 export default function AppLayout({ children }: { children: ReactNode }) {
   const user = cookies().get("caop_user")?.value;
   const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
+  // Los clientes (rol CUSTOMER sin rol de staff) usan el portal, no la torre interna.
+  if (caps.isCustomerOnly) redirect("/portal");
   const primaryRole = caps.roles[0] ?? "—";
   return (
     <div className="shell">

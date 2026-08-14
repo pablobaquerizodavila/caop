@@ -12,6 +12,7 @@ from app.api.v1 import (
     documents,
     notifications,
     ocean,
+    portal,
     quotes,
     settlements,
     sla,
@@ -21,7 +22,12 @@ from app.api.v1 import (
     vue,
     warehouse,
 )
-from app.core.security import Principal, get_current_principal, require_write
+from app.core.security import (
+    Principal,
+    get_current_principal,
+    require_staff,
+    require_write,
+)
 
 api_router = APIRouter()
 
@@ -31,8 +37,13 @@ api_router.include_router(health.router)
 # Track & Trace público: enlace con token, SIN auth (lo abre el cliente importador).
 api_router.include_router(tracking.public_router)
 
-# Resto de la API: token Keycloak + RBAC (escritura exige rol de escritura).
-protected = [Depends(get_current_principal), Depends(require_write)]
+# Portal del cliente: autenticado pero SIN require_staff; cada endpoint filtra por
+# el cliente vinculado a la identidad (no expone datos de otros).
+api_router.include_router(portal.router, dependencies=[Depends(get_current_principal)])
+
+# Resto de la API: token Keycloak + RBAC. Sólo personal (require_staff);
+# la escritura exige además un rol de escritura (require_write).
+protected = [Depends(get_current_principal), Depends(require_staff), Depends(require_write)]
 api_router.include_router(customers.router, dependencies=protected)
 api_router.include_router(suppliers.router, dependencies=protected)
 api_router.include_router(documents.router, dependencies=protected)
