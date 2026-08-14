@@ -6,6 +6,7 @@ from app.api import health
 from app.api.v1 import (
     alerts,
     analytics,
+    audit,
     cases,
     customers,
     dai,
@@ -60,6 +61,7 @@ api_router.include_router(vue.router, dependencies=protected)
 api_router.include_router(warehouse.router, dependencies=protected)
 api_router.include_router(settlements.router, dependencies=protected)
 api_router.include_router(alerts.router, dependencies=protected)
+api_router.include_router(audit.router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])

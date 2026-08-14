@@ -238,12 +238,15 @@ async def add_version(
 async def list_documents(
     session: AsyncSession = Depends(get_session),
     customer_id: uuid.UUID | None = Query(None),
+    customs_case_id: uuid.UUID | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> list[Document]:
     stmt = select(Document).order_by(Document.created_at.desc())
     if customer_id is not None:
         stmt = stmt.where(Document.customer_id == customer_id)
+    if customs_case_id is not None:
+        stmt = stmt.where(Document.customs_case_id == customs_case_id)
     result = await session.scalars(stmt.limit(limit).offset(offset))
     return list(result)
 

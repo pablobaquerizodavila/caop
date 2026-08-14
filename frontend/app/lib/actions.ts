@@ -409,6 +409,19 @@ export async function applyVueSuggestions(
   return { ok: true, count: Array.isArray(j) ? j.length : 0 };
 }
 
+// ---------- Documentos ----------
+export async function documentVersionUrl(
+  documentId: string,
+  version: number,
+): Promise<string | null> {
+  const res = await fetch(
+    `${API}/api/v1/documents/${documentId}/versions/${version}/download`,
+    { headers: authHeader(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return (await res.json()).url as string;
+}
+
 // ---------- Alertas proactivas ----------
 export async function sendAlertDigest(): Promise<{
   ok: boolean; total?: number; sent?: number; note?: string; error?: string;
