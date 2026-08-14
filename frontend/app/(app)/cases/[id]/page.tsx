@@ -4,14 +4,17 @@ import {
   apiGet,
   type CaseDetail,
   type Declaration,
+  type DemurrageSummary,
   docLabel,
   readiness,
   semaphore,
   stateLabel,
+  type Transport,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
+import { OceanPanel } from "@/app/components/OceanPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +30,8 @@ const CHK_CLASS: Record<string, string> = {
 export default async function CaseDetailPage({ params }: { params: { id: string } }) {
   const c = await apiGet<CaseDetail>(`/cases/${params.id}`);
   const dai = await apiGet<Declaration>(`/cases/${params.id}/dai`);
+  const transport = await apiGet<Transport>(`/cases/${params.id}/transport`);
+  const demurrage = await apiGet<DemurrageSummary>(`/cases/${params.id}/demurrage`);
 
   if (!c) {
     return (
@@ -92,6 +97,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           <Semaphore sem="risk" /> {c.blocker}
         </div>
       ) : null}
+
+      <OceanPanel caseId={c.id} transport={transport} summary={demurrage} />
 
       <div className="cols">
         <div className="card rise">

@@ -1,10 +1,10 @@
 """Embarque, expediente aduanero y eventos del expediente (timeline)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,8 +25,27 @@ class Shipment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     origin_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="OPEN")
 
+    # Datos de transporte (marítimo/aéreo)
+    load_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # FCL/LCL/AIR
+    carrier: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    mbl_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hbl_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mawb_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hawb_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vessel: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    voyage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    flight_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    pol: Mapped[str | None] = mapped_column(String(64), nullable=True)  # puerto/aeropuerto origen
+    pod: Mapped[str | None] = mapped_column(String(64), nullable=True)  # destino
+    etd: Mapped[date | None] = mapped_column(Date, nullable=True)
+    eta: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ata: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     customs_case: Mapped["CustomsCase"] = relationship(
         back_populates="shipment", uselist=False, lazy="selectin"
+    )
+    containers: Mapped[list["Container"]] = relationship(
+        back_populates="shipment", cascade="all, delete-orphan", lazy="selectin"
     )
 
 
@@ -46,6 +65,30 @@ class CustomsCase(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     blocker: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     shipment: Mapped[Shipment] = relationship(back_populates="customs_case")
+
+
+class Container(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Contenedor (FCL) para el cálculo de demurrage/detention."""
+
+    __tablename__ = "container"
+
+    shipment_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("shipment.id", ondelete="CASCADE"), nullable=False
+    )
+    container_number: Mapped[str] = mapped_column(String(16), nullable=False)
+    iso_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # 20GP/40HC...
+    size: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    seal: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="IN_TRANSIT")
+    # IN_TRANSIT / AT_PORT / GATE_OUT / EMPTY_RETURNED
+
+    arrival_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    free_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    daily_rate: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0)
+    gate_out_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    empty_return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    shipment: Mapped["Shipment"] = relationship(back_populates="containers")
 
 
 class CaseEvent(UUIDPrimaryKeyMixin, Base):

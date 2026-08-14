@@ -222,4 +222,13 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Backend: enriquecimiento por join en `/quotes`, `/cases`, `/customers/{id}/history`
 - [x] Tests: 66 passed
 
+## Estado de S19 — Ocean/Air: transporte, contenedores y demurrage
+
+- [x] Datos de transporte en el embarque: BL/HBL/MBL, MAWB/HAWB, naviera/aerolínea, buque/vuelo, POL/POD, ETD/ETA/ATA, FCL/LCL
+- [x] Contenedores (FCL) con arribo, free days, tarifa diaria
+- [x] **Demurrage engine**: last free day, días vencidos, demurrage estimado, **money at risk** y alarmas (OK/WARN/AT_RISK/CRITICAL)
+- [x] API: `/cases/{id}/transport`, `/cases/{id}/containers`, `/containers/{id}`, `/cases/{id}/demurrage`, `/ocean/demurrage-at-risk`
+- [x] UI: panel de transporte + contenedores/demurrage en el expediente; KPI y sección "Demurrage en riesgo" en la Torre de Control
+- [x] Migración `0009`; Tests: 75 passed
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

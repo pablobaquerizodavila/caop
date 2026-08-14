@@ -96,6 +96,43 @@ export async function createQuote(payload: unknown): Promise<Result> {
   return r;
 }
 
+export async function updateTransport(caseId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/transport`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function addContainer(caseId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/containers`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function updateContainer(
+  caseId: string, containerId: string, data: unknown,
+): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/containers/${containerId}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 async function daiPost(caseId: string, path: string, body?: unknown): Promise<Result> {
   const res = await fetch(`${API}/api/v1/cases/${caseId}/dai/${path}`, {
     method: "POST",
