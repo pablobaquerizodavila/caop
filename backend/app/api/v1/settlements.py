@@ -21,7 +21,7 @@ from app.schemas.settlement import (
     SettlementRead,
     SettlementUpdate,
 )
-from app.services import payments_service, settlement_service
+from app.services import payments_service, reminders, settlement_service
 from app.services.settlement_pdf import build_settlement_pdf
 from app.services.storage import StorageService, get_storage
 
@@ -155,6 +155,15 @@ async def add_payment(
     stl = await _stl(session, settlement_id)
     await payments_service.add_payment(session, stl, **payload.model_dump())
     return await _payments_view(session, settlement_id)
+
+
+@router.post("/settlements/{settlement_id}/reminder")
+async def send_reminder(
+    settlement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Envía un recordatorio de cobro al cliente ahora (manual, sin throttling)."""
+    stl = await _stl(session, settlement_id)
+    return await reminders.send_reminder(session, stl, force=True)
 
 
 @router.delete("/payments/{payment_id}", response_model=PaymentsView)

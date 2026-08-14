@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     alerts_recipients: str = ""
     alerts_digest_interval_minutes: int = 0
 
+    # Recordatorios de cobro al cliente. intervalo en minutos (0 = desactivado);
+    # min_days = no repetir a la misma liquidación antes de N días.
+    collection_reminder_interval_minutes: int = 0
+    collection_reminder_min_days: int = 7
+
     @property
     def alerts_recipients_list(self) -> list[str]:
         return [e.strip() for e in self.alerts_recipients.split(",") if e.strip()]

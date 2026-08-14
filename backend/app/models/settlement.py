@@ -37,6 +37,7 @@ class Settlement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # vencimiento de cobro
+    last_reminder_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     pdf_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     lines: Mapped[list["SettlementLine"]] = relationship(

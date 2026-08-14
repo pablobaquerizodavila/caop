@@ -82,4 +82,5 @@ class SettlementRead(BaseModel):
     notes: str | None
     issued_at: datetime | None
     due_date: date | None = None
+    last_reminder_at: datetime | None = None
     lines: list[SettlementLineRead] = []

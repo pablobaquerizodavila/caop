@@ -664,6 +664,20 @@ export async function deletePayment(caseId: string, paymentId: string): Promise<
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+export async function sendPaymentReminder(
+  caseId: string, settlementId: string,
+): Promise<{ ok: boolean; status?: string; to?: string; reason?: string; error?: string }> {
+  const res = await fetch(`${API}/api/v1/settlements/${settlementId}/reminder`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, status: j.status, to: j.to, reason: j.reason };
+}
+
 export async function settlementPdf(id: string): Promise<string | null> {
   await fetch(`${API}/api/v1/settlements/${id}/pdf`, {
     method: "POST",
