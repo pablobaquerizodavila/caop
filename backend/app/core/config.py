@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     ocr_enabled: bool = True
     ocr_languages: str = "spa+eng"
 
+    # Alertas proactivas: digest de excepciones por email.
+    # Destinatarios separados por coma; intervalo en minutos (0 = desactivado, 1440 = diario).
+    alerts_recipients: str = ""
+    alerts_digest_interval_minutes: int = 0
+
+    @property
+    def alerts_recipients_list(self) -> list[str]:
+        return [e.strip() for e in self.alerts_recipients.split(",") if e.strip()]
+
     # Base de datos
     database_url: str = Field(
         default="postgresql+asyncpg://caop:caop_dev_password@postgres:5432/caop"

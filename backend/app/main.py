@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.correlation import CorrelationIdMiddleware
 from app.core.logging import configure_logging
 from app.services.dai_service import DAIError
-from app.services.scheduler import sla_scheduler_loop
+from app.services.scheduler import alert_digest_loop, sla_scheduler_loop
 
 
 @asynccontextmanager
@@ -23,13 +23,15 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     configure_logging()
     register_audit_listeners()
 
-    task: asyncio.Task | None = None
+    tasks: list[asyncio.Task] = []
     if settings.sla_evaluate_interval_minutes > 0:
-        task = asyncio.create_task(sla_scheduler_loop(settings.sla_evaluate_interval_minutes))
+        tasks.append(asyncio.create_task(sla_scheduler_loop(settings.sla_evaluate_interval_minutes)))
+    if settings.alerts_digest_interval_minutes > 0:
+        tasks.append(asyncio.create_task(alert_digest_loop(settings.alerts_digest_interval_minutes)))
 
     yield
 
-    if task is not None:
+    for task in tasks:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
