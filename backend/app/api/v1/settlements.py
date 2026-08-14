@@ -1,22 +1,27 @@
 """Endpoints de liquidación al cliente (estado de cuenta por expediente)."""
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.customer import Customer
-from app.models.settlement import Settlement, SettlementLine
+from app.models.settlement import Payment, Settlement, SettlementLine
 from app.models.shipment import CustomsCase, Shipment
 from app.schemas.settlement import (
+    PaymentCreate,
+    PaymentRead,
+    PaymentsView,
     SettlementLineCreate,
     SettlementLineUpdate,
     SettlementRead,
     SettlementUpdate,
 )
-from app.services import settlement_service
+from app.services import payments_service, settlement_service
 from app.services.settlement_pdf import build_settlement_pdf
 from app.services.storage import StorageService, get_storage
 
@@ -114,6 +119,55 @@ async def delete_line(
     stl = await _stl(session, settlement_id)
     await settlement_service.recompute(session, stl)
     return await settlement_service.get_by_id(session, stl.id)
+
+
+async def _payments_view(session: AsyncSession, settlement_id: uuid.UUID) -> PaymentsView:
+    stl = await _stl(session, settlement_id)
+    # Consulta directa de pagos (evita colecciones desactualizadas del identity map).
+    pays = list(
+        await session.scalars(
+            select(Payment).where(Payment.settlement_id == settlement_id).order_by(Payment.paid_at)
+        )
+    )
+    total = Decimal(stl.total or 0)
+    paid = sum((Decimal(p.amount or 0) for p in pays), Decimal(0))
+    balance = (total - paid).quantize(Decimal("0.01"))
+    status_ = "PENDING" if paid <= 0 else ("PAID" if balance <= 0 else "PARTIAL")
+    return PaymentsView(
+        payments=[PaymentRead.model_validate(p, from_attributes=True) for p in pays],
+        total=float(total), paid=float(paid.quantize(Decimal("0.01"))),
+        balance=float(balance), status=status_,
+    )
+
+
+@router.get("/settlements/{settlement_id}/payments", response_model=PaymentsView)
+async def list_payments(
+    settlement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> PaymentsView:
+    return await _payments_view(session, settlement_id)
+
+
+@router.post("/settlements/{settlement_id}/payments", response_model=PaymentsView, status_code=201)
+async def add_payment(
+    settlement_id: uuid.UUID, payload: PaymentCreate,
+    session: AsyncSession = Depends(get_session),
+) -> PaymentsView:
+    stl = await _stl(session, settlement_id)
+    await payments_service.add_payment(session, stl, **payload.model_dump())
+    return await _payments_view(session, settlement_id)
+
+
+@router.delete("/payments/{payment_id}", response_model=PaymentsView)
+async def delete_payment(
+    payment_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> PaymentsView:
+    payment = await session.get(Payment, payment_id)
+    if payment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pago no encontrado")
+    sid = payment.settlement_id
+    await session.delete(payment)
+    await session.flush()
+    return await _payments_view(session, sid)
 
 
 @router.post("/settlements/{settlement_id}/pdf")

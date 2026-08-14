@@ -1,4 +1,6 @@
-import { apiGet, money, stateLabel } from "@/app/lib/api";
+import Link from "next/link";
+
+import { apiGet, money, type Receivables, stateLabel } from "@/app/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,7 @@ const STATE_COLOR: Record<string, string> = {
 export default async function ReportsPage() {
   const d = await apiGet<Overview>("/analytics/overview");
   const ops = await apiGet<Operations>("/analytics/operations");
+  const rec = await apiGet<Receivables>("/analytics/receivables");
 
   if (!d) {
     return (
@@ -179,6 +182,57 @@ export default async function ReportsPage() {
           <div className="card section-gap rise">
             <div className="head"><h2>Canal de aforo</h2></div>
             <Bars data={ops.aforo} />
+          </div>
+        </>
+      ) : null}
+
+      {rec ? (
+        <>
+          <div className="kpis">
+            <Kpi label="Por cobrar (total)" value={money(rec.total_balance)} cls={rec.total_balance ? "warn" : "ok"} sub="saldo pendiente" />
+            <Kpi label="Corriente" value={money(rec.aging["corriente"] ?? 0)} />
+            <Kpi label="31-60 días" value={money(rec.aging["31-60"] ?? 0)} cls={(rec.aging["31-60"] ?? 0) ? "warn" : ""} />
+            <Kpi label="60+ días" value={money(rec.aging["60+"] ?? 0)} cls={(rec.aging["60+"] ?? 0) ? "warn" : "ok"} />
+          </div>
+
+          <div className="card rise">
+            <div className="head">
+              <h2>Cuentas por cobrar</h2>
+              <span className="count">{rec.items.length}</span>
+            </div>
+            {rec.items.length === 0 ? (
+              <div className="empty">Sin saldos pendientes. 🟢</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Liquidación</th><th>Cliente</th><th className="num">Total</th>
+                      <th className="num">Saldo</th><th>Vence</th><th className="num">Días</th><th>Aging</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rec.items.map((x) => (
+                      <tr key={x.settlement_id}>
+                        <td className="mono" style={{ fontSize: 12 }}>
+                          {x.customs_case_id ? (
+                            <Link href={`/cases/${x.customs_case_id}`} style={{ color: "var(--accent)" }}>
+                              {x.settlement_number}
+                            </Link>
+                          ) : x.settlement_number}
+                        </td>
+                        <td>{x.customer}</td>
+                        <td className="num">{money(x.total, x.currency)}</td>
+                        <td className="num">{money(x.balance, x.currency)}</td>
+                        <td className="mono" style={{ fontSize: 12 }}>{x.due_date ?? "—"}</td>
+                        <td className="num">{x.days_overdue}</td>
+                        <td><span className={`pill ${x.bucket === "corriente" ? "" : x.bucket === "60+" ? "crit" : "warn"}`}>{x.bucket}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       ) : null}

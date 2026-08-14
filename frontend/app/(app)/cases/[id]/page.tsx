@@ -8,6 +8,7 @@ import {
   type Declaration,
   type DemurrageSummary,
   type Einvoice,
+  type PaymentsView,
   type Settlement,
   docLabel,
   readiness,
@@ -62,6 +63,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const documents = await apiGet<CaseDocument[]>(`/documents?customs_case_id=${params.id}`);
   const invoice = settlement
     ? await apiGet<Einvoice>(`/settlements/${settlement.id}/invoice`)
+    : null;
+  const paymentsView = settlement
+    ? await apiGet<PaymentsView>(`/settlements/${settlement.id}/payments`)
     : null;
 
   if (!c) {
@@ -181,7 +185,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
 
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
 
-          <SettlementPanel caseId={c.id} settlement={settlement} />
+          <SettlementPanel caseId={c.id} settlement={settlement} payments={paymentsView} />
 
           <EinvoicePanel
             caseId={c.id}
