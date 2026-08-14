@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,6 +63,12 @@ class CustomsCase(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     risk_level: Mapped[str] = mapped_column(String(16), nullable=False, default="NORMAL")
     customs_readiness_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
     blocker: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Track & Trace: token público (capability URL) para seguimiento del cliente.
+    tracking_token: Mapped[str | None] = mapped_column(
+        String(48), nullable=True, unique=True, index=True
+    )
+    tracking_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     shipment: Mapped[Shipment] = relationship(back_populates="customs_case")
 

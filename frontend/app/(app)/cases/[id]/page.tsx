@@ -9,12 +9,14 @@ import {
   readiness,
   semaphore,
   stateLabel,
+  type TrackingLink,
   type Transport,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
+import { TrackingPanel } from "@/app/components/TrackingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const dai = await apiGet<Declaration>(`/cases/${params.id}/dai`);
   const transport = await apiGet<Transport>(`/cases/${params.id}/transport`);
   const demurrage = await apiGet<DemurrageSummary>(`/cases/${params.id}/demurrage`);
+  const tracking = await apiGet<TrackingLink>(`/cases/${params.id}/tracking`);
 
   if (!c) {
     return (
@@ -134,6 +137,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
 
         <div>
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
+
+          <TrackingPanel caseId={c.id} link={tracking} />
 
           <div className="card section-gap rise">
             <div className="head">

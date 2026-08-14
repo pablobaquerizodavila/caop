@@ -15,6 +15,7 @@ from app.api.v1 import (
     sla,
     suppliers,
     tax,
+    tracking,
 )
 from app.core.security import Principal, get_current_principal
 
@@ -22,6 +23,9 @@ api_router = APIRouter()
 
 # Salud: abierto (sin auth).
 api_router.include_router(health.router)
+
+# Track & Trace público: enlace con token, SIN auth (lo abre el cliente importador).
+api_router.include_router(tracking.public_router)
 
 # Resto de la API: protegido con token Keycloak.
 protected = [Depends(get_current_principal)]
@@ -36,6 +40,7 @@ api_router.include_router(notifications.router, dependencies=protected)
 api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)
 api_router.include_router(ocean.router, dependencies=protected)
+api_router.include_router(tracking.admin_router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])

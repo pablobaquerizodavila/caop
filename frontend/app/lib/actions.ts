@@ -162,6 +162,60 @@ export const daiAdvance = (caseId: string, aforo_channel?: string, observation =
   daiPost(caseId, "advance", { aforo_channel: aforo_channel || null, observation });
 export const daiResolveObservation = (caseId: string) => daiPost(caseId, "resolve-observation");
 
+// ---------- Track & Trace ----------
+export async function rotateTracking(
+  caseId: string,
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/tracking/rotate`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, url: j.url as string };
+}
+
+export async function toggleTracking(
+  caseId: string,
+  enabled: boolean,
+): Promise<{ ok: boolean; enabled?: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/tracking`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, enabled: j.enabled as boolean };
+}
+
+export async function sendTracking(
+  caseId: string,
+  channel: string,
+): Promise<{ ok: boolean; to?: string; status?: string; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/tracking/send`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ channel }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try {
+      error = (await res.json()).detail ?? error;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error };
+  }
+  const j = await res.json();
+  return { ok: true, to: j.to as string, status: j.status as string };
+}
+
 export async function generateQuotePdf(quoteId: string): Promise<string | null> {
   await fetch(`${API}/api/v1/quotes/${quoteId}/pdf`, {
     method: "POST",

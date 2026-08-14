@@ -1,0 +1,170 @@
+/* Portal público de seguimiento (cliente importador).
+   Tema claro y sobrio, distinto de la Torre de Control interna (oscura).
+   Todo con prefijo .trk- para no colisionar con globals.css. */
+
+.trk-page {
+  --ink: #0f2231;
+  --muted: #5b7185;
+  --muted-2: #8496a6;
+  --paper: #eef2f6;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --border-soft: #eef2f6;
+  --accent: #0d9488;
+  --accent-soft: #ccfbf1;
+  --ok: #059669;
+  --warn: #d97706;
+  --risk: #ea580c;
+  --crit: #dc2626;
+
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 380px at 82% -8%, rgba(13, 148, 136, 0.08), transparent 60%),
+    var(--paper);
+  color: var(--ink);
+  font-family: var(--sans, system-ui, sans-serif);
+  padding: 28px 18px 64px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.trk-wrap { max-width: 660px; margin: 0 auto; }
+.trk-mono { font-family: var(--mono, ui-monospace, monospace); }
+
+/* Header / marca */
+.trk-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.trk-mark {
+  width: 40px; height: 40px; border-radius: 11px;
+  background: radial-gradient(circle at 30% 30%, #2dd4bf, #0d9488);
+  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.35);
+  display: grid; place-items: center;
+  font-family: var(--mono, monospace); font-weight: 700; color: #04201d; font-size: 17px;
+}
+.trk-header .brand-name { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+.trk-header .brand-sub {
+  font-family: var(--mono, monospace); font-size: 10.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--muted-2);
+}
+
+/* Tarjetas */
+.trk-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 34, 49, 0.04);
+  padding: 20px 22px; margin-bottom: 16px;
+}
+.trk-card h2 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted-2); margin: 0 0 14px; font-weight: 600;
+}
+
+/* Hero de estado */
+.trk-hero .ref {
+  font-family: var(--mono, monospace); font-size: 12px; color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.trk-hero .cust { font-size: 22px; font-weight: 600; margin: 2px 0 14px; letter-spacing: -0.01em; }
+.trk-status { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.trk-status .lamp { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.trk-status .lamp.ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15); }
+.trk-status .lamp.warn { background: var(--warn); box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.15); }
+.trk-status .lamp.risk { background: var(--risk); box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.15); }
+.trk-status .lamp.crit { background: var(--crit); box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15); animation: trk-blink 1.2s infinite; }
+@keyframes trk-blink { 50% { opacity: 0.4; } }
+.trk-status .txt { font-size: 16px; font-weight: 600; }
+
+.trk-progress { display: flex; align-items: center; gap: 12px; }
+.trk-progress .track { flex: 1; height: 9px; border-radius: 6px; background: var(--paper); overflow: hidden; }
+.trk-progress .fill {
+  height: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, #0d9488, #2dd4bf);
+  transition: width 0.7s cubic-bezier(.2,.7,.3,1);
+}
+.trk-progress .pct {
+  font-family: var(--mono, monospace); font-size: 15px; font-weight: 600;
+  color: var(--accent); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right;
+}
+.trk-next { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.trk-next strong { color: var(--ink); font-weight: 600; }
+
+/* Aviso neutral */
+.trk-attention {
+  display: flex; gap: 11px; align-items: flex-start;
+  background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+  border-radius: 12px; padding: 13px 15px; margin-bottom: 16px; font-size: 13.5px; line-height: 1.5;
+}
+.trk-attention .ic { flex: none; font-size: 15px; line-height: 1.4; }
+
+/* Stepper de hitos */
+.trk-steps { display: flex; flex-direction: column; }
+.trk-step { position: relative; padding: 0 0 22px 34px; }
+.trk-step:last-child { padding-bottom: 0; }
+.trk-step::before {
+  content: ""; position: absolute; left: 9px; top: 20px; bottom: -2px;
+  width: 2px; background: var(--border);
+}
+.trk-step:last-child::before { display: none; }
+.trk-step .dot {
+  position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--surface);
+  border: 2px solid var(--border); color: transparent; font-size: 11px; font-weight: 700;
+}
+.trk-step.done .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.trk-step.done::before { background: var(--accent); }
+.trk-step.current .dot {
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 0 5px var(--accent-soft); animation: trk-pulse 2s infinite;
+}
+@keyframes trk-pulse {
+  0% { box-shadow: 0 0 0 3px var(--accent-soft); }
+  70% { box-shadow: 0 0 0 8px rgba(13, 148, 136, 0); }
+  100% { box-shadow: 0 0 0 3px rgba(13, 148, 136, 0); }
+}
+.trk-step .lbl { font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.trk-step.pending .lbl { color: var(--muted-2); font-weight: 500; }
+.trk-step .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.trk-step .sub .when { font-family: var(--mono, monospace); }
+.trk-step.current .lbl { color: var(--accent); }
+
+/* Transporte */
+.trk-route { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.trk-route .node { text-align: center; }
+.trk-route .node .place { font-family: var(--mono, monospace); font-size: 15px; font-weight: 600; }
+.trk-route .node .tag {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-2);
+}
+.trk-route .line {
+  flex: 1; height: 2px; background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 12px);
+  position: relative;
+}
+.trk-route .line .ship { position: absolute; top: -9px; right: -2px; font-size: 15px; }
+.trk-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; }
+.trk-field .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-2); }
+.trk-field .v { font-size: 14px; font-weight: 500; margin-top: 2px; }
+.trk-field .v.mono { font-family: var(--mono, monospace); }
+
+/* Contenedores */
+.trk-cnt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+.trk-cnt:last-child { border-bottom: none; }
+.trk-cnt .num { font-family: var(--mono, monospace); font-weight: 600; font-size: 14px; }
+.trk-cnt .st { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.trk-chip {
+  font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 20px; white-space: nowrap;
+}
+.trk-chip.ok { color: var(--ok); background: #d1fae5; }
+.trk-chip.warn { color: var(--warn); background: #fef3c7; }
+.trk-chip.risk { color: var(--risk); background: #ffedd5; }
+.trk-chip.crit { color: #fff; background: var(--crit); }
+
+.trk-foot {
+  text-align: center; color: var(--muted-2); font-size: 11.5px; margin-top: 26px; line-height: 1.7;
+}
+.trk-foot .when { font-family: var(--mono, monospace); }
+
+.trk-404 { text-align: center; padding: 60px 20px; }
+.trk-404 .big { font-size: 48px; margin-bottom: 8px; }
+.trk-404 h1 { font-size: 20px; margin: 0 0 8px; }
+.trk-404 p { color: var(--muted); font-size: 14px; margin: 0; }
+
+@media (max-width: 480px) {
+  .trk-grid { grid-template-columns: 1fr; }
+  .trk-hero .cust { font-size: 19px; }
+}

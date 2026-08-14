@@ -32,6 +32,29 @@ DEFAULTS: list[dict] = [
         ),
     },
     {
+        "code": "TRACKING_LINK",
+        "version": 1,
+        "channel": "EMAIL",
+        "subject_template": "Seguimiento de su importación — expediente {{case_number}}",
+        "body_template": (
+            "Estimado/a {{customer_name}}:\n\n"
+            "Puede seguir el avance de su importación (expediente {{case_number}}) en "
+            "tiempo real desde el siguiente enlace:\n{{tracking_url}}\n\n"
+            "El enlace muestra el estado del trámite, el transporte y las fechas clave.\n\n"
+            "Saludos,\nCAOP"
+        ),
+    },
+    {
+        "code": "TRACKING_LINK",
+        "version": 1,
+        "channel": "WHATSAPP",
+        "subject_template": None,
+        "body_template": (
+            "Hola {{customer_name}}, siga su importación {{case_number}} en tiempo real aquí: "
+            "{{tracking_url}} — CAOP"
+        ),
+    },
+    {
         "code": "QUOTATION_SENT",
         "version": 1,
         "channel": "EMAIL",

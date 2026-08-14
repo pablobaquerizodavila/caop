@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # CORS (lista separada por comas)
     backend_cors_origins: str = "http://localhost:3000"
 
+    # URL pública del frontend (para construir enlaces compartibles, p. ej. Track & Trace).
+    public_app_url: str = "http://192.168.0.7:3000"
+
     # Keycloak / OIDC
     # issuer: el que aparece en el token (URL pública, vista por el navegador).
     keycloak_issuer: str = "http://localhost:8080/realms/caop"

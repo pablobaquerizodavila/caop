@@ -85,5 +85,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)"],
+  // /track/* es público (portal del cliente); se excluye junto con login y assets.
+  matcher: ["/((?!login|track|api/auth|_next/static|_next/image|favicon.ico).*)"],
 };
