@@ -171,6 +171,55 @@ export interface CustomerHistory {
   }[];
 }
 
+// ---------- Track & Trace (portal público del cliente) ----------
+export interface TrackMilestone {
+  key: string;
+  label: string;
+  status: "done" | "current" | "pending";
+  at: string | null;
+  detail: string | null;
+}
+
+export interface TrackContainer {
+  number: string;
+  status_label: string;
+  last_free_day: string | null;
+  days_to_last_free_day: number | null;
+  alarm: string;
+  alarm_label: string;
+}
+
+export interface TrackTransport {
+  mode: string | null;
+  origin: string | null;
+  destination: string | null;
+  carrier: string | null;
+  vessel_or_flight: string | null;
+  etd: string | null;
+  eta: string | null;
+  ata: string | null;
+}
+
+export interface TrackView {
+  reference: string;
+  customer_name: string;
+  status_label: string;
+  status_sem: Sem;
+  progress_pct: number;
+  next_step: string | null;
+  attention: string | null;
+  transport: TrackTransport;
+  milestones: TrackMilestone[];
+  containers: TrackContainer[];
+  last_update: string | null;
+}
+
+export interface TrackingLink {
+  token: string;
+  url: string;
+  enabled: boolean;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
