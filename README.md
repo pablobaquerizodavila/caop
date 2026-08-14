@@ -128,4 +128,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] API: `/notifications/send`, `/notifications`, `/notifications/templates[/seed-defaults]`
 - [x] Tests: 39 passed
 
-Siguiente sugerido: SLA engine + Business Calendar + escalamiento; o Control Tower (frontend).
+## Estado de S8 — Auto-vínculo documento → checklist
+
+- [x] Al subir/asociar un documento a un expediente con doc_type que calza, el ítem del checklist se marca **COMPLETE automáticamente**
+- [x] Recalcula readiness y transiciona el estado del expediente sin intervención
+- [x] Eventos en el timeline: DOCUMENT_RECEIVED + CHECKLIST_AUTO_COMPLETED
+- [x] Subida acepta `customs_case_id`; endpoint `POST /documents/{id}/attach` para documentos existentes
+- [x] Sin cambio de esquema (columnas ya existían); Tests: 43 passed
+
+Siguiente sugerido: SLA engine + Business Calendar + escalamiento; login Keycloak en el frontend.
