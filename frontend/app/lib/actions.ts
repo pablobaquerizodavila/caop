@@ -96,6 +96,35 @@ export async function createQuote(payload: unknown): Promise<Result> {
   return r;
 }
 
+async function daiPost(caseId: string, path: string, body?: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/dai/${path}`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try {
+      error = (await res.json()).detail ?? error;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export const daiPrepare = (caseId: string) => daiPost(caseId, "prepare");
+export const daiSign = (caseId: string) => daiPost(caseId, "sign");
+export const daiTransmit = (caseId: string, scenario: string) =>
+  daiPost(caseId, "transmit", { scenario });
+export const daiAdvance = (caseId: string, aforo_channel?: string, observation = false) =>
+  daiPost(caseId, "advance", { aforo_channel: aforo_channel || null, observation });
+export const daiResolveObservation = (caseId: string) => daiPost(caseId, "resolve-observation");
+
 export async function generateQuotePdf(quoteId: string): Promise<string | null> {
   await fetch(`${API}/api/v1/quotes/${quoteId}/pdf`, {
     method: "POST",

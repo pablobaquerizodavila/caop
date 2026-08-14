@@ -7,6 +7,7 @@ from app.api.v1 import (
     analytics,
     cases,
     customers,
+    dai,
     documents,
     notifications,
     quotes,
@@ -29,6 +30,7 @@ api_router.include_router(documents.router, dependencies=protected)
 api_router.include_router(tax.router, dependencies=protected)
 api_router.include_router(quotes.router, dependencies=protected)
 api_router.include_router(cases.router, dependencies=protected)
+api_router.include_router(dai.router, dependencies=protected)
 api_router.include_router(notifications.router, dependencies=protected)
 api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)

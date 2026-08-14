@@ -69,6 +69,18 @@ export interface QuoteSummary {
   calculation_date: string;
 }
 
+export interface Declaration {
+  id: string;
+  declaration_number: string;
+  status: string;
+  aforo_channel: string | null;
+  signed: boolean;
+  external_ref: string | null;
+  error_code: string | null;
+  error_description: string | null;
+  is_simulated: boolean;
+}
+
 export interface CustomerSummary {
   id: string;
   ruc: string;

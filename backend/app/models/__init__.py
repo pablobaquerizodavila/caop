@@ -3,6 +3,7 @@
 from app.models.audit import AuditEvent
 from app.models.checklist import ChecklistItem, Requirement
 from app.models.customer import ConsentRecord, Contact, Customer
+from app.models.customs_declaration import CustomsDeclaration
 from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.models.notification import Notification, NotificationTemplate
 from app.models.organization import Organization
@@ -25,6 +26,7 @@ __all__ = [
     "CostLine",
     "Customer",
     "CustomsCase",
+    "CustomsDeclaration",
     "Document",
     "DocumentExtraction",
     "DocumentVersion",
