@@ -18,6 +18,7 @@ from app.models.vue import VuePermit
 from app.models.warehouse import WarehouseStorage
 from app.services.demurrage import compute as compute_demurrage
 from app.services.notifications import dispatch
+from app.services.payments_service import receivables as compute_receivables
 from app.services.warehouse import compute as compute_storage
 
 SLA_RISKY = ("AT_RISK", "CRITICAL", "BREACHED")
@@ -90,12 +91,17 @@ async def gather_exceptions(session: AsyncSession) -> dict:
                 "document_code": permit.document_code, "status": permit.status,
             })
 
-    total = len(demurrage) + len(storage) + len(sla) + len(vue)
+    # Cuentas por cobrar vencidas
+    rec = await compute_receivables(session)
+    overdue = [r for r in rec["items"] if r["days_overdue"] > 0]
+
+    total = len(demurrage) + len(storage) + len(sla) + len(vue) + len(overdue)
     return {
         "demurrage": demurrage, "storage": storage, "sla": sla, "vue": vue,
+        "receivables": overdue,
         "counts": {
             "demurrage": len(demurrage), "storage": len(storage),
-            "sla": len(sla), "vue": len(vue),
+            "sla": len(sla), "vue": len(vue), "receivables": len(overdue),
         },
         "total": total,
     }
@@ -107,7 +113,8 @@ def build_digest_text(ex: dict) -> str:
     c = ex["counts"]
     lines.append(
         f"Totales — Demurrage: {c['demurrage']} · Almacenaje: {c['storage']} · "
-        f"SLA: {c['sla']} · Control previo (VUE): {c['vue']}\n"
+        f"SLA: {c['sla']} · Control previo (VUE): {c['vue']} · "
+        f"Cobranza vencida: {c.get('receivables', 0)}\n"
     )
 
     if ex["demurrage"]:
@@ -142,6 +149,15 @@ def build_digest_text(ex: dict) -> str:
         for x in ex["vue"]:
             lines.append(
                 f"  - {x['case_number']} · {x['entity']}/{x['document_code']} · {x['status']}"
+            )
+        lines.append("")
+
+    if ex.get("receivables"):
+        lines.append("COBRANZA VENCIDA:")
+        for x in ex["receivables"]:
+            lines.append(
+                f"  - {x['settlement_number']} · {x['customer']} · saldo "
+                f"{x['currency']} {x['balance']:,.2f} · {x['days_overdue']} días ({x['bucket']})"
             )
         lines.append("")
 

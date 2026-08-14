@@ -69,6 +69,20 @@ async def test_send_digest_to_explicit_recipient(client):
 
 
 @pytest.mark.asyncio
+async def test_overdue_receivable_in_exceptions(client):
+    case_id = await _case(client)
+    sid = (await client.post(f"/api/v1/cases/{case_id}/settlement")).json()["id"]
+    await client.post(f"/api/v1/settlements/{sid}/issue")
+    await client.patch(
+        f"/api/v1/settlements/{sid}",
+        json={"due_date": (date.today() - timedelta(days=20)).isoformat()},
+    )
+    ex = (await client.get("/api/v1/alerts/exceptions")).json()
+    assert ex["counts"]["receivables"] >= 1
+    assert any(r["settlement_id"] == sid for r in ex["receivables"])
+
+
+@pytest.mark.asyncio
 async def test_send_digest_no_recipients_configured(client):
     await _case(client)
     r = await client.post("/api/v1/alerts/digest/send", json={})
