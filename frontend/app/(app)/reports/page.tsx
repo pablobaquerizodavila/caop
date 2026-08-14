@@ -1,6 +1,14 @@
-import { apiGet, stateLabel } from "@/app/lib/api";
+import { apiGet, money, stateLabel } from "@/app/lib/api";
 
 export const dynamic = "force-dynamic";
+
+interface Operations {
+  stages: { stage: string; avg_hours: number; n: number }[];
+  throughput: { month: string; created: number; released: number }[];
+  top_customers: { customer: string; cases: number; landed_cost: number }[];
+  aforo: Record<string, number>;
+  money_at_risk: { demurrage: number; storage: number; total: number };
+}
 
 interface Overview {
   cases: {
@@ -35,6 +43,7 @@ const STATE_COLOR: Record<string, string> = {
 
 export default async function ReportsPage() {
   const d = await apiGet<Overview>("/analytics/overview");
+  const ops = await apiGet<Operations>("/analytics/operations");
 
   if (!d) {
     return (
@@ -86,6 +95,93 @@ export default async function ReportsPage() {
         <Kpi label="SLA incumplidos" value={`${d.sla.breached}`} cls={d.sla.breached ? "warn" : "ok"} />
         <Kpi label="Notificaciones" value={`${d.notifications.total}`} sub="enviadas" />
       </div>
+
+      {ops ? (
+        <>
+          <div className="topbar" style={{ marginTop: 34 }}>
+            <div>
+              <div className="eyebrow">Operación</div>
+              <h1 style={{ fontSize: 19 }}>Reporte operativo</h1>
+            </div>
+          </div>
+
+          <div className="kpis">
+            <Kpi label="Dinero en riesgo" value={money(ops.money_at_risk.total)} cls={ops.money_at_risk.total ? "warn" : "ok"} sub="demurrage + almacenaje" />
+            <Kpi label="Demurrage" value={money(ops.money_at_risk.demurrage)} sub="estimado" />
+            <Kpi label="Almacenaje" value={money(ops.money_at_risk.storage)} sub="estimado" />
+            <Kpi label="Expedientes liberados" value={`${ops.throughput.reduce((s, m) => s + m.released, 0)}`} cls="ok" sub="total histórico" />
+          </div>
+
+          <div className="card section-gap rise">
+            <div className="head"><h2>Tiempos de ciclo por etapa</h2></div>
+            {ops.stages.every((s) => s.n === 0) ? (
+              <div className="empty">Aún no hay expedientes con etapas completadas.</div>
+            ) : (
+              <div className="bars">
+                {ops.stages.map((s) => {
+                  const max = Math.max(1, ...ops.stages.map((x) => x.avg_hours));
+                  return (
+                    <div className="bar-row" key={s.stage}>
+                      <span className="lbl">{s.stage}</span>
+                      <div className="track2">
+                        <div className="fill2" style={{ width: `${(s.avg_hours / max) * 100}%`, background: "var(--accent)" }} />
+                      </div>
+                      <span className="n">{s.avg_hours}h</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="cols">
+            <div className="card rise">
+              <div className="head"><h2>Throughput mensual</h2></div>
+              {ops.throughput.length === 0 ? (
+                <div className="empty">Sin datos.</div>
+              ) : (
+                <table className="tbl">
+                  <thead><tr><th>Mes</th><th className="num">Creados</th><th className="num">Liberados</th></tr></thead>
+                  <tbody>
+                    {ops.throughput.map((m) => (
+                      <tr key={m.month}>
+                        <td className="mono">{m.month}</td>
+                        <td className="num">{m.created}</td>
+                        <td className="num">{m.released}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="card rise">
+              <div className="head"><h2>Top clientes</h2></div>
+              {ops.top_customers.length === 0 ? (
+                <div className="empty">Sin datos.</div>
+              ) : (
+                <table className="tbl">
+                  <thead><tr><th>Cliente</th><th className="num">Exp.</th><th className="num">Landed cost</th></tr></thead>
+                  <tbody>
+                    {ops.top_customers.map((c) => (
+                      <tr key={c.customer}>
+                        <td>{c.customer}</td>
+                        <td className="num">{c.cases}</td>
+                        <td className="num">{money(c.landed_cost)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          <div className="card section-gap rise">
+            <div className="head"><h2>Canal de aforo</h2></div>
+            <Bars data={ops.aforo} />
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

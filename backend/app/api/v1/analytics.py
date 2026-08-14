@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.services.analytics import overview
+from app.services.analytics import operations, overview
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -12,3 +12,8 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/overview")
 async def analytics_overview(session: AsyncSession = Depends(get_session)) -> dict:
     return await overview(session)
+
+
+@router.get("/operations")
+async def analytics_operations(session: AsyncSession = Depends(get_session)) -> dict:
+    return await operations(session)
