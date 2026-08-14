@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { TrackDetail } from "@/app/components/TrackDetail";
+import { PortalInvoiceDownloads } from "@/app/components/PortalInvoiceDownloads";
 import { apiGet, money, type PortalCaseDetail, settleCatLabel } from "@/app/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function PortalCasePage({ params }: { params: { id: string 
   }
 
   const s = d.settlement;
+  const inv = d.invoice;
 
   return (
     <>
@@ -46,6 +48,25 @@ export default async function PortalCasePage({ params }: { params: { id: string 
             <span>Total a pagar</span>
             <span className="mono">{money(s.total, s.currency)}</span>
           </div>
+        </section>
+      ) : null}
+
+      {inv ? (
+        <section className="trk-card">
+          <h2>Factura electrónica</h2>
+          <div className="trk-settle-row">
+            <span>Comprobante</span>
+            <span className="mono">{inv.estab}-{inv.pto_emi}-{inv.secuencial}</span>
+          </div>
+          <div className="trk-settle-row">
+            <span>Clave de acceso</span>
+            <span className="mono" style={{ fontSize: 11, wordBreak: "break-all", maxWidth: 320, textAlign: "right" }}>{inv.access_key}</span>
+          </div>
+          <div className="trk-settle-total">
+            <span>Total facturado</span>
+            <span className="mono">{money(inv.total)}</span>
+          </div>
+          <PortalInvoiceDownloads caseId={params.id} accessKey={inv.access_key} />
         </section>
       ) : null}
     </>

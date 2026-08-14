@@ -7,10 +7,13 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.models.customer import Customer
 from app.models.einvoice import ElectronicInvoice
 from app.models.settlement import Settlement
+from app.models.shipment import CustomsCase, Shipment
 from app.schemas.einvoice import EinvoiceAuthorizeRequest, EinvoiceRead
 from app.services import sri_service
+from app.services.einvoice_pdf import build_ride
 from app.services.sri_service import SriError
 
 router = APIRouter(tags=["einvoice"])
@@ -68,4 +71,30 @@ async def get_invoice_xml(
         content=inv.xml or "",
         media_type="application/xml",
         headers={"Content-Disposition": f'attachment; filename="{inv.access_key}.xml"'},
+    )
+
+
+async def _render_ride(session: AsyncSession, inv: ElectronicInvoice) -> bytes:
+    stl = await session.get(Settlement, inv.settlement_id)
+    name, ident = "Cliente", "9999999999999"
+    if inv.customs_case_id:
+        case = await session.get(CustomsCase, inv.customs_case_id)
+        if case:
+            shipment = await session.get(Shipment, case.shipment_id)
+            if shipment:
+                customer = await session.get(Customer, shipment.customer_id)
+                if customer:
+                    name, ident = customer.legal_name, customer.ruc
+    return build_ride(inv, stl, name, ident)
+
+
+@router.get("/invoices/{invoice_id}/ride")
+async def get_invoice_ride(
+    invoice_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> Response:
+    inv = await _invoice(session, invoice_id)
+    pdf = await _render_ride(session, inv)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="RIDE-{inv.access_key}.pdf"'},
     )
