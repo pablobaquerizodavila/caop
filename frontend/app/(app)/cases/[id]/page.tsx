@@ -6,6 +6,7 @@ import {
   type CaseExtractionDoc,
   type Declaration,
   type DemurrageSummary,
+  type Settlement,
   docLabel,
   readiness,
   semaphore,
@@ -23,6 +24,7 @@ import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
 import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
+import { SettlementPanel } from "@/app/components/SettlementPanel";
 import { TrackingPanel } from "@/app/components/TrackingPanel";
 import { VuePanel } from "@/app/components/VuePanel";
 import { WarehousePanel } from "@/app/components/WarehousePanel";
@@ -52,6 +54,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const vueSuggestions = await apiGet<VueSuggestion[]>(`/cases/${params.id}/vue-suggestions`);
   const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
   const warehouseTariffs = await apiGet<WarehouseTariff[]>(`/warehouse/tariffs`);
+  const settlement = await apiGet<Settlement>(`/cases/${params.id}/settlement`);
 
   if (!c) {
     return (
@@ -167,6 +170,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           />
 
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
+
+          <SettlementPanel caseId={c.id} settlement={settlement} />
 
           <TrackingPanel caseId={c.id} link={tracking} />
 

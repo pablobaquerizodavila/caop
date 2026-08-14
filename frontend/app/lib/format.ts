@@ -387,6 +387,48 @@ export interface WarehouseTariff {
   active: boolean;
 }
 
+// ---------- Liquidación al cliente ----------
+export interface SettlementLine {
+  id: string;
+  kind: string; // FEE / DISBURSEMENT
+  category: string;
+  description: string | null;
+  amount: number;
+  taxable: boolean;
+  sort_no: number;
+}
+
+export interface Settlement {
+  id: string;
+  settlement_number: string;
+  currency: string;
+  status: string;
+  iva_rate: number;
+  subtotal_fees: number;
+  subtotal_disbursements: number;
+  tax_amount: number;
+  total: number;
+  notes: string | null;
+  issued_at: string | null;
+  lines: SettlementLine[];
+}
+
+export const SETTLE_CAT_LABELS: Record<string, string> = {
+  HONORARIO: "Honorarios",
+  TRIBUTO: "Tributos aduaneros",
+  FLETE: "Flete",
+  SEGURO: "Seguro",
+  ALMACENAJE: "Almacenaje",
+  DEMURRAGE: "Demurrage",
+  PORTUARIO: "Gastos portuarios",
+  TRANSPORTE: "Transporte interno",
+  OTRO: "Otros",
+};
+
+export function settleCatLabel(s: string): string {
+  return SETTLE_CAT_LABELS[s] ?? s;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {

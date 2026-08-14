@@ -409,6 +409,86 @@ export async function applyVueSuggestions(
   return { ok: true, count: Array.isArray(j) ? j.length : 0 };
 }
 
+// ---------- Liquidación al cliente ----------
+export async function generateSettlement(caseId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/settlement`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function updateSettlement(caseId: string, id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlements/${id}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function addSettlementLine(caseId: string, id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlements/${id}/lines`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function updateSettlementLine(
+  caseId: string, lineId: string, data: unknown,
+): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlement-lines/${lineId}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteSettlementLine(caseId: string, lineId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlement-lines/${lineId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function issueSettlement(caseId: string, id: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlements/${id}/issue`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function settlementPdf(id: string): Promise<string | null> {
+  await fetch(`${API}/api/v1/settlements/${id}/pdf`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  const res = await fetch(`${API}/api/v1/settlements/${id}/pdf/download`, {
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return (await res.json()).url as string;
+}
+
 // ---------- Track & Trace ----------
 export async function rotateTracking(
   caseId: string,
