@@ -36,7 +36,17 @@ function claimsFromJWT(token: string): { username: string; roles: string[] } {
 }
 
 export async function middleware(req: NextRequest) {
-  if (req.cookies.get("access_token")?.value) {
+  const at = req.cookies.get("access_token")?.value;
+  if (at) {
+    // Backfill de cookies de UI (roles) para sesiones abiertas antes del RBAC.
+    if (!req.cookies.get("caop_roles")) {
+      const { username, roles } = claimsFromJWT(at);
+      const res = NextResponse.next();
+      const uiCookie = { httpOnly: false, sameSite: "lax" as const, path: "/" };
+      res.cookies.set("caop_user", username, uiCookie);
+      res.cookies.set("caop_roles", roles.join(","), uiCookie);
+      return res;
+    }
     return NextResponse.next();
   }
 
