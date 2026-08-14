@@ -1,0 +1,8 @@
+.next como root
+ Container caop-frontend-run-aef7b1c3b08b Creating 
+ Container caop-frontend-run-aef7b1c3b08b Created 
++ recreate + renew node_modules
+ Container caop-redis-1 Healthy 
+ Container caop-postgres-1 Healthy 
+ Container caop-frontend-1 Starting 
+ Container caop-frontend-1 Started 
