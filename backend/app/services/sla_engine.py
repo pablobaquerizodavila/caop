@@ -23,6 +23,13 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _as_utc(dt: datetime | None) -> datetime | None:
+    """Normaliza a UTC-aware (SQLite devuelve naive; Postgres devuelve aware)."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 async def _calendar(session: AsyncSession, name: str) -> BusinessCalendar | None:
     return await session.scalar(select(BusinessCalendar).where(BusinessCalendar.name == name))
 
@@ -66,18 +73,20 @@ def _status_for(pct: float) -> tuple[str, int]:
 
 async def _pct(session: AsyncSession, sla: SLAInstance, now: datetime) -> float:
     """Porcentaje consumido del SLA en tiempo hábil (0..∞)."""
-    if not sla.deadline:
+    start = _as_utc(sla.start_time)
+    deadline = _as_utc(sla.deadline)
+    if not deadline:
         return 0.0
     # Buscar el calendario del hito para medir en horas hábiles.
     policy = await session.scalar(select(SLAPolicy).where(SLAPolicy.milestone == sla.milestone))
     cal = await _calendar(session, policy.calendar_name) if policy else None
     if cal is None:
-        total = (sla.deadline - sla.start_time).total_seconds() / 60
-        elapsed = (now - sla.start_time).total_seconds() / 60
+        total = (deadline - start).total_seconds() / 60
+        elapsed = (now - start).total_seconds() / 60
     else:
         wh, hol, tz = cal.working_hours, set(cal.holidays or []), cal.timezone
-        total = business_minutes_between(sla.start_time, sla.deadline, tz, wh, hol)
-        elapsed = business_minutes_between(sla.start_time, now, tz, wh, hol)
+        total = business_minutes_between(start, deadline, tz, wh, hol)
+        elapsed = business_minutes_between(start, now, tz, wh, hol)
     return (elapsed / total * 100) if total > 0 else 0.0
 
 

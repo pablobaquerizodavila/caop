@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
 
+    # Scheduler interno: cada cuántos minutos evaluar SLA (0 = desactivado)
+    sla_evaluate_interval_minutes: int = 10
+
     # Base de datos
     database_url: str = Field(
         default="postgresql+asyncpg://caop:caop_dev_password@postgres:5432/caop"

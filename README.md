@@ -147,4 +147,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] API: `/sla` (list), `/sla/seed-defaults`, `/sla/evaluate` · migración `0007` · dep `tzdata`
 - [x] Tests: 51 passed
 
-Siguiente sugerido: login Keycloak en el frontend; integración real SENAE/ECUAPASS (pendiente doc del usuario); o mostrar riesgo SLA en la Torre de Control.
+## Estado de S10 — Scheduler de SLA + riesgo SLA en la Torre de Control
+
+- [x] Scheduler interno (asyncio en el backend) que corre `evaluate_all` cada N min (`SLA_EVALUATE_INTERVAL_MINUTES`, 0=off) — sin infra extra
+- [x] Escalamiento automático sin intervención (el estado/nivel de los SLA se actualiza solo)
+- [x] Torre de Control: KPI **"SLA en riesgo"** + sección con los SLA AT_RISK/CRITICAL/BREACHED enlazados a su expediente
+- [x] Robustez de fechas UTC (naive/aware) en el motor SLA
+- [x] Tests: 52 passed
+
+Siguiente sugerido: login Keycloak en el frontend; integración real SENAE/ECUAPASS (pendiente doc del usuario).
