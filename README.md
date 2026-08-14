@@ -164,4 +164,10 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Keycloak con hostname fijo (issuer estable) + backchannel dinámico (token exchange interno)
 - [x] Route group `(app)` (login sin el shell); tests backend con bypass de auth: 52 passed; build frontend OK
 
-Siguiente sugerido: integración real SENAE/ECUAPASS (pendiente doc del usuario); WhatsApp real (credenciales Meta).
+## Estado de S12 — Refresh token automático
+
+- [x] Middleware refresca la sesión en silencio con el refresh_token cuando el access_token expira (sin re-login)
+- [x] Rotación de cookies (access/refresh/usuario) + reintento de la misma URL; si el refresh falla → /login
+- [x] Edge-safe (fetch + atob, sin node:crypto en el middleware); build OK
+
+Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).
