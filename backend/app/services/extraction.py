@@ -180,6 +180,82 @@ def extract_fields_from_text(text: str) -> ExtractionResult:
     return result
 
 
+def _norm_date(s: str | None) -> str | None:
+    """Normaliza fechas comunes a ISO (asume dd/mm/aaaa en formatos ambiguos)."""
+    if not s:
+        return None
+    s = s.strip()
+    m = re.match(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", s)
+    if m:
+        y, mo, d = m.groups()
+        return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+    m = re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})", s)
+    if m:
+        d, mo, y = m.groups()
+        year = int(y)
+        year = 2000 + year if year < 100 else year
+        return f"{year:04d}-{int(mo):02d}-{int(d):02d}"
+    return None
+
+
+def _label_value(text: str, labels: list[str], value_pat: str) -> str | None:
+    """Busca 'etiqueta: valor' para la primera etiqueta que aparezca."""
+    for lab in labels:
+        m = re.search(rf"{lab}\s*[:#.\-]?\s*({value_pat})", text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip(" .:-")
+    return None
+
+
+def extract_transport_from_text(text: str) -> ExtractionResult:
+    """Extrae datos de transporte de un BL / AWB (por etiquetas). Baja/media confianza."""
+    result = ExtractionResult()
+    ALNUM = r"[A-Z0-9][A-Z0-9\- /]{2,40}"
+    WORDS = r"[A-Za-z0-9][A-Za-z0-9\-\. /]{2,48}"
+    DATEV = r"\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}"
+
+    def add(name: str, value: str | None, conf: float) -> None:
+        result.fields.append(ExtractedField(name, value, round(conf, 2), source_page=1))
+
+    add("carrier", _label_value(text, [r"\bcarrier\b", r"\bnaviera\b",
+        r"shipping\s+line", r"l[ií]nea\s+naviera", r"airline", r"aerol[ií]nea"], WORDS), 0.5)
+    add("bl_number", _label_value(text, [r"master\s*b/?l(?:\s*no)?", r"\bmbl\b",
+        r"house\s*b/?l(?:\s*no)?", r"\bhbl\b", r"bill\s+of\s+lading(?:\s*no)?", r"b/?l\s*no",
+        r"master\s*awb", r"\bmawb\b", r"house\s*awb", r"\bhawb\b", r"\bawb\s*no", r"gu[ií]a"],
+        ALNUM), 0.6)
+    add("vessel", _label_value(text, [r"ocean\s+vessel", r"\bvessel\b", r"\bbuque\b",
+        r"motonave", r"\bm/?v\b"], WORDS), 0.5)
+    add("voyage", _label_value(text, [r"\bvoyage\b", r"\bvoy\b", r"\bviaje\b"],
+        r"[A-Z0-9][A-Z0-9\-]{0,10}"), 0.5)
+    add("flight_number", _label_value(text, [r"\bflight\b", r"\bvuelo\b", r"\bfl\s*no"],
+        r"[A-Z]{2}\s?\d{2,4}"), 0.5)
+    add("pol", _label_value(text, [r"port\s+of\s+loading", r"puerto\s+de\s+embarque",
+        r"\bpol\b", r"place\s+of\s+receipt"], WORDS), 0.5)
+    add("pod", _label_value(text, [r"port\s+of\s+discharge", r"puerto\s+de\s+descarga",
+        r"\bpod\b", r"place\s+of\s+delivery", r"destino"], WORDS), 0.5)
+    add("etd", _norm_date(_label_value(text, [r"\betd\b", r"shipped\s+on\s+board",
+        r"on\s*board\s+date", r"fecha\s+de\s+embarque", r"date\s+of\s+departure"], DATEV)), 0.5)
+    add("eta", _norm_date(_label_value(text, [r"\beta\b", r"estimated\s+arrival",
+        r"fecha\s+estimada\s+de\s+arribo", r"arrival\s+date"], DATEV)), 0.5)
+
+    # Confianza 0 cuando no se reconoció el campo.
+    for f in result.fields:
+        if not f.value:
+            f.confidence = 0.0
+    return result
+
+
+def extract_transport(
+    data: bytes, content_type: str | None, filename: str | None
+) -> ExtractionResult:
+    """Adquiere texto (con OCR si aplica) y extrae los campos de transporte."""
+    text, pages, method = acquire_text(data, content_type, filename, ocr_enabled=settings.ocr_enabled)
+    result = extract_transport_from_text(text)
+    base = OCR_MODEL_VERSION if method == "ocr" else TEXT_MODEL_VERSION
+    result.model_version = base + (f"+pdf({pages}p)" if pages and pages > 1 else "")
+    return result
+
+
 # --------------------------------------------------------------------------- #
 #  Extractores
 # --------------------------------------------------------------------------- #
