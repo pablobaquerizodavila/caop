@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.schemas.document import DocumentExtractionRead, DocumentRead, PresignedUrl
+from app.services.doc_linking import autolink_document
 from app.services.extraction import Extractor, get_extractor
 from app.services.storage import StorageService, get_storage, sha256_hex
 
@@ -53,18 +54,51 @@ async def _store_version(
 async def upload_document(
     file: UploadFile = File(...),
     customer_id: uuid.UUID | None = Form(None),
+    customs_case_id: uuid.UUID | None = Form(None),
     doc_type: str = Form("UNCLASSIFIED"),
     source: str = Form("PORTAL"),
     session: AsyncSession = Depends(get_session),
     storage: StorageService = Depends(get_storage),
 ) -> Document:
-    document = Document(customer_id=customer_id, doc_type=doc_type, source=source)
+    document = Document(
+        customer_id=customer_id,
+        customs_case_id=customs_case_id,
+        doc_type=doc_type,
+        source=source,
+    )
     session.add(document)
     await session.flush()  # asigna document.id
     await _store_version(session, storage, document, file, version=1)
     await session.flush()
+    # AUTOMATION: si el doc pertenece a un expediente y su tipo calza, completa el checklist.
+    await autolink_document(session, document)
+    await session.flush()
     await session.refresh(document)
     return document
+
+
+@router.post("/{document_id}/attach", response_model=dict)
+async def attach_to_case(
+    document_id: uuid.UUID,
+    customs_case_id: uuid.UUID,
+    doc_type: str | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Asocia un documento existente a un expediente y auto-vincula el checklist."""
+    document = await session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento no encontrado")
+    document.customs_case_id = customs_case_id
+    if doc_type:
+        document.doc_type = doc_type
+    await session.flush()
+    item = await autolink_document(session, document)
+    await session.flush()
+    return {
+        "matched": item is not None,
+        "checklist_item_id": str(item.id) if item else None,
+        "doc_type": document.doc_type,
+    }
 
 
 @router.post("/{document_id}/versions", response_model=DocumentRead)
