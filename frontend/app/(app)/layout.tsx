@@ -26,6 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/cases">Expedientes</NavLink>
           <NavLink href="/quotes">Cotizaciones</NavLink>
           <NavLink href="/customers">Clientes</NavLink>
+          <NavLink href="/notifications">Notificaciones</NavLink>
           <NavLink href="/reports">Reportes</NavLink>
           {caps.canAdmin ? (
             <>

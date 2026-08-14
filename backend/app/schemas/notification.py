@@ -23,6 +23,7 @@ class NotificationRead(BaseModel):
     template_version: int | None
     to_address: str
     subject: str | None
+    body: str | None
     status: str
     error: str | None
     customer_id: uuid.UUID | None
@@ -37,6 +38,12 @@ class TemplateCreate(BaseModel):
     subject_template: str | None = None
     body_template: str
     active: bool = True
+
+
+class TemplateUpdate(BaseModel):
+    subject_template: str | None = None
+    body_template: str | None = None
+    active: bool | None = None
 
 
 class TemplateRead(TemplateCreate):
