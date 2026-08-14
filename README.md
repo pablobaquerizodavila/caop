@@ -186,4 +186,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Ciclo comercial 100% en la interfaz: crear cliente → crear cotización → enviar → aceptar → expediente
 - [x] Build OK
 
+## Estado de S15 — Reportes / Analytics
+
+- [x] Endpoint `/analytics/overview` con KPIs calculados sobre datos reales
+- [x] KPIs del prompt: **Human Touches per Shipment**, **Straight-Through Rate**, **Automation Rate**
+- [x] Conversión de cotizaciones, expedientes por estado, tiempo de preparación, SLA, notificaciones
+- [x] Página **Reportes** en la UI (tiles + barras de desglose), nav "Reportes"
+- [x] Tests: 54 passed
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).
