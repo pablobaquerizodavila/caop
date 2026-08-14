@@ -56,6 +56,46 @@ export async function setQuoteStatus(
   return { ok: true };
 }
 
+type Result = { ok: boolean; id?: string; error?: string };
+
+async function postJson(path: string, payload: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1${path}`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try {
+      const body = await res.json();
+      error =
+        typeof body.detail === "string"
+          ? body.detail
+          : Array.isArray(body.detail)
+            ? body.detail.map((d: { msg?: string }) => d.msg).join("; ")
+            : error;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error };
+  }
+  const body = await res.json();
+  return { ok: true, id: body.id };
+}
+
+export async function createCustomer(payload: unknown): Promise<Result> {
+  const r = await postJson("/customers", payload);
+  revalidatePath("/customers");
+  return r;
+}
+
+export async function createQuote(payload: unknown): Promise<Result> {
+  const r = await postJson("/quotes", payload);
+  revalidatePath("/quotes");
+  return r;
+}
+
 export async function generateQuotePdf(quoteId: string): Promise<string | null> {
   await fetch(`${API}/api/v1/quotes/${quoteId}/pdf`, {
     method: "POST",

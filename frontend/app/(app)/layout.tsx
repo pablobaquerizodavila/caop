@@ -19,6 +19,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/">Torre de Control</NavLink>
           <NavLink href="/cases">Expedientes</NavLink>
           <NavLink href="/quotes">Cotizaciones</NavLink>
+          <NavLink href="/customers">Clientes</NavLink>
         </nav>
         <div className="foot">
           {user ? (
