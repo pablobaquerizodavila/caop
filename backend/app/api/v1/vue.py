@@ -4,11 +4,12 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.shipment import CaseEvent, CustomsCase
-from app.models.vue import VuePermit
+from app.models.vue import VuePermit, VueRule
 from app.schemas.vue import (
     VueCatalogEntry,
     VuePermitCreate,
@@ -16,6 +17,9 @@ from app.schemas.vue import (
     VuePermitRead,
     VuePermitRequest,
     VuePermitUpdate,
+    VueRuleCreate,
+    VueRuleRead,
+    VueSuggestion,
 )
 from app.services import vue_service
 
@@ -39,6 +43,61 @@ async def _permit_or_404(session: AsyncSession, permit_id: uuid.UUID) -> VuePerm
 async def vue_catalog() -> list[dict]:
     """Catálogo de referencia de documentos de control previo (verificar normativa)."""
     return vue_service.CATALOG
+
+
+# ---------- Reglas HS -> control previo ----------
+@router.get("/vue/rules", response_model=list[VueRuleRead])
+async def list_rules(session: AsyncSession = Depends(get_session)) -> list[VueRule]:
+    return list(await session.scalars(select(VueRule).order_by(VueRule.hs_prefix)))
+
+
+@router.post("/vue/rules", response_model=VueRuleRead, status_code=201)
+async def create_rule(
+    payload: VueRuleCreate, session: AsyncSession = Depends(get_session)
+) -> VueRule:
+    rule = VueRule(status="ACTIVE", **payload.model_dump())
+    session.add(rule)
+    await session.flush()
+    return rule
+
+
+@router.delete("/vue/rules/{rule_id}", status_code=204)
+async def delete_rule(rule_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    rule = await session.get(VueRule, rule_id)
+    if rule is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
+    await session.delete(rule)
+    await session.flush()
+
+
+@router.post("/vue/rules/seed-defaults")
+async def seed_rules(session: AsyncSession = Depends(get_session)) -> dict:
+    created = await vue_service.seed_vue_rules(session)
+    return {"created": created}
+
+
+@router.get("/cases/{case_id}/vue-suggestions", response_model=list[VueSuggestion])
+async def case_suggestions(
+    case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[VueSuggestion]:
+    rules = await vue_service.suggest_for_case(session, case_id)
+    return [
+        VueSuggestion(
+            hs_prefix=r.hs_prefix, entity=r.entity, document_code=r.document_code,
+            description=r.description, blocking=r.blocking,
+        )
+        for r in rules
+    ]
+
+
+@router.post("/cases/{case_id}/vue-permits/apply-suggestions", response_model=list[VuePermitRead])
+async def apply_suggestions(
+    case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[VuePermitRead]:
+    if await session.get(CustomsCase, case_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Expediente no encontrado")
+    created = await vue_service.apply_suggestions(session, case_id)
+    return [_read(p) for p in created]
 
 
 @router.get("/cases/{case_id}/vue-permits", response_model=list[VuePermitRead])

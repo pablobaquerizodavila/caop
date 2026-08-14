@@ -14,6 +14,7 @@ import {
   type Transport,
   type VueCatalogEntry,
   type VuePermit,
+  type VueSuggestion,
   type WarehouseSummary,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
@@ -47,6 +48,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   );
   const vuePermits = await apiGet<VuePermit[]>(`/cases/${params.id}/vue-permits`);
   const vueCatalog = await apiGet<VueCatalogEntry[]>(`/vue/catalog`);
+  const vueSuggestions = await apiGet<VueSuggestion[]>(`/cases/${params.id}/vue-suggestions`);
   const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
 
   if (!c) {
@@ -155,7 +157,12 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         </div>
 
         <div>
-          <VuePanel caseId={c.id} permits={vuePermits ?? []} catalog={vueCatalog ?? []} />
+          <VuePanel
+            caseId={c.id}
+            permits={vuePermits ?? []}
+            catalog={vueCatalog ?? []}
+            suggestions={vueSuggestions ?? []}
+          />
 
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
 

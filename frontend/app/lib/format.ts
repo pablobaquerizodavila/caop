@@ -289,6 +289,14 @@ export interface VueCatalogEntry {
   description: string;
 }
 
+export interface VueSuggestion {
+  hs_prefix: string;
+  entity: string;
+  document_code: string;
+  description: string | null;
+  blocking: boolean;
+}
+
 export const VUE_STATUS_LABELS: Record<string, string> = {
   REQUIRED: "Requerido",
   REQUESTED: "En trámite",

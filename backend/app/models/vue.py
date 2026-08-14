@@ -41,3 +41,21 @@ class VuePermit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         if self.status == "APPROVED":
             return self.valid_until is None or self.valid_until >= today
         return False
+
+
+class VueRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Regla HS -> control previo: por prefijo de subpartida sugiere un permiso.
+
+    Es un catálogo CONFIGURABLE de referencia; debe verificarse contra la normativa
+    vigente. No es una fuente oficial HS->permiso.
+    """
+
+    __tablename__ = "vue_rule"
+
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    entity: Mapped[str] = mapped_column(String(32), nullable=False)
+    document_code: Mapped[str] = mapped_column(String(48), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    blocking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE")
