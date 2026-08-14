@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createQuote } from "@/app/lib/actions";
+import { createQuote, extractPreview, type PreviewField } from "@/app/lib/actions";
 import type { CustomerSummary } from "@/app/lib/format";
 
 interface Item {
@@ -24,6 +24,8 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrMsg, setOcrMsg] = useState<string | null>(null);
 
   const [h, setH] = useState({
     customer_id: "",
@@ -42,6 +44,53 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
   ]);
 
   const setHeader = (k: string, v: string) => setH((p) => ({ ...p, [k]: v }));
+
+  async function importFromProforma(file: File) {
+    setOcrBusy(true);
+    setOcrMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await extractPreview(fd);
+      if (!r.ok || !r.fields) {
+        setOcrMsg("No se pudo leer la proforma. Ingresa los datos manualmente.");
+        return;
+      }
+      const map: Record<string, PreviewField> = Object.fromEntries(
+        r.fields.map((f) => [f.field_name, f]),
+      );
+      const applied: string[] = [];
+      const inco = map.incoterm?.value;
+      if (inco) {
+        setHeader("incoterm", inco);
+        applied.push(`incoterm ${inco}`);
+      }
+      const cur = map.currency?.value;
+      if (cur) {
+        setHeader("currency", cur);
+        applied.push(`moneda ${cur}`);
+      }
+      const total = map.total_amount?.value;
+      if (total) {
+        setItems((p) =>
+          p.map((it, idx) =>
+            idx === 0 && (!it.unit_price || it.unit_price === "0")
+              ? { ...it, unit_price: total }
+              : it,
+          ),
+        );
+        applied.push(`monto → ítem 1 (${total})`);
+      }
+      setOcrMsg(
+        applied.length
+          ? `Prellenado desde proforma: ${applied.join(", ")}. Revisa antes de crear.`
+          : "No se reconocieron campos con confianza. Ingresa los datos manualmente.",
+      );
+    } finally {
+      setOcrBusy(false);
+    }
+  }
+
   const setItem = (i: number, k: string, v: string) =>
     setItems((p) => p.map((it, idx) => (idx === i ? { ...it, [k]: v } : it)));
   const setCost = (i: number, k: string, v: string) =>
@@ -81,6 +130,27 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
     <form onSubmit={submit} className="stack">
       {error ? <div className="form-error">{error}</div> : null}
 
+      <div className="field">
+        <span>Importar desde proforma / factura (OCR)</span>
+        <div className="actions">
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.txt,image/*,application/pdf"
+            disabled={ocrBusy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) importFromProforma(f);
+            }}
+          />
+          {ocrBusy ? <span className="tag">Leyendo documento…</span> : null}
+        </div>
+        {ocrMsg ? (
+          <div className="tag" style={{ color: "var(--muted)", marginTop: 4 }}>
+            {ocrMsg}
+          </div>
+        ) : null}
+      </div>
+
       <div className="grid-2">
         <label className="field">
           <span>Cliente</span>
@@ -107,6 +177,10 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
         <label className="field">
           <span>Origen (ISO-2)</span>
           <input type="text" value={h.origin_country} onChange={(e) => setHeader("origin_country", e.target.value)} placeholder="CN" />
+        </label>
+        <label className="field">
+          <span>Moneda</span>
+          <input type="text" value={h.currency} onChange={(e) => setHeader("currency", e.target.value)} placeholder="USD" />
         </label>
         <label className="field">
           <span>Flete internacional</span>

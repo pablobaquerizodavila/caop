@@ -105,6 +105,23 @@ async def test_case_extractions_and_event(client):
 
 
 @pytest.mark.asyncio
+async def test_extract_preview_does_not_persist(client):
+    """La vista previa devuelve campos para prellenar sin guardar documento ni extracción."""
+    r = await client.post(
+        "/api/v1/documents/extract-preview",
+        files={"file": ("proforma.txt", PROFORMA, "text/plain")},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    fields = {f["field_name"]: f for f in body["fields"]}
+    assert fields["incoterm"]["value"] == "FOB"
+    assert fields["currency"]["value"] == "USD"
+    assert fields["total_amount"]["value"] == "8400.00"
+    # No se creó ningún documento.
+    assert (await client.get("/api/v1/documents")).json() == []
+
+
+@pytest.mark.asyncio
 async def test_image_upload_degrades_without_ocr(client):
     """Sin binario/librerías de OCR, subir una imagen no rompe: degrada a baja confianza."""
     up = await client.post(

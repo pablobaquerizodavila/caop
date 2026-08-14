@@ -49,6 +49,18 @@ class DocumentExtractionUpdate(BaseModel):
     verified_value: str | None = None
 
 
+class ExtractedFieldPreview(BaseModel):
+    field_name: str
+    value: str | None
+    confidence: float
+
+
+class ExtractionPreview(BaseModel):
+    """Extracción efímera (sin persistir) para prellenar formularios (p. ej. cotización)."""
+    model_version: str
+    fields: list[ExtractedFieldPreview]
+
+
 class CaseExtractionDoc(BaseModel):
     """Datos extraídos de un documento de un expediente (para revisión en el caso)."""
     document_id: uuid.UUID
