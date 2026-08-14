@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.shipment import CaseEvent, CustomsCase
 from app.models.vue import VuePermit, VueRule
@@ -52,7 +53,8 @@ async def list_rules(session: AsyncSession = Depends(get_session)) -> list[VueRu
     return list(await session.scalars(select(VueRule).order_by(VueRule.hs_prefix)))
 
 
-@router.post("/vue/rules", response_model=VueRuleRead, status_code=201)
+@router.post("/vue/rules", response_model=VueRuleRead, status_code=201,
+             dependencies=[Depends(require_admin)])
 async def create_rule(
     payload: VueRuleCreate, session: AsyncSession = Depends(get_session)
 ) -> VueRule:
@@ -62,7 +64,8 @@ async def create_rule(
     return rule
 
 
-@router.patch("/vue/rules/{rule_id}", response_model=VueRuleRead)
+@router.patch("/vue/rules/{rule_id}", response_model=VueRuleRead,
+              dependencies=[Depends(require_admin)])
 async def update_rule(
     rule_id: uuid.UUID, payload: VueRuleUpdate, session: AsyncSession = Depends(get_session)
 ) -> VueRule:
@@ -75,7 +78,7 @@ async def update_rule(
     return rule
 
 
-@router.delete("/vue/rules/{rule_id}", status_code=204)
+@router.delete("/vue/rules/{rule_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_rule(rule_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
     rule = await session.get(VueRule, rule_id)
     if rule is None:
@@ -84,7 +87,7 @@ async def delete_rule(rule_id: uuid.UUID, session: AsyncSession = Depends(get_se
     await session.flush()
 
 
-@router.post("/vue/rules/seed-defaults")
+@router.post("/vue/rules/seed-defaults", dependencies=[Depends(require_admin)])
 async def seed_rules(session: AsyncSession = Depends(get_session)) -> dict:
     created = await vue_service.seed_vue_rules(session)
     return {"created": created}

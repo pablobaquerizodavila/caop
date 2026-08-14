@@ -10,13 +10,26 @@ contra la URL pública que aparece en el token.
 from functools import lru_cache
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.core.config import settings
 
 bearer_scheme = HTTPBearer(auto_error=True)
+
+# --- Matriz de roles (alineada con el realm de Keycloak) ---
+# Roles del personal que pueden ejecutar operaciones de escritura.
+WRITER_ROLES = {
+    "SUPER_ADMIN", "OPERATIONS_MANAGER", "CUSTOMS_AGENT", "CUSTOMS_ASSISTANT",
+    "OCEAN_OPERATOR", "AIR_OPERATOR", "DOCUMENT_SPECIALIST", "SALES", "FINANCE", "API_SERVICE",
+}
+# Configuración global (reglas HS→VUE, tarifarios): solo administración.
+ADMIN_ROLES = ("SUPER_ADMIN", "OPERATIONS_MANAGER")
+# Firma de la DAI (nunca autónoma): agente afianzado.
+SIGN_ROLES = ("CUSTOMS_AGENT", "SUPER_ADMIN")
+
+WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 class Principal(BaseModel):
@@ -85,3 +98,22 @@ def require_roles(*required: str):
         return principal
 
     return _checker
+
+
+async def require_write(
+    request: Request, principal: Principal = Depends(get_current_principal)
+) -> Principal:
+    """RBAC transversal: los métodos de escritura exigen un rol con permiso de escritura.
+
+    La lectura (GET/HEAD) queda disponible para cualquier usuario autenticado
+    (p. ej. AUDITOR / CUSTOMER en modo consulta).
+    """
+    if request.method in WRITE_METHODS and not (WRITER_ROLES & set(principal.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere un rol con permisos de escritura para esta acción.",
+        )
+    return principal
+
+
+require_admin = require_roles(*ADMIN_ROLES)
