@@ -13,6 +13,7 @@ import {
   slaChipClass,
 } from "@/app/lib/api";
 import { CaseRow } from "@/app/components/ui";
+import { SendDigestButton } from "@/app/components/SendDigestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -222,8 +223,11 @@ function Topbar() {
         <div className="eyebrow">Operaciones · SENAE / ECUAPASS</div>
         <h1>Torre de Control</h1>
       </div>
-      <div className="live">
-        <span className="pulse" /> en vivo
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <SendDigestButton />
+        <div className="live">
+          <span className="pulse" /> en vivo
+        </div>
       </div>
     </div>
   );

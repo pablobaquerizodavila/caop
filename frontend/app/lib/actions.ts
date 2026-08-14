@@ -409,6 +409,21 @@ export async function applyVueSuggestions(
   return { ok: true, count: Array.isArray(j) ? j.length : 0 };
 }
 
+// ---------- Alertas proactivas ----------
+export async function sendAlertDigest(): Promise<{
+  ok: boolean; total?: number; sent?: number; note?: string; error?: string;
+}> {
+  const res = await fetch(`${API}/api/v1/alerts/digest/send`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    cache: "no-store",
+  });
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, total: j.total, sent: Array.isArray(j.sent) ? j.sent.length : 0, note: j.note };
+}
+
 // ---------- Liquidación al cliente ----------
 export async function generateSettlement(caseId: string): Promise<Result> {
   const res = await fetch(`${API}/api/v1/cases/${caseId}/settlement`, {

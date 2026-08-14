@@ -32,6 +32,13 @@ DEFAULTS: list[dict] = [
         ),
     },
     {
+        "code": "ALERT_DIGEST",
+        "version": 1,
+        "channel": "EMAIL",
+        "subject_template": "CAOP — Alertas operativas ({{count}})",
+        "body_template": "{{body}}",
+    },
+    {
         "code": "TRACKING_LINK",
         "version": 1,
         "channel": "EMAIL",
