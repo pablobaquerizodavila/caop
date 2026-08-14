@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   apiGet,
   type CaseDetail,
+  type CaseExtractionDoc,
   type Declaration,
   type DemurrageSummary,
   docLabel,
@@ -15,6 +16,7 @@ import {
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
+import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
 import { TrackingPanel } from "@/app/components/TrackingPanel";
 
@@ -35,6 +37,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const transport = await apiGet<Transport>(`/cases/${params.id}/transport`);
   const demurrage = await apiGet<DemurrageSummary>(`/cases/${params.id}/demurrage`);
   const tracking = await apiGet<TrackingLink>(`/cases/${params.id}/tracking`);
+  const extractions = await apiGet<CaseExtractionDoc[]>(
+    `/documents/case/${params.id}/extractions`,
+  );
 
   if (!c) {
     return (
@@ -104,7 +109,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       <OceanPanel caseId={c.id} transport={transport} summary={demurrage} />
 
       <div className="cols">
-        <div className="card rise">
+        <div>
+        <div className="card rise section-gap">
           <div className="head">
             <h2>Checklist documental</h2>
             <span className="count">{c.checklist.length}</span>
@@ -133,6 +139,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
               </div>
             ))
           )}
+        </div>
+
+          <ExtractionPanel caseId={c.id} docs={extractions ?? []} />
         </div>
 
         <div>

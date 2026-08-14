@@ -7,9 +7,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Dependencias del sistema mínimas para asyncpg/psycopg/cryptography
+# Dependencias del sistema:
+# - build-essential/libpq-dev: asyncpg/psycopg/cryptography
+# - tesseract-ocr (+spa): motor OCR real (open source) para documentos escaneados
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && apt-get install -y --no-install-recommends \
+        build-essential libpq-dev tesseract-ocr tesseract-ocr-spa \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar el proyecto como paquete requiere el código presente (packages=["app"]),

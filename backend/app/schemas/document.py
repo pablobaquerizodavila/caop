@@ -42,3 +42,18 @@ class DocumentExtractionRead(BaseModel):
     confidence_score: float | None
     source_page: int | None
     model_version: str | None
+
+
+class DocumentExtractionUpdate(BaseModel):
+    """Revisión humana: fija el valor verificado (human-by-exception)."""
+    verified_value: str | None = None
+
+
+class CaseExtractionDoc(BaseModel):
+    """Datos extraídos de un documento de un expediente (para revisión en el caso)."""
+    document_id: uuid.UUID
+    version: int
+    doc_type: str
+    filename: str
+    model_version: str | None = None
+    fields: list[DocumentExtractionRead] = []

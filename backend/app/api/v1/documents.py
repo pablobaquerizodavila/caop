@@ -1,5 +1,6 @@
 """Endpoints de Documentos: subida con versionado e integridad SHA-256."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -9,12 +10,56 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.document import Document, DocumentExtraction, DocumentVersion
-from app.schemas.document import DocumentExtractionRead, DocumentRead, PresignedUrl
+from app.models.shipment import CaseEvent
+from app.schemas.document import (
+    CaseExtractionDoc,
+    DocumentExtractionRead,
+    DocumentExtractionUpdate,
+    DocumentRead,
+    PresignedUrl,
+)
 from app.services.doc_linking import autolink_document
 from app.services.extraction import Extractor, get_extractor
 from app.services.storage import StorageService, get_storage, sha256_hex
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+# Tipos de documento con datos estructurados que vale la pena extraer al subir.
+EXTRACTABLE_DOC_TYPES = {
+    "COMMERCIAL_INVOICE", "INVOICE", "PROFORMA", "PROFORMA_INVOICE",
+    "PACKING_LIST", "BILL_OF_LADING", "AIR_WAYBILL", "CERTIFICATE_OF_ORIGIN",
+}
+
+
+def _should_auto_extract(doc_type: str | None) -> bool:
+    return (doc_type or "").upper() in EXTRACTABLE_DOC_TYPES
+
+
+async def _persist_extraction(
+    session: AsyncSession,
+    storage: StorageService,
+    extractor: Extractor,
+    dv: DocumentVersion,
+) -> list[DocumentExtraction]:
+    """Ejecuta el extractor (OCR incluido) fuera del event loop y guarda los campos."""
+    data = await run_in_threadpool(storage.get_bytes, dv.object_key)
+    result = await run_in_threadpool(extractor.extract, data, dv.content_type, dv.filename)
+    rows: list[DocumentExtraction] = []
+    for f in result.fields:
+        row = DocumentExtraction(
+            document_version_id=dv.id,
+            field_name=f.field_name,
+            extracted_value=f.value,
+            confidence_score=f.confidence,
+            source_page=f.source_page,
+            model_version=result.model_version,
+        )
+        session.add(row)
+        rows.append(row)
+    await session.flush()
+    return rows
 
 
 def _object_key(document_id: uuid.UUID, version: int, filename: str) -> str:
@@ -68,11 +113,34 @@ async def upload_document(
     )
     session.add(document)
     await session.flush()  # asigna document.id
-    await _store_version(session, storage, document, file, version=1)
+    dv = await _store_version(session, storage, document, file, version=1)
     await session.flush()
     # AUTOMATION: si el doc pertenece a un expediente y su tipo calza, completa el checklist.
     await autolink_document(session, document)
     await session.flush()
+
+    # AUTOMATION: extracción automática (OCR/heurística) para documentos con datos.
+    # Best-effort: si falla, NO se rompe la subida.
+    if _should_auto_extract(document.doc_type):
+        try:
+            rows = await _persist_extraction(session, storage, get_extractor(), dv)
+            if rows and document.customs_case_id:
+                session.add(
+                    CaseEvent(
+                        customs_case_id=document.customs_case_id,
+                        event_type="DOCUMENT_EXTRACTED",
+                        event_source="SYSTEM",
+                        normalized_payload={
+                            "doc_type": document.doc_type,
+                            "recognized": sum(1 for r in rows if r.extracted_value),
+                            "model": rows[0].model_version,
+                        },
+                    )
+                )
+                await session.flush()
+        except Exception:  # noqa: BLE001
+            logger.exception("Auto-extracción falló para %s (no bloquea la subida)", document.id)
+
     await session.refresh(document)
     return document
 
@@ -173,23 +241,67 @@ async def extract_version(
     extractor: Extractor = Depends(get_extractor),
 ) -> list[DocumentExtraction]:
     dv = await _get_version_or_404(session, document_id, version)
-    data = await run_in_threadpool(storage.get_bytes, dv.object_key)
-    result = extractor.extract(data, dv.content_type, dv.filename)
+    return await _persist_extraction(session, storage, extractor, dv)
 
-    rows: list[DocumentExtraction] = []
-    for f in result.fields:
-        row = DocumentExtraction(
-            document_version_id=dv.id,
-            field_name=f.field_name,
-            extracted_value=f.value,
-            confidence_score=f.confidence,
-            source_page=f.source_page,
-            model_version=result.model_version,
-        )
-        session.add(row)
-        rows.append(row)
+
+@router.patch(
+    "/{document_id}/versions/{version}/extractions/{extraction_id}",
+    response_model=DocumentExtractionRead,
+)
+async def verify_extraction(
+    document_id: uuid.UUID,
+    version: int,
+    extraction_id: uuid.UUID,
+    payload: DocumentExtractionUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> DocumentExtraction:
+    """Revisión humana: fija/corrige el valor verificado de un campo extraído."""
+    dv = await _get_version_or_404(session, document_id, version)
+    row = await session.get(DocumentExtraction, extraction_id)
+    if row is None or row.document_version_id != dv.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Extracción no encontrada")
+    row.verified_value = payload.verified_value
     await session.flush()
-    return rows
+    return row
+
+
+@router.get("/case/{case_id}/extractions", response_model=list[CaseExtractionDoc])
+async def case_extractions(
+    case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[CaseExtractionDoc]:
+    """Datos extraídos de todos los documentos de un expediente (para revisión)."""
+    docs = list(
+        await session.scalars(
+            select(Document)
+            .where(Document.customs_case_id == case_id)
+            .order_by(Document.created_at.desc())
+        )
+    )
+    out: list[CaseExtractionDoc] = []
+    for doc in docs:
+        dv = doc.latest_version
+        if dv is None:
+            continue
+        rows = list(
+            await session.scalars(
+                select(DocumentExtraction)
+                .where(DocumentExtraction.document_version_id == dv.id)
+                .order_by(DocumentExtraction.confidence_score.desc())
+            )
+        )
+        if not rows:
+            continue
+        out.append(
+            CaseExtractionDoc(
+                document_id=doc.id,
+                version=dv.version,
+                doc_type=doc.doc_type,
+                filename=dv.filename,
+                model_version=rows[0].model_version,
+                fields=[DocumentExtractionRead.model_validate(r) for r in rows],
+            )
+        )
+    return out
 
 
 @router.get(
