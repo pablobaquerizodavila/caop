@@ -31,3 +31,4 @@ Thumbs.db
 
 # Data volumes (por si se montan localmente)
 /data/
+rebuild
