@@ -22,6 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/customers">Clientes</NavLink>
           <NavLink href="/reports">Reportes</NavLink>
           <NavLink href="/vue-rules">Reglas VUE</NavLink>
+          <NavLink href="/tariffs">Tarifarios</NavLink>
         </nav>
         <div className="foot">
           {user ? (

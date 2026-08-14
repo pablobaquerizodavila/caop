@@ -248,6 +248,40 @@ export async function deleteWarehouse(caseId: string, storageId: string): Promis
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Tarifario de bodega (configuración global) ----------
+export async function createWarehouseTariff(data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/warehouse/tariffs`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/tariffs");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  return { ok: true };
+}
+
+export async function updateWarehouseTariff(tariffId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/warehouse/tariffs/${tariffId}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/tariffs");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteWarehouseTariff(tariffId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/warehouse/tariffs/${tariffId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/tariffs");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- VUE — control previo ----------
 export async function createVuePermit(
   caseId: string,

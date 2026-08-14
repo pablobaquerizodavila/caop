@@ -67,6 +67,28 @@ async def test_withdraw_clears_risk(client):
 
 
 @pytest.mark.asyncio
+async def test_tariff_crud(client):
+    created = await client.post(
+        "/api/v1/warehouse/tariffs",
+        json={"warehouse_name": "Depósito GYE", "transport_mode": "AIR",
+              "free_days": 2, "rate_type": "PER_KG_DAY", "daily_rate": 0.5, "currency": "USD"},
+    )
+    assert created.status_code == 201
+    tid = created.json()["id"]
+
+    listed = (await client.get("/api/v1/warehouse/tariffs")).json()
+    assert any(t["id"] == tid and t["warehouse_name"] == "Depósito GYE" for t in listed)
+
+    upd = await client.patch(f"/api/v1/warehouse/tariffs/{tid}", json={"free_days": 5, "active": False})
+    assert upd.status_code == 200
+    assert upd.json()["free_days"] == 5 and upd.json()["active"] is False
+
+    dele = await client.delete(f"/api/v1/warehouse/tariffs/{tid}")
+    assert dele.status_code == 204
+    assert all(t["id"] != tid for t in (await client.get("/api/v1/warehouse/tariffs")).json())
+
+
+@pytest.mark.asyncio
 async def test_within_free_days_ok(client):
     case_id = await _air_case(client)
     entry = date.today().isoformat()

@@ -17,6 +17,7 @@ from app.models.tax import TaxRule
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
 from app.models.warehouse import WarehouseStorage
+from app.models.warehouse_tariff import WarehouseTariff
 
 __all__ = [
     "AuditEvent",
@@ -50,5 +51,6 @@ __all__ = [
     "VuePermit",
     "VueRule",
     "WarehouseStorage",
+    "WarehouseTariff",
     "user_roles",
 ]

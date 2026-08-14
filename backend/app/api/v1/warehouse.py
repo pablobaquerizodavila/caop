@@ -10,11 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
 from app.models.warehouse import WarehouseStorage
+from app.models.warehouse_tariff import WarehouseTariff
 from app.schemas.warehouse import (
     AtRiskStorage,
     WarehouseCreate,
     WarehouseRead,
     WarehouseSummary,
+    WarehouseTariffCreate,
+    WarehouseTariffRead,
+    WarehouseTariffUpdate,
     WarehouseUpdate,
 )
 from app.services.warehouse import compute
@@ -105,6 +109,48 @@ async def delete_storage(
     if storage is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Registro de almacenaje no encontrado")
     await session.delete(storage)
+    await session.flush()
+
+
+# ---------- Tarifario por depósito ----------
+@router.get("/warehouse/tariffs", response_model=list[WarehouseTariffRead])
+async def list_tariffs(session: AsyncSession = Depends(get_session)) -> list[WarehouseTariff]:
+    return list(
+        await session.scalars(select(WarehouseTariff).order_by(WarehouseTariff.warehouse_name))
+    )
+
+
+@router.post("/warehouse/tariffs", response_model=WarehouseTariffRead, status_code=201)
+async def create_tariff(
+    payload: WarehouseTariffCreate, session: AsyncSession = Depends(get_session)
+) -> WarehouseTariff:
+    tariff = WarehouseTariff(**payload.model_dump())
+    session.add(tariff)
+    await session.flush()
+    return tariff
+
+
+@router.patch("/warehouse/tariffs/{tariff_id}", response_model=WarehouseTariffRead)
+async def update_tariff(
+    tariff_id: uuid.UUID, payload: WarehouseTariffUpdate, session: AsyncSession = Depends(get_session)
+) -> WarehouseTariff:
+    tariff = await session.get(WarehouseTariff, tariff_id)
+    if tariff is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tarifa no encontrada")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(tariff, field, value)
+    await session.flush()
+    return tariff
+
+
+@router.delete("/warehouse/tariffs/{tariff_id}", status_code=204)
+async def delete_tariff(
+    tariff_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> None:
+    tariff = await session.get(WarehouseTariff, tariff_id)
+    if tariff is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tarifa no encontrada")
+    await session.delete(tariff)
     await session.flush()
 
 
