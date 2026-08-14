@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customs_declaration import CustomsDeclaration
 from app.models.shipment import CaseEvent, CustomsCase
+from app.services import vue_service
 from app.services.senae_connector import (
     SenaeResult,
     SenaeUnavailableError,
@@ -63,6 +64,11 @@ def _record(dec: CustomsDeclaration, direction: str, data: dict) -> None:
 async def prepare(session: AsyncSession, case: CustomsCase) -> CustomsDeclaration:
     if float(case.customs_readiness_score or 0) < 100:
         raise DAIError("El expediente no está listo (readiness < 100%).")
+    # Control previo (VUE): sin permisos bloqueantes aprobados/eximidos no hay DAI.
+    pending = await vue_service.blocking_pending(session, case.id)
+    if pending:
+        names = ", ".join(f"{p.entity}/{p.document_code}" for p in pending)
+        raise DAIError(f"Control previo (VUE) pendiente de aprobación: {names}.")
     existing = await get_declaration(session, case.id)
     if existing is not None:
         return existing

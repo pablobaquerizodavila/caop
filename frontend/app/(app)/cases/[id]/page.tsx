@@ -12,6 +12,8 @@ import {
   stateLabel,
   type TrackingLink,
   type Transport,
+  type VueCatalogEntry,
+  type VuePermit,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
@@ -19,6 +21,7 @@ import { DaiPanel } from "@/app/components/DaiPanel";
 import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
 import { TrackingPanel } from "@/app/components/TrackingPanel";
+import { VuePanel } from "@/app/components/VuePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +43,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const extractions = await apiGet<CaseExtractionDoc[]>(
     `/documents/case/${params.id}/extractions`,
   );
+  const vuePermits = await apiGet<VuePermit[]>(`/cases/${params.id}/vue-permits`);
+  const vueCatalog = await apiGet<VueCatalogEntry[]>(`/vue/catalog`);
 
   if (!c) {
     return (
@@ -145,6 +150,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         </div>
 
         <div>
+          <VuePanel caseId={c.id} permits={vuePermits ?? []} catalog={vueCatalog ?? []} />
+
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
 
           <TrackingPanel caseId={c.id} link={tracking} />

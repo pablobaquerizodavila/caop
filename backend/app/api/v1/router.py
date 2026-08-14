@@ -16,6 +16,7 @@ from app.api.v1 import (
     suppliers,
     tax,
     tracking,
+    vue,
 )
 from app.core.security import Principal, get_current_principal
 
@@ -41,6 +42,7 @@ api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)
 api_router.include_router(ocean.router, dependencies=protected)
 api_router.include_router(tracking.admin_router, dependencies=protected)
+api_router.include_router(vue.router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])
