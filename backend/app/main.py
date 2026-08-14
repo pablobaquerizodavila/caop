@@ -1,5 +1,7 @@
 """Punto de entrada de la aplicación FastAPI."""
 
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,13 +13,24 @@ from app.audit.listener import register_audit_listeners
 from app.core.config import settings
 from app.core.correlation import CorrelationIdMiddleware
 from app.core.logging import configure_logging
+from app.services.scheduler import sla_scheduler_loop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     configure_logging()
     register_audit_listeners()
+
+    task: asyncio.Task | None = None
+    if settings.sla_evaluate_interval_minutes > 0:
+        task = asyncio.create_task(sla_scheduler_loop(settings.sla_evaluate_interval_minutes))
+
     yield
+
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 def create_app() -> FastAPI:

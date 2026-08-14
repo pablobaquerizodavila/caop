@@ -1,10 +1,20 @@
-import { apiGet, type CaseSummary, readiness } from "./lib/api";
+import Link from "next/link";
+
+import {
+  apiGet,
+  type CaseSummary,
+  readiness,
+  SLA_RISKY,
+  type SlaRisk,
+  slaChipClass,
+} from "./lib/api";
 import { CaseRow } from "./components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlTower() {
   const cases = (await apiGet<CaseSummary[]>("/cases?limit=200")) ?? null;
+  const slas = (await apiGet<SlaRisk[]>("/sla?limit=500")) ?? [];
 
   if (cases === null) {
     return (
@@ -29,6 +39,11 @@ export default async function ControlTower() {
       ? 0
       : Math.round(cases.reduce((s, c) => s + readiness(c.customs_readiness_score), 0) / cases.length);
 
+  const caseNumber = new Map(cases.map((c) => [c.id, c.case_number]));
+  const riskySla = slas
+    .filter((s) => SLA_RISKY.includes(s.status))
+    .sort((a, b) => b.escalation_level - a.escalation_level);
+
   return (
     <>
       <Topbar />
@@ -36,9 +51,54 @@ export default async function ControlTower() {
       <div className="kpis">
         <Kpi label="Expedientes activos" value={String(cases.length)} cls="accent" delay={0} />
         <Kpi label="Esperando documentos" value={String(awaiting.length)} cls="warn" delay={60} />
-        <Kpi label="Listos para aduana" value={String(ready.length)} cls="ok" delay={120} />
+        <Kpi label="SLA en riesgo" value={String(riskySla.length)} cls={riskySla.length ? "warn" : "ok"} delay={120} />
         <Kpi label="Readiness promedio" value={`${avg}`} unit="%" delay={180} />
       </div>
+
+      {riskySla.length > 0 ? (
+        <div className="card exception section-gap rise">
+          <div className="head">
+            <h2>SLA en riesgo</h2>
+            <span className="count">{riskySla.length}</span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Hito</th>
+                  <th>Expediente</th>
+                  <th>Nivel escal.</th>
+                  <th>Vence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {riskySla.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <span className={`pill ${slaChipClass(s.status)}`}>{s.status}</span>
+                    </td>
+                    <td className="mono" style={{ fontSize: 12.5 }}>{s.milestone}</td>
+                    <td>
+                      {caseNumber.get(s.entity_id) ? (
+                        <Link href={`/cases/${s.entity_id}`} className="code">
+                          {caseNumber.get(s.entity_id)}
+                        </Link>
+                      ) : (
+                        <span className="mono" style={{ color: "var(--muted-2)" }}>—</span>
+                      )}
+                    </td>
+                    <td className="mono">{s.escalation_level}</td>
+                    <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>
+                      {s.deadline ? new Date(s.deadline).toLocaleString("es-EC") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <div className="card exception section-gap rise">
         <div className="head">

@@ -58,6 +58,28 @@ export interface CaseDetail extends CaseSummary {
   sla: SlaItem[];
 }
 
+export interface SlaRisk {
+  id: string;
+  entity_id: string;
+  milestone: string;
+  deadline: string | null;
+  status: string;
+  escalation_level: number;
+}
+
+export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
+
+export function slaChipClass(status: string): string {
+  const map: Record<string, string> = {
+    ON_TIME: "ok",
+    MET: "ok",
+    AT_RISK: "warn",
+    CRITICAL: "risk",
+    BREACHED: "crit",
+  };
+  return map[status] ?? "";
+}
+
 export interface QuoteSummary {
   id: string;
   quote_number: string;
