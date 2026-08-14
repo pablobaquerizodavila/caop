@@ -188,11 +188,11 @@ async function _preview(
   return { ok: true, fields: j.fields as PreviewField[], model: j.model_version as string };
 }
 
-export function extractPreview(formData: FormData) {
+export async function extractPreview(formData: FormData) {
   return _preview("/documents/extract-preview", formData);
 }
 
-export function extractTransportPreview(formData: FormData) {
+export async function extractTransportPreview(formData: FormData) {
   return _preview("/documents/extract-transport-preview", formData);
 }
 
