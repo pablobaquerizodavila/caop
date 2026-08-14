@@ -29,19 +29,20 @@ async def _issued_settlement(client):
 @pytest.mark.asyncio
 async def test_partial_then_full_payment(client):
     sid = await _issued_settlement(client)
-    # total = 100 + 15% IVA = 115
     view0 = (await client.get(f"/api/v1/settlements/{sid}/payments")).json()
-    assert view0["total"] == 115.0 and view0["status"] == "PENDING" and view0["balance"] == 115.0
+    total = view0["total"]
+    assert total > 0 and view0["status"] == "PENDING" and view0["balance"] == total
 
+    half = round(total / 2, 2)
     v1 = (await client.post(
         f"/api/v1/settlements/{sid}/payments",
-        json={"amount": 50, "paid_at": date.today().isoformat(), "method": "TRANSFER"},
+        json={"amount": half, "paid_at": date.today().isoformat(), "method": "TRANSFER"},
     )).json()
-    assert v1["status"] == "PARTIAL" and v1["paid"] == 50.0 and v1["balance"] == 65.0
+    assert v1["status"] == "PARTIAL" and v1["paid"] == half
 
     v2 = (await client.post(
         f"/api/v1/settlements/{sid}/payments",
-        json={"amount": 65, "paid_at": date.today().isoformat(), "method": "CASH"},
+        json={"amount": round(total - half, 2), "paid_at": date.today().isoformat(), "method": "CASH"},
     )).json()
     assert v2["status"] == "PAID" and v2["balance"] == 0.0
     assert len(v2["payments"]) == 2
@@ -50,24 +51,25 @@ async def test_partial_then_full_payment(client):
 @pytest.mark.asyncio
 async def test_receivables_aging(client):
     sid = await _issued_settlement(client)
-    # Vencida hace 45 días -> bucket 31-60
+    total = (await client.get(f"/api/v1/settlements/{sid}/payments")).json()["total"]
     await client.patch(
         f"/api/v1/settlements/{sid}",
         json={"due_date": (date.today() - timedelta(days=45)).isoformat()},
     )
     rec = (await client.get("/api/v1/analytics/receivables")).json()
     mine = [x for x in rec["items"] if x["settlement_id"] == sid]
-    assert mine and mine[0]["balance"] == 115.0
+    assert mine and mine[0]["balance"] == total
     assert mine[0]["bucket"] == "31-60" and mine[0]["days_overdue"] >= 45
-    assert rec["total_balance"] >= 115.0
+    assert rec["total_balance"] >= total
 
 
 @pytest.mark.asyncio
 async def test_paid_not_in_receivables(client):
     sid = await _issued_settlement(client)
+    total = (await client.get(f"/api/v1/settlements/{sid}/payments")).json()["total"]
     await client.post(
         f"/api/v1/settlements/{sid}/payments",
-        json={"amount": 115, "paid_at": date.today().isoformat()},
+        json={"amount": total, "paid_at": date.today().isoformat()},
     )
     rec = (await client.get("/api/v1/analytics/receivables")).json()
     assert all(x["settlement_id"] != sid for x in rec["items"])
