@@ -236,9 +236,14 @@ async def build_view(session: AsyncSession, case: CustomsCase) -> TrackView:
             )
 
     attention = None
-    if case.blocker or case.current_state in ("OBSERVED", "TRANSMISSION_REJECTED"):
+    if case.current_state in ("OBSERVED", "TRANSMISSION_REJECTED"):
         attention = (
             "Estamos gestionando un requerimiento con la aduana. "
+            "Tu ejecutivo de comercio exterior te contactará con los próximos pasos."
+        )
+    elif case.blocker:
+        attention = (
+            "Hay un punto pendiente en tu expediente que estamos resolviendo. "
             "Tu ejecutivo de comercio exterior te contactará con los próximos pasos."
         )
 
