@@ -194,4 +194,16 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Página **Reportes** en la UI (tiles + barras de desglose), nav "Reportes"
 - [x] Tests: 54 passed
 
+## Estado de S16 — Simulador del SENAE Connector (DAI, Fase 2)
+
+- [x] Conector SENAE con **contrato común** (Protocol) + **simulador** (adapter real enchufable)
+- [x] Modelo `CustomsDeclaration` (DAI) con `raw_sent`/`raw_response` y mapping EXTERNAL→INTERNAL
+- [x] Ciclo: preparar (readiness 100) → **firmar** (humano, invariante) → transmitir → liquidación → pago → aforo → levante
+- [x] Escenarios de prueba: ACCEPT / REJECT / **SENAE no disponible** (retry); aforo AUTOMATICO/DOCUMENTAL/FISICO/NO_INTRUSIVO; observación
+- [x] **Idempotencia**: la DAI no se transmite dos veces; estados internos = placeholders (no ECUAPASS literal)
+- [x] Panel DAI operable en el detalle del expediente (UI)
+- [x] Migración `0008`; Tests: 61 passed
+
+> Todo marcado `is_simulated=True`. El adapter real reemplaza el simulador cuando exista documentación oficial, sin reescribir el flujo.
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

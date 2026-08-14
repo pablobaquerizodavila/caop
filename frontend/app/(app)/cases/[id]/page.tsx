@@ -1,8 +1,17 @@
 import Link from "next/link";
 
-import { apiGet, type CaseDetail, docLabel, readiness, semaphore, stateLabel } from "@/app/lib/api";
+import {
+  apiGet,
+  type CaseDetail,
+  type Declaration,
+  docLabel,
+  readiness,
+  semaphore,
+  stateLabel,
+} from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
+import { DaiPanel } from "@/app/components/DaiPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +26,7 @@ const CHK_CLASS: Record<string, string> = {
 
 export default async function CaseDetailPage({ params }: { params: { id: string } }) {
   const c = await apiGet<CaseDetail>(`/cases/${params.id}`);
+  const dai = await apiGet<Declaration>(`/cases/${params.id}/dai`);
 
   if (!c) {
     return (
@@ -108,6 +118,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         </div>
 
         <div>
+          <DaiPanel caseId={c.id} readiness={r} dai={dai} />
+
           <div className="card section-gap rise">
             <div className="head">
               <h2>SLA</h2>

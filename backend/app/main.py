@@ -4,8 +4,9 @@ import asyncio
 import contextlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api.v1.router import api_router
@@ -13,6 +14,7 @@ from app.audit.listener import register_audit_listeners
 from app.core.config import settings
 from app.core.correlation import CorrelationIdMiddleware
 from app.core.logging import configure_logging
+from app.services.dai_service import DAIError
 from app.services.scheduler import sla_scheduler_loop
 
 
@@ -51,6 +53,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api/v1")
+
+    @app.exception_handler(DAIError)
+    async def _dai_error(request: Request, exc: DAIError):  # noqa: ARG001
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
     return app
 
 
