@@ -14,6 +14,7 @@ import {
   type Transport,
   type VueCatalogEntry,
   type VuePermit,
+  type WarehouseSummary,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
@@ -22,6 +23,7 @@ import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
 import { TrackingPanel } from "@/app/components/TrackingPanel";
 import { VuePanel } from "@/app/components/VuePanel";
+import { WarehousePanel } from "@/app/components/WarehousePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   );
   const vuePermits = await apiGet<VuePermit[]>(`/cases/${params.id}/vue-permits`);
   const vueCatalog = await apiGet<VueCatalogEntry[]>(`/vue/catalog`);
+  const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
 
   if (!c) {
     return (
@@ -112,6 +115,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       ) : null}
 
       <OceanPanel caseId={c.id} transport={transport} summary={demurrage} />
+
+      <WarehousePanel caseId={c.id} summary={warehouse} />
 
       <div className="cols">
         <div>

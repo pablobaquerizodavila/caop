@@ -208,6 +208,46 @@ export async function verifyExtraction(
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Almacenaje (bodega) ----------
+export async function addWarehouse(caseId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/warehouse`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function updateWarehouse(
+  caseId: string,
+  storageId: string,
+  data: unknown,
+): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/warehouse/${storageId}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteWarehouse(caseId: string, storageId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/warehouse/${storageId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- VUE — control previo ----------
 export async function createVuePermit(
   caseId: string,
