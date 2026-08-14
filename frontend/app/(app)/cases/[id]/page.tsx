@@ -7,6 +7,7 @@ import {
   type CaseExtractionDoc,
   type Declaration,
   type DemurrageSummary,
+  type Einvoice,
   type Settlement,
   docLabel,
   readiness,
@@ -24,6 +25,7 @@ import { Semaphore } from "@/app/components/ui";
 import { CaseDocumentsPanel } from "@/app/components/CaseDocumentsPanel";
 import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
+import { EinvoicePanel } from "@/app/components/EinvoicePanel";
 import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
 import { SettlementPanel } from "@/app/components/SettlementPanel";
@@ -58,6 +60,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const warehouseTariffs = await apiGet<WarehouseTariff[]>(`/warehouse/tariffs`);
   const settlement = await apiGet<Settlement>(`/cases/${params.id}/settlement`);
   const documents = await apiGet<CaseDocument[]>(`/documents?customs_case_id=${params.id}`);
+  const invoice = settlement
+    ? await apiGet<Einvoice>(`/settlements/${settlement.id}/invoice`)
+    : null;
 
   if (!c) {
     return (
@@ -177,6 +182,13 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           <DaiPanel caseId={c.id} readiness={r} dai={dai} />
 
           <SettlementPanel caseId={c.id} settlement={settlement} />
+
+          <EinvoicePanel
+            caseId={c.id}
+            settlementId={settlement?.id ?? null}
+            settlementIssued={settlement?.status === "ISSUED"}
+            invoice={invoice}
+          />
 
           <TrackingPanel caseId={c.id} link={tracking} />
 

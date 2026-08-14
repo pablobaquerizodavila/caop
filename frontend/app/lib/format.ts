@@ -534,6 +534,35 @@ export function humanSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// ---------- Facturación electrónica (SRI) ----------
+export interface Einvoice {
+  id: string;
+  settlement_id: string;
+  document_type: string;
+  ambiente: string;
+  estab: string;
+  pto_emi: string;
+  secuencial: string;
+  access_key: string;
+  issue_date: string;
+  status: string;
+  signed: boolean;
+  authorization_number: string | null;
+  authorized_at: string | null;
+  is_simulated: boolean;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  error: string | null;
+}
+
+export function einvoiceStatusClass(s: string): Sem | "" {
+  const map: Record<string, Sem> = {
+    AUTHORIZED: "ok", SIGNED: "warn", DRAFT: "warn", REJECTED: "crit",
+  };
+  return map[s] ?? "";
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
