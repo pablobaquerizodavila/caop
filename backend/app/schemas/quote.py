@@ -136,6 +136,9 @@ class _QuoteCommon(BaseModel):
     landed_cost_per_unit: Decimal
     confidence: Decimal | None
     valid_until: date | None
+    # Correlación con el expediente (si la cotización ya se convirtió).
+    case_id: uuid.UUID | None = None
+    case_number: str | None = None
     items: list[QuoteItemRead]
 
 

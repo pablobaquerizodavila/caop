@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.checklist import ChecklistItem, Requirement
+from app.models.quote import Quote
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
 from app.models.sla import SLAInstance
 from app.schemas.case import (
@@ -70,6 +71,19 @@ async def _load_case(session: AsyncSession, case_id: uuid.UUID) -> CustomsCase:
     return case
 
 
+async def _source_quote_map(session: AsyncSession, case_ids: list[uuid.UUID]) -> dict:
+    """case_id -> (quote_id, quote_number) de la cotización de origen."""
+    if not case_ids:
+        return {}
+    rows = await session.execute(
+        select(CustomsCase.id, Shipment.source_quote_id, Quote.quote_number)
+        .join(Shipment, CustomsCase.shipment_id == Shipment.id)
+        .join(Quote, Shipment.source_quote_id == Quote.id, isouter=True)
+        .where(CustomsCase.id.in_(case_ids))
+    )
+    return {cid: (qid, qnum) for cid, qid, qnum in rows.all()}
+
+
 async def _detail(session: AsyncSession, case: CustomsCase) -> CustomsCaseDetail:
     checklist = list(
         await session.scalars(
@@ -92,6 +106,9 @@ async def _detail(session: AsyncSession, case: CustomsCase) -> CustomsCaseDetail
     detail.checklist = [ChecklistItemRead.model_validate(i) for i in checklist]
     detail.events = [CaseEventRead.model_validate(e) for e in events]
     detail.sla = slas  # type: ignore[assignment]
+    mapping = await _source_quote_map(session, [case.id])
+    if case.id in mapping:
+        detail.source_quote_id, detail.source_quote_number = mapping[case.id]
     return detail
 
 
@@ -104,7 +121,15 @@ async def list_cases(
     stmt = select(CustomsCase).order_by(CustomsCase.created_at.desc())
     if state:
         stmt = stmt.where(CustomsCase.current_state == state)
-    return list(await session.scalars(stmt.limit(limit)))
+    cases = list(await session.scalars(stmt.limit(limit)))
+    mapping = await _source_quote_map(session, [c.id for c in cases])
+    out = []
+    for c in cases:
+        r = CustomsCaseRead.model_validate(c)
+        if c.id in mapping:
+            r.source_quote_id, r.source_quote_number = mapping[c.id]
+        out.append(r)
+    return out
 
 
 @router.get("/cases/{case_id}", response_model=CustomsCaseDetail)

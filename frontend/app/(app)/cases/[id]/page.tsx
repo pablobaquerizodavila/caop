@@ -59,6 +59,14 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
               <Semaphore sem={semaphore(c)} /> {stateLabel(c.current_state)}
             </span>
             <span className="mono">Régimen {c.customs_regime}</span>
+            {c.source_quote_number ? (
+              <span>
+                Cotización:{" "}
+                <Link href="/quotes" className="mono" style={{ color: "var(--accent)" }}>
+                  {c.source_quote_number}
+                </Link>
+              </span>
+            ) : null}
             {c.next_expected_event ? (
               <span>
                 Próximo: <span className="mono">{c.next_expected_event}</span>

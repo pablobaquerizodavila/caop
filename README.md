@@ -214,4 +214,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] **Bugfix real**: cotización con `cost_lines` vacío daba 500 (lazy-load de relación no cargada); también en Postgres
 - [x] Tests: 66 passed
 
+## Estado de S18 — Correlación visual cotización ↔ expediente
+
+- [x] La cotización muestra su nº de **expediente** (`case_number`, enlazado) en el listado y en el detalle
+- [x] El expediente muestra su **cotización de origen** (`source_quote_number`) en el detalle y en el listado
+- [x] Panel del cliente: ambas tablas correlacionan (expediente↔cotización)
+- [x] Backend: enriquecimiento por join en `/quotes`, `/cases`, `/customers/{id}/history`
+- [x] Tests: 66 passed
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

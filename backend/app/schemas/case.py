@@ -84,6 +84,9 @@ class CustomsCaseRead(BaseModel):
     risk_level: str
     customs_readiness_score: Decimal
     blocker: str | None
+    # Correlación con la cotización de origen.
+    source_quote_id: uuid.UUID | None = None
+    source_quote_number: str | None = None
 
 
 class CustomsCaseDetail(CustomsCaseRead):

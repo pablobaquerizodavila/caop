@@ -83,8 +83,9 @@ async def customer_history(
     customer = await _get_customer_or_404(session, customer_id)
 
     rows = await session.execute(
-        select(CustomsCase, Shipment)
+        select(CustomsCase, Shipment, Quote.quote_number)
         .join(Shipment, CustomsCase.shipment_id == Shipment.id)
+        .join(Quote, Shipment.source_quote_id == Quote.id, isouter=True)
         .where(Shipment.customer_id == customer_id)
         .order_by(CustomsCase.created_at.desc())
     )
@@ -97,10 +98,19 @@ async def customer_history(
             "risk_level": case.risk_level,
             "transport_mode": shipment.transport_mode,
             "origin_country": shipment.origin_country,
+            "source_quote_number": qnum,
             "created_at": case.created_at.isoformat() if case.created_at else None,
         }
-        for case, shipment in rows.all()
+        for case, shipment, qnum in rows.all()
     ]
+
+    # Mapa cotización -> nº de expediente (para la correlación inversa).
+    qrows = await session.execute(
+        select(Shipment.source_quote_id, CustomsCase.case_number)
+        .join(CustomsCase, CustomsCase.shipment_id == Shipment.id)
+        .where(Shipment.customer_id == customer_id)
+    )
+    quote_to_case = {qid: cnum for qid, cnum in qrows.all()}
 
     quotes = list(
         await session.scalars(
@@ -115,6 +125,7 @@ async def customer_history(
             "status": q.status,
             "currency": q.currency,
             "landed_cost_total": float(q.landed_cost_total or 0),
+            "case_number": quote_to_case.get(q.id),
             "created_at": q.created_at.isoformat() if q.created_at else None,
         }
         for q in quotes

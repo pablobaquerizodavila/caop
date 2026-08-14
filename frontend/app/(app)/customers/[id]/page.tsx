@@ -60,7 +60,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Expediente</th><th>Estado</th><th>Modalidad</th><th>Origen</th>
+                  <th>Expediente</th><th>Cotización</th><th>Estado</th><th>Modalidad</th><th>Origen</th>
                   <th>Readiness</th><th>Creado</th>
                 </tr>
               </thead>
@@ -68,6 +68,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 {h.cases.map((x) => (
                   <tr key={x.id} className="row">
                     <td><Link href={`/cases/${x.id}`} className="code">{x.case_number}</Link></td>
+                    <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{x.source_quote_number ?? "—"}</td>
                     <td><span className={`pill ${STATE_CLASS[x.current_state] ?? ""}`}>{stateLabel(x.current_state)}</span></td>
                     <td className="mono">{x.transport_mode ?? "—"}</td>
                     <td className="mono">{x.origin_country ?? "—"}</td>
@@ -94,12 +95,13 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           <div style={{ overflowX: "auto" }}>
             <table className="tbl">
               <thead>
-                <tr><th>Cotización</th><th>Estado</th><th className="num">Landed cost</th><th>Creada</th></tr>
+                <tr><th>Cotización</th><th>Expediente</th><th>Estado</th><th className="num">Landed cost</th><th>Creada</th></tr>
               </thead>
               <tbody>
                 {h.quotes.map((q) => (
                   <tr key={q.id}>
                     <td className="code">{q.quote_number}<span style={{ color: "var(--muted-2)" }}> v{q.version}</span></td>
+                    <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{q.case_number ?? "—"}</td>
                     <td><span className="pill">{q.status}</span></td>
                     <td className="num">{money(q.landed_cost_total, q.currency)}</td>
                     <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>

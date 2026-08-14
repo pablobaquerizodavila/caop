@@ -11,6 +11,8 @@ export interface CaseSummary {
   risk_level: string;
   customs_readiness_score: string | number;
   blocker: string | null;
+  source_quote_id?: string | null;
+  source_quote_number?: string | null;
 }
 
 export interface ChecklistItem {
@@ -67,6 +69,8 @@ export interface QuoteSummary {
   confidence: string | number | null;
   valid_until: string | null;
   calculation_date: string;
+  case_id?: string | null;
+  case_number?: string | null;
 }
 
 export interface Declaration {
@@ -99,6 +103,7 @@ export interface CustomerHistory {
     customs_readiness_score: number;
     transport_mode: string | null;
     origin_country: string | null;
+    source_quote_number: string | null;
     created_at: string | null;
   }[];
   quotes: {
@@ -108,6 +113,7 @@ export interface CustomerHistory {
     status: string;
     currency: string;
     landed_cost_total: number;
+    case_number: string | null;
     created_at: string | null;
   }[];
 }
