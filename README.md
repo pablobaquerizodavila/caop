@@ -155,4 +155,13 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Robustez de fechas UTC (naive/aware) en el motor SLA
 - [x] Tests: 52 passed
 
-Siguiente sugerido: login Keycloak en el frontend; integración real SENAE/ECUAPASS (pendiente doc del usuario).
+## Estado de S11 — Autenticación Keycloak (frontend + backend)
+
+- [x] **Backend protegido**: todos los endpoints de negocio requieren token Keycloak (health abierto)
+- [x] Validación JWT: firma RS256 + issuer + expiración; JWKS por red interna, issuer público; audiencia flexible (azp/aud)
+- [x] **Frontend con login OIDC** (Authorization Code + PKCE), cookies httpOnly, SSR reenvía el bearer, 401 → /login
+- [x] Middleware protege todas las páginas; `/login`, callback y logout; usuario + "Salir" en la barra
+- [x] Keycloak con hostname fijo (issuer estable) + backchannel dinámico (token exchange interno)
+- [x] Route group `(app)` (login sin el shell); tests backend con bypass de auth: 52 passed; build frontend OK
+
+Siguiente sugerido: integración real SENAE/ECUAPASS (pendiente doc del usuario); WhatsApp real (credenciales Meta).

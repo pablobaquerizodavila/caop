@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { apiGet, type CaseDetail, docLabel, readiness, semaphore, stateLabel } from "../../lib/api";
-import { Semaphore } from "../../components/ui";
+import { apiGet, type CaseDetail, docLabel, readiness, semaphore, stateLabel } from "@/app/lib/api";
+import { Semaphore } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 

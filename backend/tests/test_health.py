@@ -20,10 +20,11 @@ async def test_ready_ok(client):
 
 
 @pytest.mark.asyncio
-async def test_me_requires_auth(client):
-    # Sin token → 401 (HTTPBearer rechaza la petición sin credenciales).
+async def test_me_returns_principal(client):
+    # En tests la auth está bypasseada (override); /me devuelve el principal de prueba.
     resp = await client.get("/api/v1/me")
-    assert resp.status_code == 401
+    assert resp.status_code == 200
+    assert resp.json()["username"] == "tester"
 
 
 @pytest.mark.asyncio

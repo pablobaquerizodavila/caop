@@ -27,8 +27,17 @@ class Settings(BaseSettings):
     backend_cors_origins: str = "http://localhost:3000"
 
     # Keycloak / OIDC
+    # issuer: el que aparece en el token (URL pública, vista por el navegador).
     keycloak_issuer: str = "http://localhost:8080/realms/caop"
+    # jwks: URL desde donde el backend descarga las llaves (red interna del contenedor).
+    keycloak_jwks_url: str = "http://keycloak:8080/realms/caop/protocol/openid-connect/certs"
     keycloak_audience: str = "caop-backend"
+    # Audiencias/azp aceptadas (el token del frontend no lleva aud=caop-backend por defecto).
+    keycloak_allowed_audiences: str = "caop-backend,caop-frontend,account"
+
+    @property
+    def allowed_audiences_list(self) -> list[str]:
+        return [a.strip() for a in self.keycloak_allowed_audiences.split(",") if a.strip()]
 
     # Email (mailpit en dev, mailcow en prod)
     smtp_host: str = "mailpit"
