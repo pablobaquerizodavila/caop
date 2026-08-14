@@ -7,8 +7,6 @@ Idempotente: no crea el expediente dos veces para la misma cotización.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,11 +14,9 @@ from app.models.checklist import ChecklistItem
 from app.models.customer import Contact, Customer
 from app.models.quote import Quote
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
-from app.models.sla import SLAInstance
 from app.services.checklist import CaseContext, generate_checklist, recompute_readiness
 from app.services.notifications import dispatch
-
-DOCS_SLA_HOURS = 24
+from app.services.sla_engine import create_case_sla
 
 
 class ConversionError(ValueError):
@@ -74,14 +70,7 @@ async def convert_quote_to_case(session: AsyncSession, quote: Quote) -> CustomsC
     await generate_checklist(session, case, ctx)
     await session.flush()
 
-    session.add(
-        SLAInstance(
-            entity_type="CUSTOMS_CASE",
-            entity_id=case.id,
-            milestone="DOCUMENTS_COMPLETE",
-            deadline=datetime.now(timezone.utc) + timedelta(hours=DOCS_SLA_HOURS),
-        )
-    )
+    await create_case_sla(session, case.id, "DOCUMENTS_COMPLETE")
     for etype, payload in [
         ("CASE_CREATED", {"quote": quote.quote_number}),
         ("CHECKLIST_GENERATED", None),

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.checklist import ChecklistItem, Requirement
 from app.models.shipment import CustomsCase
+from app.services.sla_engine import mark_met
 
 
 @dataclass
@@ -69,6 +70,7 @@ async def recompute_readiness(session: AsyncSession, case: CustomsCase) -> Decim
         case.current_state = "READY_FOR_CUSTOMS"
         case.next_expected_event = "CLASSIFICATION_APPROVAL_OR_DAI_DRAFT"
         case.blocker = None
+        await mark_met(session, case.id, "DOCUMENTS_COMPLETE")
     else:
         case.current_state = "AWAITING_DOCUMENTS"
         case.next_expected_event = "DOCUMENT_RECEIVED"
