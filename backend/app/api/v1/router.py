@@ -10,6 +10,7 @@ from app.api.v1 import (
     cases,
     customers,
     dai,
+    einvoice,
     documents,
     notifications,
     ocean,
@@ -60,6 +61,7 @@ api_router.include_router(tracking.admin_router, dependencies=protected)
 api_router.include_router(vue.router, dependencies=protected)
 api_router.include_router(warehouse.router, dependencies=protected)
 api_router.include_router(settlements.router, dependencies=protected)
+api_router.include_router(einvoice.router, dependencies=protected)
 api_router.include_router(alerts.router, dependencies=protected)
 api_router.include_router(audit.router, dependencies=protected)
 

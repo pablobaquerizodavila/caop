@@ -19,6 +19,18 @@ class Settings(BaseSettings):
     ocr_enabled: bool = True
     ocr_languages: str = "spa+eng"
 
+    # SRI — facturación electrónica (datos del emisor). PLACEHOLDERS: reemplazar por
+    # los datos reales de la empresa. ambiente: 1=pruebas, 2=producción.
+    sri_ambiente: str = "1"
+    sri_ruc: str = "9999999999001"
+    sri_razon_social: str = "CAOP AGENCIA DE ADUANAS S.A."
+    sri_nombre_comercial: str = "CAOP"
+    sri_dir_matriz: str = "S/N"
+    sri_dir_establecimiento: str = "S/N"
+    sri_obligado_contabilidad: str = "SI"
+    sri_estab: str = "001"
+    sri_pto_emi: str = "001"
+
     # Alertas proactivas: digest de excepciones por email.
     # Destinatarios separados por coma; intervalo en minutos (0 = desactivado, 1440 = diario).
     alerts_recipients: str = ""

@@ -434,6 +434,48 @@ export async function updateNotificationTemplate(id: string, data: unknown): Pro
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Facturación electrónica (SRI) ----------
+export async function createInvoice(caseId: string, settlementId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlements/${settlementId}/invoice`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try {
+      error = (await res.json()).detail ?? error;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function authorizeInvoice(
+  caseId: string, invoiceId: string, scenario: string,
+): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/invoices/${invoiceId}/authorize`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario }),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function getInvoiceXml(invoiceId: string): Promise<string | null> {
+  const res = await fetch(`${API}/api/v1/invoices/${invoiceId}/xml`, {
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
 // ---------- Documentos ----------
 export async function documentVersionUrl(
   documentId: string,
