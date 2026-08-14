@@ -121,6 +121,35 @@ async def test_extract_preview_does_not_persist(client):
     assert (await client.get("/api/v1/documents")).json() == []
 
 
+BL = (
+    b"MAERSK LINE\n"
+    b"BILL OF LADING No: MAEU123456789\n"
+    b"Ocean Vessel: EVER GIVEN   Voyage: 12E\n"
+    b"Port of Loading: CNSHA\n"
+    b"Port of Discharge: ECGYE\n"
+    b"Carrier: MAERSK\n"
+    b"ETD: 05/03/2026   ETA: 25/03/2026\n"
+)
+
+
+@pytest.mark.asyncio
+async def test_extract_transport_preview(client):
+    r = await client.post(
+        "/api/v1/documents/extract-transport-preview",
+        files={"file": ("bl.txt", BL, "text/plain")},
+    )
+    assert r.status_code == 200
+    fields = {f["field_name"]: f for f in r.json()["fields"]}
+    assert fields["bl_number"]["value"] == "MAEU123456789"
+    assert fields["vessel"]["value"].startswith("EVER GIVEN")
+    assert fields["pol"]["value"] == "CNSHA"
+    assert fields["pod"]["value"] == "ECGYE"
+    assert fields["etd"]["value"] == "2026-03-05"  # normalizado dd/mm/aaaa -> ISO
+    assert fields["eta"]["value"] == "2026-03-25"
+    # No persiste documentos.
+    assert (await client.get("/api/v1/documents")).json() == []
+
+
 @pytest.mark.asyncio
 async def test_image_upload_degrades_without_ocr(client):
     """Sin binario/librerías de OCR, subir una imagen no rompe: degrada a baja confianza."""

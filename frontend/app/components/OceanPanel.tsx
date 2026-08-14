@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { addContainer, updateContainer, updateTransport } from "@/app/lib/actions";
+import {
+  addContainer,
+  extractTransportPreview,
+  type PreviewField,
+  updateContainer,
+  updateTransport,
+} from "@/app/lib/actions";
 import { alarmClass, type DemurrageSummary, money, type Transport } from "@/app/lib/format";
 
 const T_FIELDS: [keyof Transport, string][] = [
@@ -44,6 +50,53 @@ export function OceanPanel({
     return f;
   });
   const [nc, setNc] = useState({ container_number: "", iso_type: "40HC", arrival_date: "", free_days: "5", daily_rate: "0" });
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrMsg, setOcrMsg] = useState<string | null>(null);
+
+  async function importFromBL(file: File) {
+    setOcrBusy(true);
+    setOcrMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await extractTransportPreview(fd);
+      if (!r.ok || !r.fields) {
+        setOcrMsg("No se pudo leer el documento. Ingresa los datos manualmente.");
+        return;
+      }
+      const map: Record<string, PreviewField> = Object.fromEntries(
+        r.fields.map((f) => [f.field_name, f]),
+      );
+      const isAir = transport?.transport_mode === "AIR";
+      const set: Record<string, string> = {};
+      const applied: string[] = [];
+      const put = (key: string, val: string | null | undefined, label: string) => {
+        if (val) {
+          set[key] = val;
+          applied.push(label);
+        }
+      };
+      put("carrier", map.carrier?.value, "naviera/aerolínea");
+      put(isAir ? "mawb_number" : "mbl_number", map.bl_number?.value, isAir ? "MAWB" : "MBL");
+      put("vessel", map.vessel?.value, "buque");
+      put("voyage", map.voyage?.value, "viaje");
+      put("flight_number", map.flight_number?.value, "vuelo");
+      put("pol", map.pol?.value, "POL");
+      put("pod", map.pod?.value, "POD");
+      put("etd", map.etd?.value, "ETD");
+      put("eta", map.eta?.value, "ETA");
+
+      setForm((p) => ({ ...p, ...set }));
+      setEditing(true);
+      setOcrMsg(
+        applied.length
+          ? `Prellenado desde el documento: ${applied.join(", ")}. Revisa y guarda.`
+          : "No se reconocieron datos de transporte. Ingresa los datos manualmente.",
+      );
+    } finally {
+      setOcrBusy(false);
+    }
+  }
 
   async function saveTransport() {
     setBusy(true);
@@ -96,10 +149,32 @@ export function OceanPanel({
     <div className="card section-gap rise">
       <div className="head">
         <h2>Transporte y contenedores</h2>
-        <button className="btn ghost" onClick={() => setEditing((e) => !e)}>
-          {editing ? "Cerrar" : "Editar transporte"}
-        </button>
+        <div className="actions">
+          <label className="btn ghost" style={{ cursor: ocrBusy ? "default" : "pointer" }}>
+            {ocrBusy ? "Leyendo…" : "Importar BL/AWB (OCR)"}
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.txt,image/*,application/pdf"
+              disabled={ocrBusy}
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importFromBL(f);
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <button className="btn ghost" onClick={() => setEditing((e) => !e)}>
+            {editing ? "Cerrar" : "Editar transporte"}
+          </button>
+        </div>
       </div>
+
+      {ocrMsg ? (
+        <div className="form-row" style={{ paddingBottom: 0 }}>
+          <span className="tag" style={{ color: "var(--muted)" }}>{ocrMsg}</span>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="card-pad">

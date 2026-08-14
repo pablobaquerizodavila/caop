@@ -169,14 +169,15 @@ export interface PreviewField {
   confidence: number;
 }
 
-export async function extractPreview(
+async function _preview(
+  path: string,
   formData: FormData,
 ): Promise<{ ok: boolean; fields?: PreviewField[]; model?: string; error?: string }> {
   const file = formData.get("file");
   if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
   const fd = new FormData();
   fd.append("file", file, (file as File).name);
-  const res = await fetch(`${API}/api/v1/documents/extract-preview`, {
+  const res = await fetch(`${API}/api/v1${path}`, {
     method: "POST",
     headers: authHeader(), // sin Content-Type: fetch fija el boundary del multipart
     body: fd,
@@ -185,6 +186,14 @@ export async function extractPreview(
   if (!res.ok) return { ok: false, error: `Error ${res.status}` };
   const j = await res.json();
   return { ok: true, fields: j.fields as PreviewField[], model: j.model_version as string };
+}
+
+export function extractPreview(formData: FormData) {
+  return _preview("/documents/extract-preview", formData);
+}
+
+export function extractTransportPreview(formData: FormData) {
+  return _preview("/documents/extract-transport-preview", formData);
 }
 
 

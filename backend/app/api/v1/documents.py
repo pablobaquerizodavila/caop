@@ -21,7 +21,7 @@ from app.schemas.document import (
     PresignedUrl,
 )
 from app.services.doc_linking import autolink_document
-from app.services.extraction import Extractor, get_extractor
+from app.services.extraction import Extractor, extract_transport, get_extractor
 from app.services.storage import StorageService, get_storage, sha256_hex
 
 logger = logging.getLogger(__name__)
@@ -161,6 +161,24 @@ async def extract_preview(
     if not data:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Archivo vacío")
     result = await run_in_threadpool(extractor.extract, data, file.content_type, file.filename)
+    return ExtractionPreview(
+        model_version=result.model_version,
+        fields=[
+            ExtractedFieldPreview(field_name=f.field_name, value=f.value, confidence=f.confidence)
+            for f in result.fields
+        ],
+    )
+
+
+@router.post("/extract-transport-preview", response_model=ExtractionPreview)
+async def extract_transport_preview(
+    file: UploadFile = File(...),
+) -> ExtractionPreview:
+    """Extrae datos de transporte de un BL/AWB SIN persistirlo, para prellenar el embarque."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Archivo vacío")
+    result = await run_in_threadpool(extract_transport, data, file.content_type, file.filename)
     return ExtractionPreview(
         model_version=result.model_version,
         fields=[
