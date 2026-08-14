@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api import health
-from app.api.v1 import cases, customers, documents, notifications, quotes, suppliers, tax
+from app.api.v1 import cases, customers, documents, notifications, quotes, sla, suppliers, tax
 from app.core.security import Principal, get_current_principal
 
 api_router = APIRouter()
@@ -15,6 +15,7 @@ api_router.include_router(tax.router)
 api_router.include_router(quotes.router)
 api_router.include_router(cases.router)
 api_router.include_router(notifications.router)
+api_router.include_router(sla.router)
 
 
 @api_router.get("/me", tags=["identity"])

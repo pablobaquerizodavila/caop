@@ -136,4 +136,15 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Subida acepta `customs_case_id`; endpoint `POST /documents/{id}/attach` para documentos existentes
 - [x] Sin cambio de esquema (columnas ya existían); Tests: 43 passed
 
-Siguiente sugerido: SLA engine + Business Calendar + escalamiento; login Keycloak en el frontend.
+## Estado de S9 — SLA engine + Business Calendar + escalamiento
+
+- [x] `BusinessCalendar` (horario por día, feriados, zona horaria) + aritmética de tiempo hábil
+- [x] `SLAPolicy` por hito (minutos hábiles, calendario, severidad) — sembrable
+- [x] Vencimientos calculados en **horas laborables** (no calendario), saltando fines de semana y feriados
+- [x] Estado y **escalamiento** por umbrales: 70% AT_RISK · 85% CRITICAL · 100%/120% BREACHED (niveles 1–4)
+- [x] `POST /sla/evaluate` (idempotente, llamable por cron) recalcula estado/escalamiento
+- [x] SLA del expediente creado en la conversión con vencimiento hábil; se marca **MET** al llegar readiness 100
+- [x] API: `/sla` (list), `/sla/seed-defaults`, `/sla/evaluate` · migración `0007` · dep `tzdata`
+- [x] Tests: 51 passed
+
+Siguiente sugerido: login Keycloak en el frontend; integración real SENAE/ECUAPASS (pendiente doc del usuario); o mostrar riesgo SLA en la Torre de Control.
