@@ -71,6 +71,25 @@ async def test_suggestions_when_rules_added_later(client):
 
 
 @pytest.mark.asyncio
+async def test_rule_crud(client):
+    created = await client.post(
+        "/api/v1/vue/rules",
+        json={"hs_prefix": "2203", "entity": "ARCSA", "document_code": "REGISTRO_SANITARIO",
+              "description": "Cerveza"},
+    )
+    assert created.status_code == 201
+    rid = created.json()["id"]
+
+    upd = await client.patch(f"/api/v1/vue/rules/{rid}", json={"blocking": False, "status": "INACTIVE"})
+    assert upd.status_code == 200
+    assert upd.json()["blocking"] is False and upd.json()["status"] == "INACTIVE"
+
+    dele = await client.delete(f"/api/v1/vue/rules/{rid}")
+    assert dele.status_code == 204
+    assert all(r["id"] != rid for r in (await client.get("/api/v1/vue/rules")).json())
+
+
+@pytest.mark.asyncio
 async def test_no_suggestion_for_unmatched_hs(client):
     await _seed(client, with_rules=True)
     case_id = await _case_with_hs(client, "9999.99.99.99")  # sin regla

@@ -297,6 +297,17 @@ export interface VueSuggestion {
   blocking: boolean;
 }
 
+export interface VueRule {
+  id: string;
+  hs_prefix: string;
+  entity: string;
+  document_code: string;
+  description: string | null;
+  blocking: boolean;
+  note: string | null;
+  status: string;
+}
+
 export const VUE_STATUS_LABELS: Record<string, string> = {
   REQUIRED: "Requerido",
   REQUESTED: "En trámite",
