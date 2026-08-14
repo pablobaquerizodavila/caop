@@ -12,6 +12,7 @@ from app.api.v1 import (
     notifications,
     ocean,
     quotes,
+    settlements,
     sla,
     suppliers,
     tax,
@@ -45,6 +46,7 @@ api_router.include_router(ocean.router, dependencies=protected)
 api_router.include_router(tracking.admin_router, dependencies=protected)
 api_router.include_router(vue.router, dependencies=protected)
 api_router.include_router(warehouse.router, dependencies=protected)
+api_router.include_router(settlements.router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])
