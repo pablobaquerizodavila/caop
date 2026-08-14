@@ -409,6 +409,31 @@ export async function applyVueSuggestions(
   return { ok: true, count: Array.isArray(j) ? j.length : 0 };
 }
 
+// ---------- Centro de notificaciones ----------
+export async function resendNotification(
+  id: string,
+): Promise<{ ok: boolean; status?: string; error?: string }> {
+  const res = await fetch(`${API}/api/v1/notifications/${id}/resend`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/notifications");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  return { ok: true, status: (await res.json()).status };
+}
+
+export async function updateNotificationTemplate(id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/notifications/templates/${id}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/notifications");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Documentos ----------
 export async function documentVersionUrl(
   documentId: string,

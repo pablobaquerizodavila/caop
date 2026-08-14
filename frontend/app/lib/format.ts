@@ -495,6 +495,39 @@ export interface AuditEvent {
   new_value: Record<string, unknown> | null;
 }
 
+export interface NotificationItem {
+  id: string;
+  channel: string;
+  template_code: string | null;
+  template_version: number | null;
+  to_address: string;
+  subject: string | null;
+  body: string | null;
+  status: string;
+  error: string | null;
+  customer_id: string | null;
+  customs_case_id: string | null;
+  created_at: string;
+}
+
+export interface NotificationTemplate {
+  id: string;
+  code: string;
+  version: number;
+  channel: string;
+  subject_template: string | null;
+  body_template: string;
+  active: boolean;
+}
+
+export function notifStatusClass(s: string): Sem | "" {
+  const map: Record<string, Sem> = {
+    SENT: "ok", DELIVERED: "ok", READ: "ok",
+    QUEUED: "warn", SIMULATED: "warn", FAILED: "crit",
+  };
+  return map[s] ?? "";
+}
+
 export function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
