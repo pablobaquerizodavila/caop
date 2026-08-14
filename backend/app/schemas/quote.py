@@ -59,6 +59,16 @@ class StatusUpdate(BaseModel):
     meta: dict | None = None
 
 
+class LinkCustomer(BaseModel):
+    customer_id: uuid.UUID
+
+
+class LinkResult(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    customer_id: uuid.UUID | None
+
+
 # ---------- Salida ----------
 class QuoteItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -28,11 +28,23 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependencia FastAPI: entrega una sesión y hace commit/rollback."""
-    async with get_sessionmaker()() as session:
+    """Dependencia FastAPI: entrega una sesión y hace commit/rollback.
+
+    El rollback/close se hace defensivo: si el driver falla al cerrar (p. ej. el
+    quirk de aiosqlite en tests), se preserva la excepción de negocio original.
+    """
+    session = get_sessionmaker()()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
         try:
-            yield session
-            await session.commit()
-        except Exception:
             await session.rollback()
-            raise
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        try:
+            await session.close()
+        except Exception:  # noqa: BLE001
+            pass

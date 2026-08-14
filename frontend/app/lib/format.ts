@@ -89,6 +89,29 @@ export interface CustomerSummary {
   email: string | null;
 }
 
+export interface CustomerHistory {
+  customer: { id: string; ruc: string; legal_name: string; trade_name: string | null; email: string | null; status: string };
+  stats: { total_cases: number; ready_for_customs: number; total_quotes: number };
+  cases: {
+    id: string;
+    case_number: string;
+    current_state: string;
+    customs_readiness_score: number;
+    transport_mode: string | null;
+    origin_country: string | null;
+    created_at: string | null;
+  }[];
+  quotes: {
+    id: string;
+    quote_number: string;
+    version: number;
+    status: string;
+    currency: string;
+    landed_cost_total: number;
+    created_at: string | null;
+  }[];
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
