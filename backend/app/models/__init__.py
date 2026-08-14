@@ -15,7 +15,7 @@ from app.models.sla_config import BusinessCalendar, SLAPolicy
 from app.models.supplier import Supplier
 from app.models.tax import TaxRule
 from app.models.user import User
-from app.models.vue import VuePermit
+from app.models.vue import VuePermit, VueRule
 from app.models.warehouse import WarehouseStorage
 
 __all__ = [
@@ -48,6 +48,7 @@ __all__ = [
     "TaxRule",
     "User",
     "VuePermit",
+    "VueRule",
     "WarehouseStorage",
     "user_roles",
 ]

@@ -53,3 +53,33 @@ class VueCatalogEntry(BaseModel):
     entity: str
     document_code: str
     description: str
+
+
+class VueRuleCreate(BaseModel):
+    hs_prefix: str
+    entity: str
+    document_code: str
+    description: str | None = None
+    blocking: bool = True
+    note: str | None = None
+
+
+class VueRuleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    hs_prefix: str
+    entity: str
+    document_code: str
+    description: str | None
+    blocking: bool
+    note: str | None
+    status: str
+
+
+class VueSuggestion(BaseModel):
+    """Permiso sugerido por regla HS que aún no está agregado al expediente."""
+    hs_prefix: str
+    entity: str
+    document_code: str
+    description: str | None
+    blocking: bool

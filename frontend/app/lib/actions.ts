@@ -306,6 +306,20 @@ export async function deleteVuePermit(
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+export async function applyVueSuggestions(
+  caseId: string,
+): Promise<{ ok: boolean; count?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/vue-permits/apply-suggestions`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, count: Array.isArray(j) ? j.length : 0 };
+}
+
 // ---------- Track & Trace ----------
 export async function rotateTracking(
   caseId: string,

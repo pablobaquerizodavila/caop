@@ -14,6 +14,7 @@ from app.models.checklist import ChecklistItem
 from app.models.customer import Contact, Customer
 from app.models.quote import Quote
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
+from app.services import vue_service
 from app.services.checklist import CaseContext, generate_checklist, recompute_readiness
 from app.services.notifications import dispatch
 from app.services.sla_engine import create_case_sla
@@ -86,6 +87,10 @@ async def convert_quote_to_case(session: AsyncSession, quote: Quote) -> CustomsC
         )
 
     await recompute_readiness(session, case)
+    await session.flush()
+
+    # AUTOMATION: autosugerir control previo (VUE) según las subpartidas de la cotización.
+    await vue_service.apply_suggestions(session, case.id)
     await session.flush()
 
     await _notify_documents_required(session, quote, case)

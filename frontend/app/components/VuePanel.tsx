@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  applyVueSuggestions,
   createVuePermit,
   deleteVuePermit,
   exemptVuePermit,
@@ -12,6 +13,7 @@ import {
 import {
   type VueCatalogEntry,
   type VuePermit,
+  type VueSuggestion,
   vueStatusClass,
   vueStatusLabel,
 } from "@/app/lib/format";
@@ -105,16 +107,29 @@ export function VuePanel({
   caseId,
   permits,
   catalog,
+  suggestions = [],
 }: {
   caseId: string;
   permits: VuePermit[];
   catalog: VueCatalogEntry[];
+  suggestions?: VueSuggestion[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState("");
 
   const pendingBlocking = permits.filter((p) => p.blocking && !p.satisfied).length;
+
+  async function applySuggestions() {
+    setBusy(true);
+    try {
+      const r = await applyVueSuggestions(caseId);
+      if (!r.ok) alert(r.error ?? "No se pudieron agregar los sugeridos");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function add() {
     if (sel === "") return;
@@ -148,6 +163,18 @@ export function VuePanel({
           <span className="count">0</span>
         )}
       </div>
+
+      {suggestions.length > 0 ? (
+        <div className="blocker-banner" style={{ margin: "12px 18px 0", alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            💡 <b>{suggestions.length}</b> control(es) previo(s) sugerido(s) por subpartida:{" "}
+            {suggestions.map((s) => `${s.entity}/${s.document_code}`).join(", ")}
+          </div>
+          <button className="btn" disabled={busy} onClick={applySuggestions}>
+            Agregar sugeridos
+          </button>
+        </div>
+      ) : null}
 
       <div className="form-row">
         <select value={sel} onChange={(e) => setSel(e.target.value)} style={{ flex: 1, minWidth: 200 }}>
