@@ -8,6 +8,7 @@ import {
   type CaseSummary,
   money,
   readiness,
+  type Receivables,
   SLA_RISKY,
   type SlaRisk,
   slaChipClass,
@@ -22,6 +23,8 @@ export default async function ControlTower() {
   const slas = (await apiGet<SlaRisk[]>("/sla?limit=500")) ?? [];
   const demurrage = (await apiGet<AtRiskContainer[]>("/ocean/demurrage-at-risk")) ?? [];
   const storage = (await apiGet<AtRiskStorage[]>("/warehouse/at-risk")) ?? [];
+  const receivables = await apiGet<Receivables>("/analytics/receivables");
+  const overdue = (receivables?.items ?? []).filter((r) => r.days_overdue > 0);
 
   if (cases === null) {
     return (
@@ -120,6 +123,40 @@ export default async function ControlTower() {
                     <td><Link href={`/cases/${x.case_id}`} className="code">{x.case_number}</Link></td>
                     <td className="num">{x.days_to_last_free_day ?? "—"}</td>
                     <td className="num">{money(x.estimated_storage)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {overdue.length > 0 ? (
+        <div className="card exception section-gap rise">
+          <div className="head">
+            <h2>Cobranza vencida</h2>
+            <span className="count">{overdue.length}</span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Liquidación</th><th>Cliente</th><th className="num">Saldo</th>
+                  <th className="num">Días</th><th>Aging</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overdue.map((x) => (
+                  <tr key={x.settlement_id}>
+                    <td className="code">
+                      {x.customs_case_id ? (
+                        <Link href={`/cases/${x.customs_case_id}`}>{x.settlement_number}</Link>
+                      ) : x.settlement_number}
+                    </td>
+                    <td>{x.customer}</td>
+                    <td className="num">{money(x.balance, x.currency)}</td>
+                    <td className="num">{x.days_overdue}</td>
+                    <td><span className={`pill ${x.bucket === "60+" ? "crit" : "warn"}`}>{x.bucket}</span></td>
                   </tr>
                 ))}
               </tbody>
