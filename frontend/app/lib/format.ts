@@ -464,6 +464,43 @@ export function settleCatLabel(s: string): string {
   return SETTLE_CAT_LABELS[s] ?? s;
 }
 
+// ---------- Documentos / auditoría ----------
+export interface DocVersion {
+  id: string;
+  version: number;
+  filename: string;
+  size: number;
+  sha256: string;
+  content_type: string | null;
+  created_at: string;
+}
+
+export interface CaseDocument {
+  id: string;
+  doc_type: string;
+  source: string;
+  versions: DocVersion[];
+}
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  role: string | null;
+  service: string | null;
+  correlation_id: string | null;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+}
+
+export function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {

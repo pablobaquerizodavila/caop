@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   apiGet,
   type CaseDetail,
+  type CaseDocument,
   type CaseExtractionDoc,
   type Declaration,
   type DemurrageSummary,
@@ -20,6 +21,7 @@ import {
   type WarehouseTariff,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
+import { CaseDocumentsPanel } from "@/app/components/CaseDocumentsPanel";
 import { CaseUpload } from "@/app/components/CaseUpload";
 import { DaiPanel } from "@/app/components/DaiPanel";
 import { ExtractionPanel } from "@/app/components/ExtractionPanel";
@@ -55,6 +57,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
   const warehouseTariffs = await apiGet<WarehouseTariff[]>(`/warehouse/tariffs`);
   const settlement = await apiGet<Settlement>(`/cases/${params.id}/settlement`);
+  const documents = await apiGet<CaseDocument[]>(`/documents?customs_case_id=${params.id}`);
 
   if (!c) {
     return (
@@ -159,6 +162,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         </div>
 
           <ExtractionPanel caseId={c.id} docs={extractions ?? []} />
+
+          <CaseDocumentsPanel documents={documents ?? []} />
         </div>
 
         <div>
