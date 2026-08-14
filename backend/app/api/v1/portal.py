@@ -3,11 +3,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import Principal, get_current_principal
 from app.db.session import get_session
 from app.models.customer import Customer
+from app.schemas.einvoice import EinvoiceRead
 from app.schemas.portal import (
     PortalCaseDetail,
     PortalCaseSummary,
@@ -16,7 +18,8 @@ from app.schemas.portal import (
     PortalQuote,
 )
 from app.schemas.settlement import SettlementRead
-from app.services import portal, settlement_service, tracking
+from app.services import portal, settlement_service, sri_service, tracking
+from app.services.einvoice_pdf import build_ride
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 
@@ -76,7 +79,52 @@ async def my_case(
         if stl and stl.status == "ISSUED"
         else None
     )
-    return PortalCaseDetail(track=track, settlement=settlement)
+    invoice = None
+    if stl:
+        inv = await sri_service.get_for_settlement(session, stl.id)
+        if inv and inv.status == "AUTHORIZED":  # el cliente sólo ve la factura autorizada
+            invoice = EinvoiceRead.model_validate(inv, from_attributes=True)
+    return PortalCaseDetail(track=track, settlement=settlement, invoice=invoice)
+
+
+async def _owned_authorized_invoice(session, customer_id, case_id):
+    case = await portal.owned_case(session, customer_id, case_id)
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Expediente no encontrado")
+    stl = await settlement_service.get_for_case(session, case.id)
+    inv = await sri_service.get_for_settlement(session, stl.id) if stl else None
+    if inv is None or inv.status != "AUTHORIZED":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Factura no disponible")
+    return inv, stl
+
+
+@router.get("/cases/{case_id}/invoice/xml")
+async def my_invoice_xml(
+    case_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: Principal = Depends(get_current_principal),
+) -> Response:
+    customer = await _customer(session, principal)
+    inv, _ = await _owned_authorized_invoice(session, customer.id, case_id)
+    return Response(
+        content=inv.xml or "", media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{inv.access_key}.xml"'},
+    )
+
+
+@router.get("/cases/{case_id}/invoice/ride")
+async def my_invoice_ride(
+    case_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: Principal = Depends(get_current_principal),
+) -> Response:
+    customer = await _customer(session, principal)
+    inv, stl = await _owned_authorized_invoice(session, customer.id, case_id)
+    pdf = build_ride(inv, stl, customer.legal_name, customer.ruc)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="RIDE-{inv.access_key}.pdf"'},
+    )
 
 
 @router.get("/quotes", response_model=list[PortalQuote])

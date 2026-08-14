@@ -476,6 +476,29 @@ export async function getInvoiceXml(invoiceId: string): Promise<string | null> {
   return await res.text();
 }
 
+async function _fetchBase64(path: string): Promise<string | null> {
+  const res = await fetch(`${API}/api/v1${path}`, { headers: authHeader(), cache: "no-store" });
+  if (!res.ok) return null;
+  return Buffer.from(await res.arrayBuffer()).toString("base64");
+}
+
+export async function getInvoiceRide(invoiceId: string): Promise<string | null> {
+  return _fetchBase64(`/invoices/${invoiceId}/ride`);
+}
+
+export async function getPortalInvoiceRide(caseId: string): Promise<string | null> {
+  return _fetchBase64(`/portal/cases/${caseId}/invoice/ride`);
+}
+
+export async function getPortalInvoiceXml(caseId: string): Promise<string | null> {
+  const res = await fetch(`${API}/api/v1/portal/cases/${caseId}/invoice/xml`, {
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
 // ---------- Documentos ----------
 export async function documentVersionUrl(
   documentId: string,

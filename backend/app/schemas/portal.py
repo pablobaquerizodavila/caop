@@ -8,6 +8,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.schemas.einvoice import EinvoiceRead
 from app.schemas.settlement import SettlementRead
 from app.schemas.tracking import TrackView
 
@@ -52,3 +53,4 @@ class PortalQuote(BaseModel):
 class PortalCaseDetail(BaseModel):
     track: TrackView
     settlement: SettlementRead | None = None
+    invoice: EinvoiceRead | None = None

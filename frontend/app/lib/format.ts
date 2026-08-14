@@ -253,6 +253,7 @@ export interface PortalQuote {
 export interface PortalCaseDetail {
   track: TrackView;
   settlement: Settlement | null;
+  invoice: Einvoice | null;
 }
 
 // ---------- Extracción / OCR de documentos ----------

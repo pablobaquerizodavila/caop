@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { authorizeInvoice, createInvoice, getInvoiceXml } from "@/app/lib/actions";
+import { authorizeInvoice, createInvoice, getInvoiceRide, getInvoiceXml } from "@/app/lib/actions";
 import { type Einvoice, einvoiceStatusClass, money } from "@/app/lib/format";
 import { useCaps } from "@/app/lib/useCaps";
 
@@ -34,22 +34,37 @@ export function EinvoicePanel({
     }
   }
 
+  function saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function downloadXml() {
     if (!invoice) return;
     setBusy(true);
     try {
       const xml = await getInvoiceXml(invoice.id);
-      if (!xml) {
-        alert("No se pudo obtener el XML");
-        return;
-      }
-      const blob = new Blob([xml], { type: "application/xml" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${invoice.access_key}.xml`;
-      a.click();
-      URL.revokeObjectURL(url);
+      if (!xml) return alert("No se pudo obtener el XML");
+      saveBlob(new Blob([xml], { type: "application/xml" }), `${invoice.access_key}.xml`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadRide() {
+    if (!invoice) return;
+    setBusy(true);
+    try {
+      const b64 = await getInvoiceRide(invoice.id);
+      if (!b64) return alert("No se pudo generar el RIDE");
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      saveBlob(new Blob([arr], { type: "application/pdf" }), `RIDE-${invoice.access_key}.pdf`);
     } finally {
       setBusy(false);
     }
@@ -105,6 +120,11 @@ export function EinvoicePanel({
                     Firmar y autorizar
                   </button>
                 </>
+              ) : null}
+              {invoice.status === "AUTHORIZED" ? (
+                <button className="btn ghost" disabled={busy} onClick={downloadRide}>
+                  Descargar RIDE (PDF)
+                </button>
               ) : null}
               <button className="btn ghost" disabled={busy} onClick={downloadXml}>
                 Descargar XML
