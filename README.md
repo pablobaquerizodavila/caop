@@ -178,4 +178,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Helpers de presentación separados a `lib/format.ts` (seguro en Client Components)
 - [x] Build OK
 
+## Estado de S14 — Alta de cliente y cotización desde la UI
+
+- [x] Nueva cotización desde la interfaz: cliente, cabecera, ítems dinámicos, rubros de costo → calcula tributos/landed cost
+- [x] Alta de cliente (RUC validado, email, contacto) desde la UI
+- [x] Nav "Clientes"; botones "+ Nueva cotización" / "+ Nuevo cliente"; Server Actions con reenvío de token
+- [x] Ciclo comercial 100% en la interfaz: crear cliente → crear cotización → enviar → aceptar → expediente
+- [x] Build OK
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

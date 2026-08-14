@@ -69,6 +69,14 @@ export interface QuoteSummary {
   calculation_date: string;
 }
 
+export interface CustomerSummary {
+  id: string;
+  ruc: string;
+  legal_name: string;
+  status: string;
+  email: string | null;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
