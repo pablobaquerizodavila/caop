@@ -80,6 +80,18 @@ async def test_create_and_authorize_invoice(client):
 
 
 @pytest.mark.asyncio
+async def test_ride_pdf(client):
+    sid = await _settlement(client)
+    await client.post(f"/api/v1/settlements/{sid}/issue")
+    inv = (await client.post(f"/api/v1/settlements/{sid}/invoice")).json()
+    await client.post(f"/api/v1/invoices/{inv['id']}/authorize", json={"scenario": "AUTHORIZE"})
+    ride = await client.get(f"/api/v1/invoices/{inv['id']}/ride")
+    assert ride.status_code == 200
+    assert ride.headers["content-type"] == "application/pdf"
+    assert ride.content[:4] == b"%PDF"
+
+
+@pytest.mark.asyncio
 async def test_authorize_reject_scenario(client):
     sid = await _settlement(client)
     await client.post(f"/api/v1/settlements/{sid}/issue")
