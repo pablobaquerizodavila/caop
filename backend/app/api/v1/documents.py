@@ -16,6 +16,8 @@ from app.schemas.document import (
     DocumentExtractionRead,
     DocumentExtractionUpdate,
     DocumentRead,
+    ExtractedFieldPreview,
+    ExtractionPreview,
     PresignedUrl,
 )
 from app.services.doc_linking import autolink_document
@@ -143,6 +145,29 @@ async def upload_document(
 
     await session.refresh(document)
     return document
+
+
+@router.post("/extract-preview", response_model=ExtractionPreview)
+async def extract_preview(
+    file: UploadFile = File(...),
+    extractor: Extractor = Depends(get_extractor),
+) -> ExtractionPreview:
+    """Extrae datos de un archivo SIN persistirlo, para prellenar formularios.
+
+    Úsalo al crear una cotización: sube la proforma y prellena incoterm, moneda y
+    montos para revisión humana. No guarda el archivo ni la extracción.
+    """
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Archivo vacío")
+    result = await run_in_threadpool(extractor.extract, data, file.content_type, file.filename)
+    return ExtractionPreview(
+        model_version=result.model_version,
+        fields=[
+            ExtractedFieldPreview(field_name=f.field_name, value=f.value, confidence=f.confidence)
+            for f in result.fields
+        ],
+    )
 
 
 @router.post("/{document_id}/attach", response_model=dict)

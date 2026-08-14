@@ -163,6 +163,31 @@ export const daiAdvance = (caseId: string, aforo_channel?: string, observation =
 export const daiResolveObservation = (caseId: string) => daiPost(caseId, "resolve-observation");
 
 // ---------- Extracción / OCR ----------
+export interface PreviewField {
+  field_name: string;
+  value: string | null;
+  confidence: number;
+}
+
+export async function extractPreview(
+  formData: FormData,
+): Promise<{ ok: boolean; fields?: PreviewField[]; model?: string; error?: string }> {
+  const file = formData.get("file");
+  if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
+  const fd = new FormData();
+  fd.append("file", file, (file as File).name);
+  const res = await fetch(`${API}/api/v1/documents/extract-preview`, {
+    method: "POST",
+    headers: authHeader(), // sin Content-Type: fetch fija el boundary del multipart
+    body: fd,
+    cache: "no-store",
+  });
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, fields: j.fields as PreviewField[], model: j.model_version as string };
+}
+
+
 export async function verifyExtraction(
   caseId: string,
   documentId: string,
