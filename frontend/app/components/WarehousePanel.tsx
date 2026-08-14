@@ -9,6 +9,7 @@ import {
   money,
   RATE_TYPE_LABELS,
   type WarehouseSummary,
+  type WarehouseTariff,
 } from "@/app/lib/format";
 
 const RATE_TYPES = ["PER_DAY", "PER_KG_DAY", "FLAT"];
@@ -16,12 +17,15 @@ const RATE_TYPES = ["PER_DAY", "PER_KG_DAY", "FLAT"];
 export function WarehousePanel({
   caseId,
   summary,
+  tariffs = [],
 }: {
   caseId: string;
   summary: WarehouseSummary | null;
+  tariffs?: WarehouseTariff[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [tariffSel, setTariffSel] = useState("");
   const [ns, setNs] = useState({
     warehouse_name: "",
     reference: "",
@@ -31,6 +35,19 @@ export function WarehousePanel({
     daily_rate: "0",
     chargeable_weight_kg: "",
   });
+
+  function applyTariff(idx: string) {
+    setTariffSel(idx);
+    const t = tariffs[Number(idx)];
+    if (!t) return;
+    setNs((p) => ({
+      ...p,
+      warehouse_name: t.warehouse_name,
+      free_days: String(t.free_days),
+      rate_type: t.rate_type,
+      daily_rate: String(t.daily_rate),
+    }));
+  }
 
   const items = summary?.items ?? [];
 
@@ -135,6 +152,23 @@ export function WarehousePanel({
       ) : (
         <div className="empty">Sin registros de almacenaje.</div>
       )}
+
+      {tariffs.length > 0 ? (
+        <div className="form-row" style={{ borderTop: "1px solid var(--border-soft)", paddingBottom: 0 }}>
+          <label className="muted" style={{ fontSize: 12 }}>
+            Aplicar tarifario{" "}
+            <select value={tariffSel} onChange={(e) => applyTariff(e.target.value)}>
+              <option value="">— elegir depósito —</option>
+              {tariffs.map((t, i) => (
+                <option key={t.id} value={i}>
+                  {t.warehouse_name}
+                  {t.transport_mode ? ` (${t.transport_mode})` : ""} · {t.free_days}d · {RATE_TYPE_LABELS[t.rate_type]} {t.daily_rate}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       <div className="form-row" style={{ borderTop: "1px solid var(--border-soft)", flexWrap: "wrap" }}>
         <input type="text" placeholder="Referencia (HAWB/lote)" value={ns.reference} onChange={(e) => setNs((p) => ({ ...p, reference: e.target.value }))} style={{ width: 150 }} />

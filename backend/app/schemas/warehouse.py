@@ -58,6 +58,41 @@ class WarehouseSummary(BaseModel):
     max_alarm: str
 
 
+class WarehouseTariffCreate(BaseModel):
+    warehouse_name: str
+    transport_mode: str | None = None
+    free_days: int = 0
+    rate_type: str = "PER_DAY"
+    daily_rate: float = 0
+    currency: str = "USD"
+    note: str | None = None
+    active: bool = True
+
+
+class WarehouseTariffUpdate(BaseModel):
+    warehouse_name: str | None = None
+    transport_mode: str | None = None
+    free_days: int | None = None
+    rate_type: str | None = None
+    daily_rate: float | None = None
+    currency: str | None = None
+    note: str | None = None
+    active: bool | None = None
+
+
+class WarehouseTariffRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    warehouse_name: str
+    transport_mode: str | None
+    free_days: int
+    rate_type: str
+    daily_rate: float
+    currency: str
+    note: str | None
+    active: bool
+
+
 class AtRiskStorage(BaseModel):
     case_id: uuid.UUID
     case_number: str

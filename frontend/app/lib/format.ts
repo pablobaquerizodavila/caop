@@ -375,6 +375,18 @@ export const RATE_TYPE_LABELS: Record<string, string> = {
   FLAT: "Monto fijo",
 };
 
+export interface WarehouseTariff {
+  id: string;
+  warehouse_name: string;
+  transport_mode: string | null;
+  free_days: number;
+  rate_type: string;
+  daily_rate: number;
+  currency: string;
+  note: string | null;
+  active: boolean;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {

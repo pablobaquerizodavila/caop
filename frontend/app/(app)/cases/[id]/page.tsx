@@ -16,6 +16,7 @@ import {
   type VuePermit,
   type VueSuggestion,
   type WarehouseSummary,
+  type WarehouseTariff,
 } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
 import { CaseUpload } from "@/app/components/CaseUpload";
@@ -50,6 +51,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const vueCatalog = await apiGet<VueCatalogEntry[]>(`/vue/catalog`);
   const vueSuggestions = await apiGet<VueSuggestion[]>(`/cases/${params.id}/vue-suggestions`);
   const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
+  const warehouseTariffs = await apiGet<WarehouseTariff[]>(`/warehouse/tariffs`);
 
   if (!c) {
     return (
@@ -118,7 +120,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
 
       <OceanPanel caseId={c.id} transport={transport} summary={demurrage} />
 
-      <WarehousePanel caseId={c.id} summary={warehouse} />
+      <WarehousePanel caseId={c.id} summary={warehouse} tariffs={warehouseTariffs ?? []} />
 
       <div className="cols">
         <div>
