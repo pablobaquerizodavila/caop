@@ -2,15 +2,27 @@
 
 import pytest
 
-RUC = "1712345675001"
+
+def _ruc(base9: str) -> str:
+    """Construye un RUC de persona natural válido (cédula + '001')."""
+    coef = [2, 1, 2, 1, 2, 1, 2, 1, 2]
+    s = 0
+    for c, d in zip(coef, (int(x) for x in base9)):
+        p = c * d
+        s += p - 9 if p > 9 else p
+    check = (10 - s % 10) % 10
+    return f"{base9}{check}001"
 
 
-async def _ready_case(client):
+RUC = _ruc("171234567")
+
+
+async def _ready_case(client, ruc: str = RUC):
     """Crea un expediente y lo deja con readiness 100% (para probar el gating de VUE)."""
     await client.post("/api/v1/tax/rules/seed-ecuador-defaults")
     await client.post("/api/v1/requirements/seed-defaults")
     cid = (await client.post(
-        "/api/v1/customers", json={"ruc": RUC, "legal_name": "Demo"}
+        "/api/v1/customers", json={"ruc": ruc, "legal_name": "Demo"}
     )).json()["id"]
     q = {"customer_id": cid, "transport_mode": "AIR", "origin_country": "CN",
          "calculation_date": "2026-01-01",
@@ -77,8 +89,8 @@ async def test_dai_prepare_blocked_until_vue_ok(client):
     ok = await client.post(f"/api/v1/cases/{case_id}/dai/prepare")
     assert ok.status_code == 201
 
-    # Nota: para probar el gating, usamos un caso nuevo con permiso pendiente.
-    case2 = await _ready_case(client)
+    # Nota: para probar el gating, usamos un caso nuevo (otro cliente) con permiso pendiente.
+    case2 = await _ready_case(client, ruc=_ruc("171234568"))
     p = (await client.post(
         f"/api/v1/cases/{case2}/vue-permits",
         json={"entity": "AGROCALIDAD", "document_code": "AZSV"},
