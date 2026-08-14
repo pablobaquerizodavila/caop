@@ -208,6 +208,64 @@ export async function verifyExtraction(
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- VUE — control previo ----------
+export async function createVuePermit(
+  caseId: string,
+  data: unknown,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/vue-permits`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function requestVuePermit(
+  caseId: string,
+  permitId: string,
+  scenario: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/vue-permits/${permitId}/request`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario }),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function exemptVuePermit(
+  caseId: string,
+  permitId: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/vue-permits/${permitId}/exempt`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteVuePermit(
+  caseId: string,
+  permitId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/vue-permits/${permitId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Track & Trace ----------
 export async function rotateTracking(
   caseId: string,

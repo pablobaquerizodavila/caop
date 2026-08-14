@@ -15,6 +15,7 @@ from app.models.sla_config import BusinessCalendar, SLAPolicy
 from app.models.supplier import Supplier
 from app.models.tax import TaxRule
 from app.models.user import User
+from app.models.vue import VuePermit
 
 __all__ = [
     "AuditEvent",
@@ -45,5 +46,6 @@ __all__ = [
     "Supplier",
     "TaxRule",
     "User",
+    "VuePermit",
     "user_roles",
 ]

@@ -266,6 +266,54 @@ export function confidenceLabel(c: number | null): string {
   return `${Math.round(c * 100)}%`;
 }
 
+// ---------- VUE — control previo ----------
+export interface VuePermit {
+  id: string;
+  entity: string;
+  document_code: string;
+  description: string | null;
+  permit_number: string | null;
+  status: string;
+  blocking: boolean;
+  external_ref: string | null;
+  issued_at: string | null;
+  valid_until: string | null;
+  error_description: string | null;
+  notes: string | null;
+  satisfied: boolean;
+}
+
+export interface VueCatalogEntry {
+  entity: string;
+  document_code: string;
+  description: string;
+}
+
+export const VUE_STATUS_LABELS: Record<string, string> = {
+  REQUIRED: "Requerido",
+  REQUESTED: "En trámite",
+  APPROVED: "Aprobado",
+  REJECTED: "Rechazado",
+  EXEMPT: "Exento",
+  EXPIRED: "Vencido",
+};
+
+export function vueStatusLabel(s: string): string {
+  return VUE_STATUS_LABELS[s] ?? s;
+}
+
+export function vueStatusClass(s: string): Sem | "" {
+  const map: Record<string, Sem> = {
+    APPROVED: "ok",
+    EXEMPT: "ok",
+    REQUESTED: "warn",
+    REQUIRED: "warn",
+    REJECTED: "crit",
+    EXPIRED: "crit",
+  };
+  return map[s] ?? "";
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
