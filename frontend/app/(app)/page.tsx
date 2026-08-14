@@ -4,6 +4,7 @@ import {
   alarmClass,
   apiGet,
   type AtRiskContainer,
+  type AtRiskStorage,
   type CaseSummary,
   money,
   readiness,
@@ -19,6 +20,7 @@ export default async function ControlTower() {
   const cases = (await apiGet<CaseSummary[]>("/cases?limit=200")) ?? null;
   const slas = (await apiGet<SlaRisk[]>("/sla?limit=500")) ?? [];
   const demurrage = (await apiGet<AtRiskContainer[]>("/ocean/demurrage-at-risk")) ?? [];
+  const storage = (await apiGet<AtRiskStorage[]>("/warehouse/at-risk")) ?? [];
 
   if (cases === null) {
     return (
@@ -86,6 +88,37 @@ export default async function ControlTower() {
                     <td><Link href={`/cases/${x.case_id}`} className="code">{x.case_number}</Link></td>
                     <td className="num">{x.days_to_last_free_day ?? "—"}</td>
                     <td className="num">{money(x.estimated_demurrage)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {storage.length > 0 ? (
+        <div className="card exception section-gap rise">
+          <div className="head">
+            <h2>Almacenaje en riesgo</h2>
+            <span className="count">{storage.length}</span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Alarma</th><th>Referencia</th><th>Bodega</th><th>Expediente</th>
+                  <th className="num">Días a last free</th><th className="num">Almacenaje est.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storage.map((x, i) => (
+                  <tr key={i}>
+                    <td><span className={`pill ${alarmClass(x.alarm)}`}>{x.alarm}</span></td>
+                    <td className="code">{x.reference ?? "—"}</td>
+                    <td>{x.warehouse_name ?? "—"}</td>
+                    <td><Link href={`/cases/${x.case_id}`} className="code">{x.case_number}</Link></td>
+                    <td className="num">{x.days_to_last_free_day ?? "—"}</td>
+                    <td className="num">{money(x.estimated_storage)}</td>
                   </tr>
                 ))}
               </tbody>

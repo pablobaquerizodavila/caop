@@ -314,6 +314,48 @@ export function vueStatusClass(s: string): Sem | "" {
   return map[s] ?? "";
 }
 
+// ---------- Almacenaje (bodega / depósito temporal) ----------
+export interface WarehouseStorage {
+  id: string;
+  warehouse_name: string | null;
+  reference: string | null;
+  entry_date: string | null;
+  free_days: number | null;
+  rate_type: string;
+  daily_rate: number;
+  chargeable_weight_kg: number | null;
+  withdrawal_date: string | null;
+  status: string;
+  currency: string;
+  last_free_day: string | null;
+  days_to_last_free_day: number | null;
+  days_overdue: number;
+  estimated_storage: number;
+  alarm: string;
+}
+
+export interface WarehouseSummary {
+  items: WarehouseStorage[];
+  money_at_risk: number;
+  max_alarm: string;
+}
+
+export interface AtRiskStorage {
+  case_id: string;
+  case_number: string;
+  reference: string | null;
+  warehouse_name: string | null;
+  alarm: string;
+  days_to_last_free_day: number | null;
+  estimated_storage: number;
+}
+
+export const RATE_TYPE_LABELS: Record<string, string> = {
+  PER_DAY: "Por día",
+  PER_KG_DAY: "Por kg-día",
+  FLAT: "Monto fijo",
+};
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
