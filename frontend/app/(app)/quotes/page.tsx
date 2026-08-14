@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet, money, type QuoteSummary } from "@/app/lib/api";
 import { QuoteActions } from "@/app/components/QuoteActions";
+import { ExportCsvButton } from "@/app/components/ExportCsvButton";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,12 @@ export default async function QuotesPage() {
           <div className="eyebrow">Comercial</div>
           <h1>Cotizaciones</h1>
         </div>
-        <Link href="/quotes/new" className="btn">
-          + Nueva cotización
-        </Link>
+        <div className="actions">
+          <ExportCsvButton path="quotes.csv" filename="cotizaciones.csv" />
+          <Link href="/quotes/new" className="btn">
+            + Nueva cotización
+          </Link>
+        </div>
       </div>
 
       <div className="card rise">

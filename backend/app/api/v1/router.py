@@ -11,6 +11,7 @@ from app.api.v1 import (
     customers,
     dai,
     einvoice,
+    exports,
     documents,
     notifications,
     ocean,
@@ -56,6 +57,7 @@ api_router.include_router(dai.router, dependencies=protected)
 api_router.include_router(notifications.router, dependencies=protected)
 api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)
+api_router.include_router(exports.router, dependencies=protected)
 api_router.include_router(ocean.router, dependencies=protected)
 api_router.include_router(tracking.admin_router, dependencies=protected)
 api_router.include_router(vue.router, dependencies=protected)

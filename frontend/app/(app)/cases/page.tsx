@@ -1,5 +1,6 @@
 import { apiGet, type CaseSummary } from "@/app/lib/api";
 import { CaseRow } from "@/app/components/ui";
+import { ExportCsvButton } from "@/app/components/ExportCsvButton";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function CasesPage() {
           <div className="eyebrow">Importaciones</div>
           <h1>Expedientes</h1>
         </div>
+        <ExportCsvButton path="cases.csv" filename="expedientes.csv" />
       </div>
 
       <div className="card rise">
