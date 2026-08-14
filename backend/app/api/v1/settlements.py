@@ -1,9 +1,11 @@
 """Endpoints de liquidación al cliente (estado de cuenta por expediente)."""
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -119,11 +121,22 @@ async def delete_line(
     return await settlement_service.get_by_id(session, stl.id)
 
 
-def _payments_view(stl: Settlement) -> PaymentsView:
-    s = payments_service.summarize(stl)
+async def _payments_view(session: AsyncSession, settlement_id: uuid.UUID) -> PaymentsView:
+    stl = await _stl(session, settlement_id)
+    # Consulta directa de pagos (evita colecciones desactualizadas del identity map).
+    pays = list(
+        await session.scalars(
+            select(Payment).where(Payment.settlement_id == settlement_id).order_by(Payment.paid_at)
+        )
+    )
+    total = Decimal(stl.total or 0)
+    paid = sum((Decimal(p.amount or 0) for p in pays), Decimal(0))
+    balance = (total - paid).quantize(Decimal("0.01"))
+    status_ = "PENDING" if paid <= 0 else ("PAID" if balance <= 0 else "PARTIAL")
     return PaymentsView(
-        payments=[PaymentRead.model_validate(p, from_attributes=True) for p in stl.payments],
-        total=s["total"], paid=s["paid"], balance=s["balance"], status=s["status"],
+        payments=[PaymentRead.model_validate(p, from_attributes=True) for p in pays],
+        total=float(total), paid=float(paid.quantize(Decimal("0.01"))),
+        balance=float(balance), status=status_,
     )
 
 
@@ -131,7 +144,7 @@ def _payments_view(stl: Settlement) -> PaymentsView:
 async def list_payments(
     settlement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> PaymentsView:
-    return _payments_view(await _stl(session, settlement_id))
+    return await _payments_view(session, settlement_id)
 
 
 @router.post("/settlements/{settlement_id}/payments", response_model=PaymentsView, status_code=201)
@@ -141,7 +154,7 @@ async def add_payment(
 ) -> PaymentsView:
     stl = await _stl(session, settlement_id)
     await payments_service.add_payment(session, stl, **payload.model_dump())
-    return _payments_view(await settlement_service.get_by_id(session, stl.id))
+    return await _payments_view(session, settlement_id)
 
 
 @router.delete("/payments/{payment_id}", response_model=PaymentsView)
@@ -154,7 +167,7 @@ async def delete_payment(
     sid = payment.settlement_id
     await session.delete(payment)
     await session.flush()
-    return _payments_view(await settlement_service.get_by_id(session, sid))
+    return await _payments_view(session, sid)
 
 
 @router.post("/settlements/{settlement_id}/pdf")
