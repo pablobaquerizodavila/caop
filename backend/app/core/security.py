@@ -28,6 +28,9 @@ WRITER_ROLES = {
 ADMIN_ROLES = ("SUPER_ADMIN", "OPERATIONS_MANAGER")
 # Firma de la DAI (nunca autónoma): agente afianzado.
 SIGN_ROLES = ("CUSTOMS_AGENT", "SUPER_ADMIN")
+# Personal interno: puede acceder a la API operativa (lectura y, según rol, escritura).
+# El rol CUSTOMER queda FUERA: sólo accede al portal del cliente (/portal), con sus datos.
+STAFF_ROLES = WRITER_ROLES | {"AUDITOR"}
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -98,6 +101,16 @@ def require_roles(*required: str):
         return principal
 
     return _checker
+
+
+async def require_staff(principal: Principal = Depends(get_current_principal)) -> Principal:
+    """La API operativa es sólo para personal interno (no para el rol CUSTOMER)."""
+    if not (STAFF_ROLES & set(principal.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido al personal. Use el portal del cliente.",
+        )
+    return principal
 
 
 async def require_write(

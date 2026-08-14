@@ -42,7 +42,14 @@ export async function GET(req: NextRequest) {
   }
 
   const tok = await tokenRes.json();
-  const res = NextResponse.redirect(`${APP_URL}/`);
+  const roles = rolesFromToken(tok.access_token);
+  const staffRoles = [
+    "SUPER_ADMIN", "OPERATIONS_MANAGER", "CUSTOMS_AGENT", "CUSTOMS_ASSISTANT",
+    "OCEAN_OPERATOR", "AIR_OPERATOR", "DOCUMENT_SPECIALIST", "SALES", "FINANCE",
+    "API_SERVICE", "AUDITOR",
+  ];
+  const isCustomerOnly = roles.includes("CUSTOMER") && !roles.some((r) => staffRoles.includes(r));
+  const res = NextResponse.redirect(`${APP_URL}${isCustomerOnly ? "/portal" : "/"}`);
   const base = { httpOnly: true, sameSite: "lax" as const, path: "/" };
 
   res.cookies.set("access_token", tok.access_token, {

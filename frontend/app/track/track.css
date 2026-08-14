@@ -159,6 +159,43 @@
 }
 .trk-foot .when { font-family: var(--mono, monospace); }
 
+/* Portal del cliente (autenticado) */
+.trk-nav {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 22px;
+}
+.trk-nav .spacer { flex: 1; }
+.trk-nav a { font-size: 13.5px; font-weight: 500; color: var(--muted); }
+.trk-nav a:hover { color: var(--ink); }
+.trk-nav a.active { color: var(--accent); }
+.trk-nav .who { font-size: 12px; color: var(--muted-2); }
+.trk-nav .out { color: var(--accent); font-weight: 600; font-size: 13px; }
+
+.trk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+.trk-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.trk-stat .n { font-family: var(--mono, monospace); font-size: 28px; font-weight: 600; color: var(--accent); }
+.trk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-2); }
+
+.trk-table { width: 100%; border-collapse: collapse; }
+.trk-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-2); font-weight: 600; padding: 9px 6px; border-bottom: 1px solid var(--border); }
+.trk-table td { padding: 11px 6px; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; }
+.trk-table tr:last-child td { border-bottom: none; }
+.trk-table .num { text-align: right; font-family: var(--mono, monospace); font-variant-numeric: tabular-nums; }
+.trk-table a { color: var(--accent); font-weight: 600; font-family: var(--mono, monospace); }
+.trk-badge { display: inline-flex; align-items: center; gap: 7px; }
+.trk-badge .lamp { width: 9px; height: 9px; border-radius: 50%; }
+.trk-badge .lamp.ok { background: var(--ok); }
+.trk-badge .lamp.warn { background: var(--warn); }
+.trk-badge .lamp.risk { background: var(--risk); }
+.trk-badge .lamp.crit { background: var(--crit); }
+
+.trk-settle-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; }
+.trk-settle-row:last-child { border-bottom: none; }
+.trk-settle-total { display: flex; justify-content: space-between; padding: 12px 0 2px; font-weight: 700; color: var(--accent); font-size: 16px; }
+.trk-back { display: inline-block; margin-bottom: 14px; color: var(--accent); font-weight: 600; font-size: 13px; }
+
+@media (max-width: 480px) { .trk-stats { grid-template-columns: 1fr; } }
+
 .trk-404 { text-align: center; padding: 60px 20px; }
 .trk-404 .big { font-size: 48px; margin-bottom: 8px; }
 .trk-404 h1 { font-size: 20px; margin: 0 0 8px; }

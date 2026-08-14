@@ -220,6 +220,41 @@ export interface TrackingLink {
   enabled: boolean;
 }
 
+// ---------- Portal del cliente ----------
+export interface PortalProfile {
+  linked: boolean;
+  customer: { id: string; ruc: string; legal_name: string; trade_name: string | null; email: string | null } | null;
+  cases: number;
+  quotes: number;
+}
+
+export interface PortalCaseSummary {
+  id: string;
+  case_number: string;
+  status_label: string;
+  status_sem: Sem;
+  transport_mode: string | null;
+  origin_country: string | null;
+  created_at: string | null;
+}
+
+export interface PortalQuote {
+  id: string;
+  quote_number: string;
+  version: number;
+  status: string;
+  currency: string;
+  customer_price_total: number;
+  landed_cost_total: number;
+  valid_until: string | null;
+  created_at: string | null;
+}
+
+export interface PortalCaseDetail {
+  track: TrackView;
+  settlement: Settlement | null;
+}
+
 // ---------- Extracción / OCR de documentos ----------
 export interface Extraction {
   id: string;
