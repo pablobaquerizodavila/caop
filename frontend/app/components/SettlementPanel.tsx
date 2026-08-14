@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  addPayment,
   addSettlementLine,
+  deletePayment,
   deleteSettlementLine,
   generateSettlement,
   issueSettlement,
@@ -12,7 +14,15 @@ import {
   updateSettlement,
   updateSettlementLine,
 } from "@/app/lib/actions";
-import { money, type Settlement, type SettlementLine, settleCatLabel } from "@/app/lib/format";
+import {
+  money,
+  payStatusClass,
+  payStatusLabel,
+  type PaymentsView,
+  type Settlement,
+  type SettlementLine,
+  settleCatLabel,
+} from "@/app/lib/format";
 import { useCaps } from "@/app/lib/useCaps";
 
 const CATEGORIES = [
@@ -88,11 +98,22 @@ function LineRow({
   );
 }
 
-export function SettlementPanel({ caseId, settlement }: { caseId: string; settlement: Settlement | null }) {
+const PAY_METHODS = ["TRANSFER", "CASH", "CHECK", "CARD", "OTHER"];
+
+export function SettlementPanel({
+  caseId,
+  settlement,
+  payments,
+}: {
+  caseId: string;
+  settlement: Settlement | null;
+  payments?: PaymentsView | null;
+}) {
   const router = useRouter();
   const { canWrite } = useCaps();
   const [busy, setBusy] = useState(false);
   const [nl, setNl] = useState({ kind: "DISBURSEMENT", category: "OTRO", description: "", amount: "0", taxable: false });
+  const [np, setNp] = useState({ amount: "", paid_at: new Date().toISOString().slice(0, 10), method: "TRANSFER", reference: "" });
 
   async function generate() {
     setBusy(true);
@@ -157,8 +178,18 @@ export function SettlementPanel({ caseId, settlement }: { caseId: string; settle
     }
   }
 
+  async function addPay() {
+    if (!np.amount) return;
+    await act(() => addPayment(caseId, s.id, {
+      amount: Number(np.amount) || 0, paid_at: np.paid_at,
+      method: np.method, reference: np.reference || null,
+    }));
+    setNp({ ...np, amount: "", reference: "" });
+  }
+
   const fees = s.lines.filter((l) => l.kind === "FEE");
   const disb = s.lines.filter((l) => l.kind === "DISBURSEMENT");
+  const showCobranza = s.status === "ISSUED" && payments;
 
   return (
     <div className="card section-gap rise">
@@ -240,6 +271,68 @@ export function SettlementPanel({ caseId, settlement }: { caseId: string; settle
           ) : null}
         </div>
       </div>
+
+      {showCobranza ? (
+        <>
+          <div className="head" style={{ borderTop: "1px solid var(--border-soft)" }}>
+            <h2>Cobranza</h2>
+            <span className={`pill ${payStatusClass(payments!.status)}`}>
+              {payStatusLabel(payments!.status)}
+            </span>
+          </div>
+          <div className="card-pad">
+            <table className="tbl" style={{ maxWidth: 380, marginLeft: "auto" }}>
+              <tbody>
+                <tr><td>Total</td><td className="num">{money(payments!.total, cur)}</td></tr>
+                <tr><td>Pagado</td><td className="num">{money(payments!.paid, cur)}</td></tr>
+                <tr style={{ fontWeight: 600 }}>
+                  <td style={{ color: payments!.balance > 0 ? "var(--warn)" : "var(--ok)" }}>Saldo</td>
+                  <td className="num" style={{ color: payments!.balance > 0 ? "var(--warn)" : "var(--ok)" }}>
+                    {money(payments!.balance, cur)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {payments!.payments.length > 0 ? (
+            <table className="tbl">
+              <thead>
+                <tr><th>Fecha</th><th>Método</th><th>Ref.</th><th className="num">Monto</th><th></th></tr>
+              </thead>
+              <tbody>
+                {payments!.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="mono" style={{ fontSize: 12 }}>{p.paid_at}</td>
+                    <td>{p.method}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{p.reference ?? "—"}</td>
+                    <td className="num">{money(p.amount, cur)}</td>
+                    <td>
+                      {canWrite ? (
+                        <button className="btn ghost" disabled={busy}
+                          onClick={() => act(() => deletePayment(caseId, p.id))}>✕</button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+          {canWrite && payments!.balance > 0 ? (
+            <div className="form-row" style={{ borderTop: "1px solid var(--border-soft)", flexWrap: "wrap" }}>
+              <input type="text" placeholder="Monto" value={np.amount}
+                onChange={(e) => setNp((p) => ({ ...p, amount: e.target.value }))} style={{ width: 100 }} />
+              <input type="date" value={np.paid_at}
+                onChange={(e) => setNp((p) => ({ ...p, paid_at: e.target.value }))} />
+              <select value={np.method} onChange={(e) => setNp((p) => ({ ...p, method: e.target.value }))}>
+                {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <input type="text" placeholder="Referencia" value={np.reference}
+                onChange={(e) => setNp((p) => ({ ...p, reference: e.target.value }))} style={{ width: 130 }} />
+              <button className="btn" disabled={busy} onClick={addPay}>+ Pago</button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

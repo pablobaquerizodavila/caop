@@ -6,10 +6,10 @@ almacenaje, demurrage, gastos portuarios). NO es facturación electrónica del S
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,11 +36,16 @@ class Settlement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # vencimiento de cobro
     pdf_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     lines: Mapped[list["SettlementLine"]] = relationship(
         back_populates="settlement", cascade="all, delete-orphan",
         order_by="SettlementLine.sort_no", lazy="selectin",
+    )
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="settlement", cascade="all, delete-orphan",
+        order_by="Payment.paid_at", lazy="selectin",
     )
 
 
@@ -59,3 +64,21 @@ class SettlementLine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     sort_no: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     settlement: Mapped[Settlement] = relationship(back_populates="lines")
+
+
+class Payment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pago recibido contra una liquidación (cobranza)."""
+
+    __tablename__ = "payment"
+
+    settlement_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("settlement.id", ondelete="CASCADE"), nullable=False
+    )
+    amount: Mapped[Decimal] = mapped_column(MONEY, default=0)
+    paid_at: Mapped[date] = mapped_column(Date, nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, default="TRANSFER")
+    # TRANSFER / CASH / CHECK / CARD / OTHER
+    reference: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    settlement: Mapped[Settlement] = relationship(back_populates="payments")

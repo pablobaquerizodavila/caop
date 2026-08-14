@@ -8,15 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.customer import Customer
-from app.models.settlement import Settlement, SettlementLine
+from app.models.settlement import Payment, Settlement, SettlementLine
 from app.models.shipment import CustomsCase, Shipment
 from app.schemas.settlement import (
+    PaymentCreate,
+    PaymentRead,
+    PaymentsView,
     SettlementLineCreate,
     SettlementLineUpdate,
     SettlementRead,
     SettlementUpdate,
 )
-from app.services import settlement_service
+from app.services import payments_service, settlement_service
 from app.services.settlement_pdf import build_settlement_pdf
 from app.services.storage import StorageService, get_storage
 
@@ -114,6 +117,44 @@ async def delete_line(
     stl = await _stl(session, settlement_id)
     await settlement_service.recompute(session, stl)
     return await settlement_service.get_by_id(session, stl.id)
+
+
+def _payments_view(stl: Settlement) -> PaymentsView:
+    s = payments_service.summarize(stl)
+    return PaymentsView(
+        payments=[PaymentRead.model_validate(p, from_attributes=True) for p in stl.payments],
+        total=s["total"], paid=s["paid"], balance=s["balance"], status=s["status"],
+    )
+
+
+@router.get("/settlements/{settlement_id}/payments", response_model=PaymentsView)
+async def list_payments(
+    settlement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> PaymentsView:
+    return _payments_view(await _stl(session, settlement_id))
+
+
+@router.post("/settlements/{settlement_id}/payments", response_model=PaymentsView, status_code=201)
+async def add_payment(
+    settlement_id: uuid.UUID, payload: PaymentCreate,
+    session: AsyncSession = Depends(get_session),
+) -> PaymentsView:
+    stl = await _stl(session, settlement_id)
+    await payments_service.add_payment(session, stl, **payload.model_dump())
+    return _payments_view(await settlement_service.get_by_id(session, stl.id))
+
+
+@router.delete("/payments/{payment_id}", response_model=PaymentsView)
+async def delete_payment(
+    payment_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> PaymentsView:
+    payment = await session.get(Payment, payment_id)
+    if payment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pago no encontrado")
+    sid = payment.settlement_id
+    await session.delete(payment)
+    await session.flush()
+    return _payments_view(await settlement_service.get_by_id(session, sid))
 
 
 @router.post("/settlements/{settlement_id}/pdf")

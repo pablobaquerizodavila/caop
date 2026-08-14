@@ -564,6 +564,52 @@ export function einvoiceStatusClass(s: string): Sem | "" {
   return map[s] ?? "";
 }
 
+// ---------- Cobranza ----------
+export interface Payment {
+  id: string;
+  amount: number;
+  paid_at: string;
+  method: string;
+  reference: string | null;
+  notes: string | null;
+}
+
+export interface PaymentsView {
+  payments: Payment[];
+  total: number;
+  paid: number;
+  balance: number;
+  status: string; // PENDING / PARTIAL / PAID
+}
+
+export interface Receivable {
+  settlement_id: string;
+  settlement_number: string;
+  customs_case_id: string | null;
+  customer: string;
+  currency: string;
+  total: number;
+  paid: number;
+  balance: number;
+  due_date: string | null;
+  days_overdue: number;
+  bucket: string;
+}
+
+export interface Receivables {
+  items: Receivable[];
+  aging: Record<string, number>;
+  total_balance: number;
+}
+
+export function payStatusClass(s: string): Sem | "" {
+  return { PAID: "ok", PARTIAL: "warn", PENDING: "risk" }[s] as Sem ?? "";
+}
+
+export function payStatusLabel(s: string): string {
+  return { PAID: "Pagada", PARTIAL: "Parcial", PENDING: "Pendiente" }[s] ?? s;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {

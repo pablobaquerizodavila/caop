@@ -593,6 +593,29 @@ export async function issueSettlement(caseId: string, id: string): Promise<Resul
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+export async function addPayment(caseId: string, settlementId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/settlements/${settlementId}/payments`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/reports");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deletePayment(caseId: string, paymentId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/payments/${paymentId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/reports");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 export async function settlementPdf(id: string): Promise<string | null> {
   await fetch(`${API}/api/v1/settlements/${id}/pdf`, {
     method: "POST",
