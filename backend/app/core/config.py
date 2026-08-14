@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # Scheduler interno: cada cuántos minutos evaluar SLA (0 = desactivado)
     sla_evaluate_interval_minutes: int = 10
 
+    # OCR (Tesseract). Si el binario/librerías no están, degrada sin fallar.
+    ocr_enabled: bool = True
+    ocr_languages: str = "spa+eng"
+
     # Base de datos
     database_url: str = Field(
         default="postgresql+asyncpg://caop:caop_dev_password@postgres:5432/caop"

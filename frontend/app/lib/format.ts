@@ -220,6 +220,52 @@ export interface TrackingLink {
   enabled: boolean;
 }
 
+// ---------- Extracción / OCR de documentos ----------
+export interface Extraction {
+  id: string;
+  field_name: string;
+  extracted_value: string | null;
+  verified_value: string | null;
+  confidence_score: number | null;
+  source_page: number | null;
+  model_version: string | null;
+}
+
+export interface CaseExtractionDoc {
+  document_id: string;
+  version: number;
+  doc_type: string;
+  filename: string;
+  model_version: string | null;
+  fields: Extraction[];
+}
+
+export const FIELD_LABELS: Record<string, string> = {
+  invoice_number: "N.º de factura",
+  supplier_name: "Proveedor",
+  incoterm: "Incoterm",
+  currency: "Moneda",
+  total_amount: "Monto total",
+  date: "Fecha",
+  line_item_count: "N.º de ítems",
+};
+
+export function fieldLabel(s: string): string {
+  return FIELD_LABELS[s] ?? s;
+}
+
+export function confidenceClass(c: number | null): Sem | "" {
+  if (c === null || c <= 0) return "";
+  if (c >= 0.8) return "ok";
+  if (c >= 0.5) return "warn";
+  return "risk";
+}
+
+export function confidenceLabel(c: number | null): string {
+  if (c === null || c <= 0) return "sin dato";
+  return `${Math.round(c * 100)}%`;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {

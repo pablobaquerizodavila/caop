@@ -162,6 +162,27 @@ export const daiAdvance = (caseId: string, aforo_channel?: string, observation =
   daiPost(caseId, "advance", { aforo_channel: aforo_channel || null, observation });
 export const daiResolveObservation = (caseId: string) => daiPost(caseId, "resolve-observation");
 
+// ---------- Extracción / OCR ----------
+export async function verifyExtraction(
+  caseId: string,
+  documentId: string,
+  version: number,
+  extractionId: string,
+  verifiedValue: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(
+    `${API}/api/v1/documents/${documentId}/versions/${version}/extractions/${extractionId}`,
+    {
+      method: "PATCH",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ verified_value: verifiedValue }),
+      cache: "no-store",
+    },
+  );
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Track & Trace ----------
 export async function rotateTracking(
   caseId: string,
