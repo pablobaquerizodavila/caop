@@ -1,4 +1,4 @@
-import { apiGet, money, type QuoteSummary } from "../lib/api";
+import { apiGet, money, type QuoteSummary } from "@/app/lib/api";
 
 export const dynamic = "force-dynamic";
 

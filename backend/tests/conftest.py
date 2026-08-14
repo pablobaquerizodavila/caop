@@ -5,6 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.audit.listener import register_audit_listeners
+from app.core.security import Principal, get_current_principal
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
@@ -74,6 +75,10 @@ async def client(db_sessionmaker, storage) -> AsyncClient:
 
     app.dependency_overrides[get_session] = _override_get_session
     app.dependency_overrides[get_storage] = lambda: storage
+    # Bypass de autenticación en tests (la auth real se verifica contra Keycloak).
+    app.dependency_overrides[get_current_principal] = lambda: Principal(
+        subject="test-user", username="tester", roles=["SUPER_ADMIN"]
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

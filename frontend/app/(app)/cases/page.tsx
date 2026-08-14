@@ -1,5 +1,5 @@
-import { apiGet, type CaseSummary } from "../lib/api";
-import { CaseRow } from "../components/ui";
+import { apiGet, type CaseSummary } from "@/app/lib/api";
+import { CaseRow } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 

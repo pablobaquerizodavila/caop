@@ -1,4 +1,11 @@
-"""Validación de tokens JWT emitidos por Keycloak (OIDC)."""
+"""Validación de tokens JWT emitidos por Keycloak (OIDC).
+
+Verifica firma (RS256), issuer y expiración contra el JWKS de Keycloak. La
+audiencia se valida de forma flexible (azp/aud dentro de una lista permitida),
+porque los tokens emitidos al cliente del frontend no llevan aud=caop-backend.
+El JWKS se descarga por la red interna (keycloak:8080); el issuer se compara
+contra la URL pública que aparece en el token.
+"""
 
 from functools import lru_cache
 
@@ -23,19 +30,26 @@ class Principal(BaseModel):
 
 @lru_cache
 def _jwks_client() -> jwt.PyJWKClient:
-    return jwt.PyJWKClient(f"{settings.keycloak_issuer}/protocol/openid-connect/certs")
+    return jwt.PyJWKClient(settings.keycloak_jwks_url)
 
 
 def _decode(token: str) -> dict:
     signing_key = _jwks_client().get_signing_key_from_jwt(token)
-    return jwt.decode(
+    claims = jwt.decode(
         token,
         signing_key.key,
         algorithms=["RS256"],
-        audience=settings.keycloak_audience,
         issuer=settings.keycloak_issuer,
-        options={"require": ["exp", "iss", "sub"]},
+        options={"require": ["exp", "iss", "sub"], "verify_aud": False},
     )
+    # Validación flexible de audiencia/azp.
+    allowed = set(settings.allowed_audiences_list)
+    aud = claims.get("aud", [])
+    aud_set = {aud} if isinstance(aud, str) else set(aud or [])
+    azp = claims.get("azp")
+    if allowed and not (aud_set & allowed) and azp not in allowed:
+        raise jwt.InvalidAudienceError("Audiencia no permitida")
+    return claims
 
 
 async def get_current_principal(

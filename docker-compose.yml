@@ -51,6 +51,9 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_password}
       KC_HEALTH_ENABLED: "true"
+      # Issuer/URL pública fija; backchannel dinámico permite requests internos (keycloak:8080).
+      KC_HOSTNAME: http://192.168.0.7:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     ports:
       - "8080:8080"
     volumes:

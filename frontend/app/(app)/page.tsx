@@ -7,8 +7,8 @@ import {
   SLA_RISKY,
   type SlaRisk,
   slaChipClass,
-} from "./lib/api";
-import { CaseRow } from "./components/ui";
+} from "@/app/lib/api";
+import { CaseRow } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,12 @@ export default async function ControlTower() {
       <div className="kpis">
         <Kpi label="Expedientes activos" value={String(cases.length)} cls="accent" delay={0} />
         <Kpi label="Esperando documentos" value={String(awaiting.length)} cls="warn" delay={60} />
-        <Kpi label="SLA en riesgo" value={String(riskySla.length)} cls={riskySla.length ? "warn" : "ok"} delay={120} />
+        <Kpi
+          label="SLA en riesgo"
+          value={String(riskySla.length)}
+          cls={riskySla.length ? "warn" : "ok"}
+          delay={120}
+        />
         <Kpi label="Readiness promedio" value={`${avg}`} unit="%" delay={180} />
       </div>
 
@@ -78,14 +83,18 @@ export default async function ControlTower() {
                     <td>
                       <span className={`pill ${slaChipClass(s.status)}`}>{s.status}</span>
                     </td>
-                    <td className="mono" style={{ fontSize: 12.5 }}>{s.milestone}</td>
+                    <td className="mono" style={{ fontSize: 12.5 }}>
+                      {s.milestone}
+                    </td>
                     <td>
                       {caseNumber.get(s.entity_id) ? (
                         <Link href={`/cases/${s.entity_id}`} className="code">
                           {caseNumber.get(s.entity_id)}
                         </Link>
                       ) : (
-                        <span className="mono" style={{ color: "var(--muted-2)" }}>—</span>
+                        <span className="mono" style={{ color: "var(--muted-2)" }}>
+                          —
+                        </span>
                       )}
                     </td>
                     <td className="mono">{s.escalation_level}</td>

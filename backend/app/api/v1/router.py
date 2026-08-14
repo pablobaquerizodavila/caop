@@ -7,15 +7,20 @@ from app.api.v1 import cases, customers, documents, notifications, quotes, sla, 
 from app.core.security import Principal, get_current_principal
 
 api_router = APIRouter()
+
+# Salud: abierto (sin auth).
 api_router.include_router(health.router)
-api_router.include_router(customers.router)
-api_router.include_router(suppliers.router)
-api_router.include_router(documents.router)
-api_router.include_router(tax.router)
-api_router.include_router(quotes.router)
-api_router.include_router(cases.router)
-api_router.include_router(notifications.router)
-api_router.include_router(sla.router)
+
+# Resto de la API: protegido con token Keycloak.
+protected = [Depends(get_current_principal)]
+api_router.include_router(customers.router, dependencies=protected)
+api_router.include_router(suppliers.router, dependencies=protected)
+api_router.include_router(documents.router, dependencies=protected)
+api_router.include_router(tax.router, dependencies=protected)
+api_router.include_router(quotes.router, dependencies=protected)
+api_router.include_router(cases.router, dependencies=protected)
+api_router.include_router(notifications.router, dependencies=protected)
+api_router.include_router(sla.router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])
