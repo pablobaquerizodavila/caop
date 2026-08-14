@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { apiGet, money, type Receivables, stateLabel } from "@/app/lib/api";
+import { ExportCsvButton } from "@/app/components/ExportCsvButton";
 
 export const dynamic = "force-dynamic";
 
@@ -198,7 +199,10 @@ export default async function ReportsPage() {
           <div className="card rise">
             <div className="head">
               <h2>Cuentas por cobrar</h2>
-              <span className="count">{rec.items.length}</span>
+              <div className="actions">
+                <ExportCsvButton path="receivables.csv" filename="cuentas_por_cobrar.csv" />
+                <span className="count">{rec.items.length}</span>
+              </div>
             </div>
             {rec.items.length === 0 ? (
               <div className="empty">Sin saldos pendientes. 🟢</div>

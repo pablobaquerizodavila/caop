@@ -537,6 +537,16 @@ export async function getPortalInvoiceXml(caseId: string): Promise<string | null
   return await res.text();
 }
 
+// ---------- Exportaciones CSV ----------
+export async function exportCsv(path: string): Promise<string | null> {
+  const res = await fetch(`${API}/api/v1/exports/${path}`, {
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
 // ---------- Documentos ----------
 export async function documentVersionUrl(
   documentId: string,
