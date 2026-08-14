@@ -13,6 +13,7 @@ import {
   updateSettlementLine,
 } from "@/app/lib/actions";
 import { money, type Settlement, type SettlementLine, settleCatLabel } from "@/app/lib/format";
+import { useCaps } from "@/app/lib/useCaps";
 
 const CATEGORIES = [
   "HONORARIO", "TRIBUTO", "FLETE", "SEGURO", "ALMACENAJE",
@@ -89,6 +90,7 @@ function LineRow({
 
 export function SettlementPanel({ caseId, settlement }: { caseId: string; settlement: Settlement | null }) {
   const router = useRouter();
+  const { canWrite } = useCaps();
   const [busy, setBusy] = useState(false);
   const [nl, setNl] = useState({ kind: "DISBURSEMENT", category: "OTRO", description: "", amount: "0", taxable: false });
 
@@ -110,7 +112,11 @@ export function SettlementPanel({ caseId, settlement }: { caseId: string; settle
           <div className="empty" style={{ padding: 16 }}>
             Aún no hay liquidación. Se arma con los rubros de la cotización, tributos, almacenaje y demurrage.
           </div>
-          <button className="btn" disabled={busy} onClick={generate}>Generar liquidación</button>
+          {canWrite ? (
+            <button className="btn" disabled={busy} onClick={generate}>Generar liquidación</button>
+          ) : (
+            <span className="muted">Sin permiso para generar la liquidación.</span>
+          )}
         </div>
       </div>
     );
@@ -118,7 +124,7 @@ export function SettlementPanel({ caseId, settlement }: { caseId: string; settle
 
   const s = settlement;
   const cur = s.currency;
-  const locked = s.status === "ISSUED";
+  const locked = s.status === "ISSUED" || !canWrite;  // viewers ven en solo lectura
 
   async function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(true);
@@ -158,7 +164,9 @@ export function SettlementPanel({ caseId, settlement }: { caseId: string; settle
     <div className="card section-gap rise">
       <div className="head">
         <h2>Liquidación · <span className="mono">{s.settlement_number}</span></h2>
-        <span className={`pill ${locked ? "ok" : "accent"}`}>{locked ? "EMITIDA" : "BORRADOR"}</span>
+        <span className={`pill ${s.status === "ISSUED" ? "ok" : "accent"}`}>
+          {s.status === "ISSUED" ? "EMITIDA" : "BORRADOR"}
+        </span>
       </div>
 
       <div style={{ overflowX: "auto" }}>

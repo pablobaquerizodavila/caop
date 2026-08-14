@@ -21,7 +21,7 @@ from app.api.v1 import (
     vue,
     warehouse,
 )
-from app.core.security import Principal, get_current_principal
+from app.core.security import Principal, get_current_principal, require_write
 
 api_router = APIRouter()
 
@@ -31,8 +31,8 @@ api_router.include_router(health.router)
 # Track & Trace público: enlace con token, SIN auth (lo abre el cliente importador).
 api_router.include_router(tracking.public_router)
 
-# Resto de la API: protegido con token Keycloak.
-protected = [Depends(get_current_principal)]
+# Resto de la API: token Keycloak + RBAC (escritura exige rol de escritura).
+protected = [Depends(get_current_principal), Depends(require_write)]
 api_router.include_router(customers.router, dependencies=protected)
 api_router.include_router(suppliers.router, dependencies=protected)
 api_router.include_router(documents.router, dependencies=protected)

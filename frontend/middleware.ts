@@ -17,21 +17,36 @@ function loginRedirect(req: NextRequest): NextResponse {
   res.cookies.delete("access_token");
   res.cookies.delete("refresh_token");
   res.cookies.delete("caop_user");
+  res.cookies.delete("caop_roles");
   return res;
 }
 
-function usernameFromJWT(token: string): string {
+function claimsFromJWT(token: string): { username: string; roles: string[] } {
   try {
     const seg = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(seg));
-    return payload.preferred_username ?? payload.name ?? "usuario";
+    const roles = payload?.realm_access?.roles;
+    return {
+      username: payload.preferred_username ?? payload.name ?? "usuario",
+      roles: Array.isArray(roles) ? roles : [],
+    };
   } catch {
-    return "usuario";
+    return { username: "usuario", roles: [] };
   }
 }
 
 export async function middleware(req: NextRequest) {
-  if (req.cookies.get("access_token")?.value) {
+  const at = req.cookies.get("access_token")?.value;
+  if (at) {
+    // Backfill de cookies de UI (roles) para sesiones abiertas antes del RBAC.
+    if (!req.cookies.get("caop_roles")) {
+      const { username, roles } = claimsFromJWT(at);
+      const res = NextResponse.next();
+      const uiCookie = { httpOnly: false, sameSite: "lax" as const, path: "/" };
+      res.cookies.set("caop_user", username, uiCookie);
+      res.cookies.set("caop_roles", roles.join(","), uiCookie);
+      return res;
+    }
     return NextResponse.next();
   }
 
@@ -75,12 +90,15 @@ export async function middleware(req: NextRequest) {
       maxAge: Number(tok.refresh_expires_in ?? 1800),
     });
   }
-  res.cookies.set("caop_user", usernameFromJWT(String(tok.access_token)), {
+  const { username, roles } = claimsFromJWT(String(tok.access_token));
+  const uiCookie = {
     httpOnly: false,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
     maxAge: Number(tok.expires_in ?? 300),
-  });
+  };
+  res.cookies.set("caop_user", username, uiCookie);
+  res.cookies.set("caop_roles", roles.join(","), uiCookie);
   return res;
 }
 

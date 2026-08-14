@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.shipment import CaseEvent, CustomsCase, Shipment
 from app.models.warehouse import WarehouseStorage
@@ -120,7 +121,8 @@ async def list_tariffs(session: AsyncSession = Depends(get_session)) -> list[War
     )
 
 
-@router.post("/warehouse/tariffs", response_model=WarehouseTariffRead, status_code=201)
+@router.post("/warehouse/tariffs", response_model=WarehouseTariffRead, status_code=201,
+             dependencies=[Depends(require_admin)])
 async def create_tariff(
     payload: WarehouseTariffCreate, session: AsyncSession = Depends(get_session)
 ) -> WarehouseTariff:
@@ -130,7 +132,8 @@ async def create_tariff(
     return tariff
 
 
-@router.patch("/warehouse/tariffs/{tariff_id}", response_model=WarehouseTariffRead)
+@router.patch("/warehouse/tariffs/{tariff_id}", response_model=WarehouseTariffRead,
+              dependencies=[Depends(require_admin)])
 async def update_tariff(
     tariff_id: uuid.UUID, payload: WarehouseTariffUpdate, session: AsyncSession = Depends(get_session)
 ) -> WarehouseTariff:
@@ -143,7 +146,8 @@ async def update_tariff(
     return tariff
 
 
-@router.delete("/warehouse/tariffs/{tariff_id}", status_code=204)
+@router.delete("/warehouse/tariffs/{tariff_id}", status_code=204,
+               dependencies=[Depends(require_admin)])
 async def delete_tariff(
     tariff_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> None:

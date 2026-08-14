@@ -2,9 +2,12 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
 import { NavLink } from "@/app/components/NavLink";
+import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const user = cookies().get("caop_user")?.value;
+  const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
+  const primaryRole = caps.roles[0] ?? "—";
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -21,8 +24,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/quotes">Cotizaciones</NavLink>
           <NavLink href="/customers">Clientes</NavLink>
           <NavLink href="/reports">Reportes</NavLink>
-          <NavLink href="/vue-rules">Reglas VUE</NavLink>
-          <NavLink href="/tariffs">Tarifarios</NavLink>
+          {caps.canAdmin ? (
+            <>
+              <NavLink href="/vue-rules">Reglas VUE</NavLink>
+              <NavLink href="/tariffs">Tarifarios</NavLink>
+            </>
+          ) : null}
         </nav>
         <div className="foot">
           {user ? (
@@ -30,6 +37,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <div style={{ color: "var(--muted)" }}>Sesión</div>
               <div className="mono" style={{ color: "var(--text)" }}>
                 {user}
+              </div>
+              <div className="mono" style={{ color: "var(--muted-2)", fontSize: 10 }}>
+                {primaryRole}
+                {caps.isViewer ? " · solo lectura" : ""}
               </div>
               <a href="/api/auth/logout" style={{ color: "var(--accent)" }}>
                 Salir

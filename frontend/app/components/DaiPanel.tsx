@@ -11,6 +11,7 @@ import {
   daiTransmit,
 } from "@/app/lib/actions";
 import type { Declaration } from "@/app/lib/format";
+import { useCaps } from "@/app/lib/useCaps";
 
 const CHIP: Record<string, string> = {
   READY_FOR_SIGNATURE: "accent",
@@ -37,6 +38,7 @@ export function DaiPanel({
   dai: Declaration | null;
 }) {
   const router = useRouter();
+  const { canWrite, canSign } = useCaps();
   const [busy, setBusy] = useState(false);
   const [scenario, setScenario] = useState("ACCEPT");
   const [channel, setChannel] = useState("AUTOMATICO");
@@ -68,9 +70,13 @@ export function DaiPanel({
               <span className="muted" style={{ marginRight: 8 }}>
                 Expediente listo.
               </span>
-              <button className="btn" disabled={busy} onClick={() => run(() => daiPrepare(caseId))}>
-                Preparar DAI
-              </button>
+              {canWrite ? (
+                <button className="btn" disabled={busy} onClick={() => run(() => daiPrepare(caseId))}>
+                  Preparar DAI
+                </button>
+              ) : (
+                <span className="muted">Sin permiso para preparar la DAI.</span>
+              )}
             </div>
           ) : (
             <div className="muted">
@@ -90,12 +96,16 @@ export function DaiPanel({
 
             <div className="actions">
               {st === "READY_FOR_SIGNATURE" ? (
-                <button className="btn" disabled={busy} onClick={() => run(() => daiSign(caseId))}>
-                  Firmar (agente)
-                </button>
+                canSign ? (
+                  <button className="btn" disabled={busy} onClick={() => run(() => daiSign(caseId))}>
+                    Firmar (agente)
+                  </button>
+                ) : (
+                  <span className="muted">La firma requiere rol de agente afianzado.</span>
+                )
               ) : null}
 
-              {st === "SIGNED" || st === "REJECTED" ? (
+              {canWrite && (st === "SIGNED" || st === "REJECTED") ? (
                 <>
                   <select value={scenario} onChange={(e) => setScenario(e.target.value)}>
                     <option value="ACCEPT">Escenario: aceptar</option>
@@ -108,7 +118,7 @@ export function DaiPanel({
                 </>
               ) : null}
 
-              {st === "PAID" ? (
+              {canWrite && st === "PAID" ? (
                 <>
                   <select value={channel} onChange={(e) => setChannel(e.target.value)}>
                     {CHANNELS.map((c) => (
@@ -127,13 +137,13 @@ export function DaiPanel({
                 </>
               ) : null}
 
-              {["ACCEPTED", "LIQUIDATED", "AFORO_ASSIGNED", "OBSERVATION_RESOLVED"].includes(st ?? "") ? (
+              {canWrite && ["ACCEPTED", "LIQUIDATED", "AFORO_ASSIGNED", "OBSERVATION_RESOLVED"].includes(st ?? "") ? (
                 <button className="btn" disabled={busy} onClick={() => run(() => daiAdvance(caseId))}>
                   Avanzar
                 </button>
               ) : null}
 
-              {st === "OBSERVED" ? (
+              {canWrite && st === "OBSERVED" ? (
                 <button className="btn" disabled={busy} onClick={() => run(() => daiResolveObservation(caseId))}>
                   Resolver observación
                 </button>

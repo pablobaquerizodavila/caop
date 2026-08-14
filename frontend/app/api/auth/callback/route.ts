@@ -4,6 +4,7 @@ import {
   APP_URL,
   CLIENT_ID,
   REDIRECT_URI,
+  rolesFromToken,
   TOKEN_URL,
   usernameFromToken,
 } from "@/app/lib/auth";
@@ -54,13 +55,10 @@ export async function GET(req: NextRequest) {
       maxAge: tok.refresh_expires_in ?? 1800,
     });
   }
-  // Cookie legible solo para mostrar el usuario en la UI.
-  res.cookies.set("caop_user", usernameFromToken(tok.access_token), {
-    httpOnly: false,
-    sameSite: "lax",
-    path: "/",
-    maxAge: tok.expires_in ?? 300,
-  });
+  // Cookies legibles por la UI: usuario y roles (para ocultar acciones por rol).
+  const uiCookie = { httpOnly: false, sameSite: "lax" as const, path: "/", maxAge: tok.expires_in ?? 300 };
+  res.cookies.set("caop_user", usernameFromToken(tok.access_token), uiCookie);
+  res.cookies.set("caop_roles", rolesFromToken(tok.access_token).join(","), uiCookie);
   res.cookies.delete("pkce_verifier");
   res.cookies.delete("oauth_state");
   return res;
