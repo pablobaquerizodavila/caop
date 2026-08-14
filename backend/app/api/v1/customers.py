@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.customer import ConsentRecord, Contact, Customer
+from app.models.quote import Quote
+from app.models.shipment import CustomsCase, Shipment
 from app.schemas.customer import (
     ConsentCreate,
     ConsentRead,
@@ -71,6 +73,71 @@ async def get_customer(
     customer_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> Customer:
     return await _get_customer_or_404(session, customer_id)
+
+
+@router.get("/{customer_id}/history")
+async def customer_history(
+    customer_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Panel del cliente: sus expedientes de importación y cotizaciones."""
+    customer = await _get_customer_or_404(session, customer_id)
+
+    rows = await session.execute(
+        select(CustomsCase, Shipment)
+        .join(Shipment, CustomsCase.shipment_id == Shipment.id)
+        .where(Shipment.customer_id == customer_id)
+        .order_by(CustomsCase.created_at.desc())
+    )
+    cases = [
+        {
+            "id": str(case.id),
+            "case_number": case.case_number,
+            "current_state": case.current_state,
+            "customs_readiness_score": float(case.customs_readiness_score or 0),
+            "risk_level": case.risk_level,
+            "transport_mode": shipment.transport_mode,
+            "origin_country": shipment.origin_country,
+            "created_at": case.created_at.isoformat() if case.created_at else None,
+        }
+        for case, shipment in rows.all()
+    ]
+
+    quotes = list(
+        await session.scalars(
+            select(Quote).where(Quote.customer_id == customer_id).order_by(Quote.created_at.desc())
+        )
+    )
+    quote_list = [
+        {
+            "id": str(q.id),
+            "quote_number": q.quote_number,
+            "version": q.version,
+            "status": q.status,
+            "currency": q.currency,
+            "landed_cost_total": float(q.landed_cost_total or 0),
+            "created_at": q.created_at.isoformat() if q.created_at else None,
+        }
+        for q in quotes
+    ]
+
+    ready = sum(1 for c in cases if c["current_state"] == "READY_FOR_CUSTOMS")
+    return {
+        "customer": {
+            "id": str(customer.id),
+            "ruc": customer.ruc,
+            "legal_name": customer.legal_name,
+            "trade_name": customer.trade_name,
+            "email": customer.email,
+            "status": customer.status,
+        },
+        "stats": {
+            "total_cases": len(cases),
+            "ready_for_customs": ready,
+            "total_quotes": len(quote_list),
+        },
+        "cases": cases,
+        "quotes": quote_list,
+    }
 
 
 @router.patch("/{customer_id}", response_model=CustomerRead)

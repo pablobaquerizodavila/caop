@@ -6,14 +6,17 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.models.customer import Customer
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
 from app.models.shipment import CustomsCase, Shipment
 from app.schemas.case import CustomsCaseRead
 from app.schemas.quote import (
+    LinkCustomer,
+    LinkResult,
     QuoteCreate,
     QuoteReadInternal,
     QuoteReadPublic,
@@ -109,12 +112,14 @@ async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get
     _allocate(tmp_items, payload.total_freight, payload.total_insurance)
     quote.items = tmp_items
 
-    # Rubros de costo
+    # Rubros de costo (asignar la lista completa: deja la colección "cargada"
+    # aun si viene vacía, evitando un lazy-load al recalcular).
+    cost_lines = []
     for cl in payload.cost_lines:
         quoted = cl.quoted_amount
         if quoted is None:
             quoted = cl.estimated_amount * (Decimal(1) + cl.contingency_pct / Decimal(100))
-        quote.cost_lines.append(
+        cost_lines.append(
             CostLine(
                 category=cl.category,
                 description=cl.description,
@@ -125,13 +130,14 @@ async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get
                 is_included=cl.is_included,
             )
         )
+    quote.cost_lines = cost_lines
 
-    quote.status_history.append(QuoteStatusHistory(status="DRAFT"))
+    quote.status_history = [QuoteStatusHistory(status="DRAFT")]
     session.add(quote)
     await session.flush()
     await recompute_quote(session, quote)
     await session.flush()
-    await session.refresh(quote)
+    await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])
     return quote
 
 
@@ -163,6 +169,24 @@ async def get_quote_public(
     return data
 
 
+@router.post("/{quote_id}/link-customer", response_model=LinkResult)
+async def link_customer(
+    quote_id: uuid.UUID, payload: LinkCustomer, session: AsyncSession = Depends(get_session)
+) -> Quote:
+    """Vincula/reasigna un cliente a la cotización. Si ya tiene expediente, lo propaga."""
+    customer = await session.get(Customer, payload.customer_id)
+    if customer is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
+    quote = await _load(session, quote_id)
+    quote.customer_id = customer.id
+    # UPDATE masivo del expediente (si existe) sin cargar el objeto ni sus relaciones.
+    await session.execute(
+        update(Shipment).where(Shipment.source_quote_id == quote.id).values(customer_id=customer.id)
+    )
+    await session.flush()
+    return quote
+
+
 @router.post("/{quote_id}/recompute", response_model=QuoteReadInternal)
 async def recompute(quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> Quote:
     quote = await _load(session, quote_id)
@@ -172,7 +196,7 @@ async def recompute(quote_id: uuid.UUID, session: AsyncSession = Depends(get_ses
         )
     await recompute_quote(session, quote)
     await session.flush()
-    await session.refresh(quote)
+    await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])
     return quote
 
 
@@ -204,7 +228,7 @@ async def change_status(
     if payload.status == "ACCEPTED":
         await convert_quote_to_case(session, quote)
 
-    await session.refresh(quote)
+    await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])
     return quote
 
 
@@ -287,30 +311,30 @@ async def revise_quote(quote_id: uuid.UUID, session: AsyncSession = Depends(get_
         valid_until=src.valid_until,
         notes=src.notes,
     )
-    for it in src.items:
-        new.items.append(
-            QuoteItem(
-                line_no=it.line_no, description=it.description, hs_code=it.hs_code,
-                hs_status=it.hs_status, origin_country=it.origin_country,
-                commercial_agreement=it.commercial_agreement, quantity=it.quantity,
-                unit=it.unit, unit_price=it.unit_price, line_value=it.line_value,
-                weight=it.weight, freight_alloc=it.freight_alloc,
-                insurance_alloc=it.insurance_alloc,
-            )
+    new.items = [
+        QuoteItem(
+            line_no=it.line_no, description=it.description, hs_code=it.hs_code,
+            hs_status=it.hs_status, origin_country=it.origin_country,
+            commercial_agreement=it.commercial_agreement, quantity=it.quantity,
+            unit=it.unit, unit_price=it.unit_price, line_value=it.line_value,
+            weight=it.weight, freight_alloc=it.freight_alloc,
+            insurance_alloc=it.insurance_alloc,
         )
-    for cl in src.cost_lines:
-        new.cost_lines.append(
-            CostLine(
-                category=cl.category, description=cl.description,
-                estimated_amount=cl.estimated_amount, contingency_pct=cl.contingency_pct,
-                quoted_amount=cl.quoted_amount, confidence=cl.confidence,
-                is_included=cl.is_included,
-            )
+        for it in src.items
+    ]
+    new.cost_lines = [
+        CostLine(
+            category=cl.category, description=cl.description,
+            estimated_amount=cl.estimated_amount, contingency_pct=cl.contingency_pct,
+            quoted_amount=cl.quoted_amount, confidence=cl.confidence,
+            is_included=cl.is_included,
         )
-    new.status_history.append(QuoteStatusHistory(status="DRAFT"))
+        for cl in src.cost_lines
+    ]
+    new.status_history = [QuoteStatusHistory(status="DRAFT")]
     session.add(new)
     await session.flush()
     await recompute_quote(session, new)
     await session.flush()
-    await session.refresh(new)
+    await session.refresh(new, attribute_names=["items", "cost_lines", "status_history"])
     return new

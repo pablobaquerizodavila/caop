@@ -206,4 +206,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 
 > Todo marcado `is_simulated=True`. El adapter real reemplaza el simulador cuando exista documentación oficial, sin reescribir el flujo.
 
+## Estado de S17 — Vincular cliente + Historial de importaciones
+
+- [x] Vincular/reasignar cliente a una cotización (`POST /quotes/{id}/link-customer`), propaga al expediente
+- [x] **Panel del cliente** (`/customers/{id}`): historial de importaciones (expedientes) + cotizaciones + stats
+- [x] Clic en RUC/nombre en el listado de clientes → panel del cliente
+- [x] **Bugfix real**: cotización con `cost_lines` vacío daba 500 (lazy-load de relación no cargada); también en Postgres
+- [x] Tests: 66 passed
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

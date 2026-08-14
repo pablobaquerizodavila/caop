@@ -41,9 +41,17 @@ export default async function CustomersPage() {
               </thead>
               <tbody>
                 {customers.map((c) => (
-                  <tr key={c.id}>
-                    <td className="code">{c.ruc}</td>
-                    <td>{c.legal_name}</td>
+                  <tr key={c.id} className="row">
+                    <td>
+                      <Link href={`/customers/${c.id}`} className="code">
+                        {c.ruc}
+                      </Link>
+                    </td>
+                    <td>
+                      <Link href={`/customers/${c.id}`} style={{ color: "var(--text)" }}>
+                        {c.legal_name}
+                      </Link>
+                    </td>
                     <td style={{ color: "var(--muted)" }}>{c.email ?? "—"}</td>
                     <td>
                       <span className="pill">{c.status}</span>
