@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import {
+  alarmClass,
   apiGet,
+  type AtRiskContainer,
   type CaseSummary,
+  money,
   readiness,
   SLA_RISKY,
   type SlaRisk,
@@ -15,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function ControlTower() {
   const cases = (await apiGet<CaseSummary[]>("/cases?limit=200")) ?? null;
   const slas = (await apiGet<SlaRisk[]>("/sla?limit=500")) ?? [];
+  const demurrage = (await apiGet<AtRiskContainer[]>("/ocean/demurrage-at-risk")) ?? [];
 
   if (cases === null) {
     return (
@@ -34,11 +38,6 @@ export default async function ControlTower() {
   const exceptions = cases
     .filter((c) => c.blocker || c.current_state === "AWAITING_DOCUMENTS")
     .sort((a, b) => readiness(a.customs_readiness_score) - readiness(b.customs_readiness_score));
-  const avg =
-    cases.length === 0
-      ? 0
-      : Math.round(cases.reduce((s, c) => s + readiness(c.customs_readiness_score), 0) / cases.length);
-
   const caseNumber = new Map(cases.map((c) => [c.id, c.case_number]));
   const riskySla = slas
     .filter((s) => SLA_RISKY.includes(s.status))
@@ -57,8 +56,43 @@ export default async function ControlTower() {
           cls={riskySla.length ? "warn" : "ok"}
           delay={120}
         />
-        <Kpi label="Readiness promedio" value={`${avg}`} unit="%" delay={180} />
+        <Kpi
+          label="Demurrage en riesgo"
+          value={String(demurrage.length)}
+          cls={demurrage.length ? "warn" : "ok"}
+          delay={180}
+        />
       </div>
+
+      {demurrage.length > 0 ? (
+        <div className="card exception section-gap rise">
+          <div className="head">
+            <h2>Demurrage en riesgo</h2>
+            <span className="count">{demurrage.length}</span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Alarma</th><th>Contenedor</th><th>Expediente</th>
+                  <th className="num">Días a last free</th><th className="num">Demurrage est.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demurrage.map((x, i) => (
+                  <tr key={i}>
+                    <td><span className={`pill ${alarmClass(x.alarm)}`}>{x.alarm}</span></td>
+                    <td className="code">{x.container_number}</td>
+                    <td><Link href={`/cases/${x.case_id}`} className="code">{x.case_number}</Link></td>
+                    <td className="num">{x.days_to_last_free_day ?? "—"}</td>
+                    <td className="num">{money(x.estimated_demurrage)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {riskySla.length > 0 ? (
         <div className="card exception section-gap rise">

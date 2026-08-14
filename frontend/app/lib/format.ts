@@ -85,6 +85,59 @@ export interface Declaration {
   is_simulated: boolean;
 }
 
+export interface Transport {
+  id: string;
+  transport_mode: string | null;
+  load_type: string | null;
+  carrier: string | null;
+  mbl_number: string | null;
+  hbl_number: string | null;
+  mawb_number: string | null;
+  hawb_number: string | null;
+  vessel: string | null;
+  voyage: string | null;
+  flight_number: string | null;
+  pol: string | null;
+  pod: string | null;
+  etd: string | null;
+  eta: string | null;
+  ata: string | null;
+}
+
+export interface ContainerRow {
+  id: string;
+  container_number: string;
+  iso_type: string | null;
+  status: string;
+  arrival_date: string | null;
+  free_days: number | null;
+  daily_rate: number;
+  last_free_day: string | null;
+  days_to_last_free_day: number | null;
+  days_overdue: number;
+  estimated_demurrage: number;
+  alarm: string;
+}
+
+export interface DemurrageSummary {
+  containers: ContainerRow[];
+  money_at_risk: number;
+  max_alarm: string;
+}
+
+export interface AtRiskContainer {
+  case_id: string;
+  case_number: string;
+  container_number: string;
+  alarm: string;
+  days_to_last_free_day: number | null;
+  estimated_demurrage: number;
+}
+
+export function alarmClass(a: string): string {
+  return { OK: "ok", WARN: "warn", AT_RISK: "risk", CRITICAL: "crit" }[a] ?? "";
+}
+
 export interface CustomerSummary {
   id: string;
   ruc: string;

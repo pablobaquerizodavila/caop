@@ -10,6 +10,7 @@ from app.api.v1 import (
     dai,
     documents,
     notifications,
+    ocean,
     quotes,
     sla,
     suppliers,
@@ -34,6 +35,7 @@ api_router.include_router(dai.router, dependencies=protected)
 api_router.include_router(notifications.router, dependencies=protected)
 api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)
+api_router.include_router(ocean.router, dependencies=protected)
 
 
 @api_router.get("/me", tags=["identity"])
