@@ -52,6 +52,11 @@ async def get_for_case(session: AsyncSession, case_id) -> Settlement | None:
     )
 
 
+async def get_by_id(session: AsyncSession, settlement_id) -> Settlement | None:
+    """Re-consulta por id para asegurar que la colección lines quede cargada (selectin)."""
+    return await session.scalar(select(Settlement).where(Settlement.id == settlement_id))
+
+
 async def recompute(session: AsyncSession, stl: Settlement) -> Settlement:
     lines = list(
         await session.scalars(

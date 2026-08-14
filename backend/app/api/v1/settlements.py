@@ -49,7 +49,8 @@ async def create_settlement(
     case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> Settlement:
     case = await _case(session, case_id)
-    return await settlement_service.build_draft(session, case)
+    stl = await settlement_service.build_draft(session, case)
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.patch("/settlements/{settlement_id}", response_model=SettlementRead)
@@ -60,14 +61,16 @@ async def update_settlement(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(stl, field, value)
     await session.flush()
-    return await settlement_service.recompute(session, stl)
+    await settlement_service.recompute(session, stl)
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.post("/settlements/{settlement_id}/issue", response_model=SettlementRead)
 async def issue_settlement(
     settlement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> Settlement:
-    return await settlement_service.issue(session, await _stl(session, settlement_id))
+    stl = await settlement_service.issue(session, await _stl(session, settlement_id))
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.post("/settlements/{settlement_id}/lines", response_model=SettlementRead, status_code=201)
@@ -78,7 +81,8 @@ async def add_line(
     stl = await _stl(session, settlement_id)
     session.add(SettlementLine(settlement_id=stl.id, **payload.model_dump()))
     await session.flush()
-    return await settlement_service.recompute(session, stl)
+    await settlement_service.recompute(session, stl)
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.patch("/settlement-lines/{line_id}", response_model=SettlementRead)
@@ -93,7 +97,8 @@ async def update_line(
         setattr(line, field, value)
     await session.flush()
     stl = await _stl(session, line.settlement_id)
-    return await settlement_service.recompute(session, stl)
+    await settlement_service.recompute(session, stl)
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.delete("/settlement-lines/{line_id}", response_model=SettlementRead)
@@ -107,7 +112,8 @@ async def delete_line(
     await session.delete(line)
     await session.flush()
     stl = await _stl(session, settlement_id)
-    return await settlement_service.recompute(session, stl)
+    await settlement_service.recompute(session, stl)
+    return await settlement_service.get_by_id(session, stl.id)
 
 
 @router.post("/settlements/{settlement_id}/pdf")
