@@ -19,6 +19,7 @@ from app.schemas.vue import (
     VuePermitUpdate,
     VueRuleCreate,
     VueRuleRead,
+    VueRuleUpdate,
     VueSuggestion,
 )
 from app.services import vue_service
@@ -57,6 +58,19 @@ async def create_rule(
 ) -> VueRule:
     rule = VueRule(status="ACTIVE", **payload.model_dump())
     session.add(rule)
+    await session.flush()
+    return rule
+
+
+@router.patch("/vue/rules/{rule_id}", response_model=VueRuleRead)
+async def update_rule(
+    rule_id: uuid.UUID, payload: VueRuleUpdate, session: AsyncSession = Depends(get_session)
+) -> VueRule:
+    rule = await session.get(VueRule, rule_id)
+    if rule is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(rule, field, value)
     await session.flush()
     return rule
 

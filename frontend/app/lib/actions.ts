@@ -306,6 +306,52 @@ export async function deleteVuePermit(
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// --- Reglas HS -> VUE (configuración global) ---
+export async function createVueRule(data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/vue/rules`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/vue-rules");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  return { ok: true };
+}
+
+export async function updateVueRule(ruleId: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/vue/rules/${ruleId}`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/vue-rules");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteVueRule(ruleId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/vue/rules/${ruleId}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/vue-rules");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function seedVueRules(): Promise<{ ok: boolean; created?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/vue/rules/seed-defaults`, {
+    method: "POST",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/vue-rules");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, created: Array.isArray(j.created) ? j.created.length : 0 };
+}
+
 export async function applyVueSuggestions(
   caseId: string,
 ): Promise<{ ok: boolean; count?: number; error?: string }> {

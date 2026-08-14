@@ -64,6 +64,16 @@ class VueRuleCreate(BaseModel):
     note: str | None = None
 
 
+class VueRuleUpdate(BaseModel):
+    hs_prefix: str | None = None
+    entity: str | None = None
+    document_code: str | None = None
+    description: str | None = None
+    blocking: bool | None = None
+    note: str | None = None
+    status: str | None = None
+
+
 class VueRuleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
