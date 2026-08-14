@@ -45,6 +45,7 @@ export default async function QuotesPage() {
               <thead>
                 <tr>
                   <th>Cotización</th>
+                  <th>Expediente</th>
                   <th>Estado</th>
                   <th className="num">Tributos</th>
                   <th className="num">Landed cost</th>
@@ -60,6 +61,15 @@ export default async function QuotesPage() {
                     <td className="code">
                       {q.quote_number}
                       <span style={{ color: "var(--muted-2)" }}> v{q.version}</span>
+                    </td>
+                    <td>
+                      {q.case_number && q.case_id ? (
+                        <Link href={`/cases/${q.case_id}`} className="code">
+                          {q.case_number}
+                        </Link>
+                      ) : (
+                        <span style={{ color: "var(--muted-2)" }}>—</span>
+                      )}
                     </td>
                     <td>
                       <span className={`pill ${STATUS_CLASS[q.status] ?? ""}`}>{q.status}</span>

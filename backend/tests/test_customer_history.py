@@ -33,6 +33,12 @@ async def test_customer_history(client):
     assert len(d["cases"]) == 1
     assert d["cases"][0]["case_number"].startswith("EC-IMP-")
     assert d["cases"][0]["transport_mode"] == "OCEAN"
+    # Correlación: el expediente muestra su cotización de origen...
+    assert d["cases"][0]["source_quote_number"].startswith("QT-")
+    # ...y exactamente una cotización quedó asociada a ese expediente.
+    correlated = [q for q in d["quotes"] if q.get("case_number")]
+    assert len(correlated) == 1
+    assert correlated[0]["case_number"] == d["cases"][0]["case_number"]
 
 
 @pytest.mark.asyncio

@@ -68,6 +68,24 @@ async def _load(session: AsyncSession, quote_id: uuid.UUID) -> Quote:
     return quote
 
 
+async def _case_map(session: AsyncSession, quote_ids: list[uuid.UUID]) -> dict:
+    """quote_id -> (case_id, case_number) para las cotizaciones ya convertidas."""
+    if not quote_ids:
+        return {}
+    rows = await session.execute(
+        select(Shipment.source_quote_id, CustomsCase.id, CustomsCase.case_number)
+        .join(CustomsCase, CustomsCase.shipment_id == Shipment.id)
+        .where(Shipment.source_quote_id.in_(quote_ids))
+    )
+    return {qid: (cid, cnum) for qid, cid, cnum in rows.all()}
+
+
+def _with_case(read: QuoteReadInternal, mapping: dict) -> QuoteReadInternal:
+    if read.id in mapping:
+        read.case_id, read.case_number = mapping[read.id]
+    return read
+
+
 @router.post("", response_model=QuoteReadInternal, status_code=status.HTTP_201_CREATED)
 async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get_session)) -> Quote:
     calc_date = payload.calculation_date or date.today()
@@ -151,12 +169,18 @@ async def list_quotes(
     stmt = select(Quote).order_by(Quote.created_at.desc())
     if customer_id:
         stmt = stmt.where(Quote.customer_id == customer_id)
-    return list(await session.scalars(stmt.limit(limit).offset(offset)))
+    quotes = list(await session.scalars(stmt.limit(limit).offset(offset)))
+    mapping = await _case_map(session, [q.id for q in quotes])
+    return [_with_case(QuoteReadInternal.model_validate(q), mapping) for q in quotes]
 
 
 @router.get("/{quote_id}", response_model=QuoteReadInternal)
-async def get_quote(quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> Quote:
-    return await _load(session, quote_id)
+async def get_quote(
+    quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> QuoteReadInternal:
+    quote = await _load(session, quote_id)
+    mapping = await _case_map(session, [quote.id])
+    return _with_case(QuoteReadInternal.model_validate(quote), mapping)
 
 
 @router.get("/{quote_id}/public", response_model=QuoteReadPublic)
