@@ -3,6 +3,7 @@
 from app.models.audit import AuditEvent
 from app.models.checklist import ChecklistItem, Requirement
 from app.models.customer import ConsentRecord, Contact, Customer
+from app.models.credit_note import CreditNote
 from app.models.customs_declaration import CustomsDeclaration
 from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.models.einvoice import ElectronicInvoice
@@ -28,6 +29,7 @@ __all__ = [
     "ChecklistItem",
     "ConsentRecord",
     "Container",
+    "CreditNote",
     "Contact",
     "CostLine",
     "Customer",
