@@ -3,8 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { authorizeInvoice, createInvoice, getInvoiceRide, getInvoiceXml } from "@/app/lib/actions";
-import { type Einvoice, einvoiceStatusClass, money } from "@/app/lib/format";
+import {
+  authorizeCreditNote,
+  authorizeInvoice,
+  createCreditNote,
+  createInvoice,
+  getCreditNoteXml,
+  getInvoiceRide,
+  getInvoiceXml,
+} from "@/app/lib/actions";
+import {
+  type CreditNote,
+  type Einvoice,
+  einvoiceStatusClass,
+  money,
+} from "@/app/lib/format";
 import { useCaps } from "@/app/lib/useCaps";
 
 export function EinvoicePanel({
@@ -12,16 +25,40 @@ export function EinvoicePanel({
   settlementId,
   settlementIssued,
   invoice,
+  creditNotes = [],
 }: {
   caseId: string;
   settlementId: string | null;
   settlementIssued: boolean;
   invoice: Einvoice | null;
+  creditNotes?: CreditNote[];
 }) {
   const router = useRouter();
   const { canWrite } = useCaps();
   const [busy, setBusy] = useState(false);
   const [scenario, setScenario] = useState("AUTHORIZE");
+  const [cnMotivo, setCnMotivo] = useState("");
+  const [cnAmount, setCnAmount] = useState("");
+
+  async function addCreditNote() {
+    if (!cnMotivo) return alert("Indica el motivo de la nota de crédito");
+    await act(() => createCreditNote(caseId, invoice!.id, {
+      motivo: cnMotivo, amount: cnAmount ? Number(cnAmount) : null,
+    }));
+    setCnMotivo("");
+    setCnAmount("");
+  }
+
+  async function downloadCnXml(cn: CreditNote) {
+    setBusy(true);
+    try {
+      const xml = await getCreditNoteXml(cn.id);
+      if (!xml) return alert("No se pudo obtener el XML");
+      saveBlob(new Blob([xml], { type: "application/xml" }), `${cn.access_key}.xml`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(true);
@@ -130,6 +167,47 @@ export function EinvoicePanel({
                 Descargar XML
               </button>
             </div>
+
+            {invoice.status === "AUTHORIZED" ? (
+              <div style={{ borderTop: "1px solid var(--border-soft)", paddingTop: 10 }}>
+                <div className="subhead"><h3>Notas de crédito</h3></div>
+                {creditNotes.length === 0 ? (
+                  <div className="tag" style={{ color: "var(--muted)" }}>Sin notas de crédito.</div>
+                ) : (
+                  creditNotes.map((cn) => (
+                    <div className="chk" key={cn.id}>
+                      <div className="left">
+                        <span className={`pill ${einvoiceStatusClass(cn.status)}`}>{cn.status}</span>
+                        <div>
+                          <div className="doc mono" style={{ fontSize: 12 }}>
+                            {cn.estab}-{cn.pto_emi}-{cn.secuencial} · {money(cn.total)}
+                          </div>
+                          <div className="tag">{cn.motivo}</div>
+                        </div>
+                      </div>
+                      <div className="actions">
+                        {cn.status !== "AUTHORIZED" && canWrite ? (
+                          <button className="btn" disabled={busy}
+                            onClick={() => act(() => authorizeCreditNote(caseId, cn.id, "AUTHORIZE"))}>
+                            Autorizar
+                          </button>
+                        ) : null}
+                        <button className="btn ghost" disabled={busy} onClick={() => downloadCnXml(cn)}>XML</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {canWrite ? (
+                  <div className="form-row" style={{ flexWrap: "wrap", paddingLeft: 0 }}>
+                    <input type="text" placeholder="Motivo" value={cnMotivo}
+                      onChange={(e) => setCnMotivo(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                    <input type="text" placeholder="Monto (vacío = total)" value={cnAmount}
+                      onChange={(e) => setCnAmount(e.target.value)} style={{ width: 150 }} />
+                    <button className="btn" disabled={busy} onClick={addCreditNote}>+ Nota de crédito</button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

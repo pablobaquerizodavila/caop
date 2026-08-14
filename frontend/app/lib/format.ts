@@ -557,6 +557,24 @@ export interface Einvoice {
   error: string | null;
 }
 
+export interface CreditNote {
+  id: string;
+  invoice_id: string;
+  estab: string;
+  pto_emi: string;
+  secuencial: string;
+  access_key: string;
+  issue_date: string;
+  status: string;
+  authorization_number: string | null;
+  is_simulated: boolean;
+  motivo: string;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  error: string | null;
+}
+
 export function einvoiceStatusClass(s: string): Sem | "" {
   const map: Record<string, Sem> = {
     AUTHORIZED: "ok", SIGNED: "warn", DRAFT: "warn", REJECTED: "crit",
