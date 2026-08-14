@@ -1,4 +1,5 @@
 import { apiGet, money, type QuoteSummary } from "@/app/lib/api";
+import { QuoteActions } from "@/app/components/QuoteActions";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function QuotesPage() {
                   <th className="num">Por unidad</th>
                   <th>Confianza</th>
                   <th>Válida hasta</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -65,6 +67,9 @@ export default async function QuotesPage() {
                     </td>
                     <td className="mono" style={{ color: "var(--muted)" }}>
                       {q.valid_until ?? "—"}
+                    </td>
+                    <td>
+                      <QuoteActions quoteId={q.id} status={q.status} />
                     </td>
                   </tr>
                 ))}

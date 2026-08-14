@@ -170,4 +170,12 @@ Endpoints nuevos: `/api/v1/customers`, `/api/v1/suppliers`, `/api/v1/documents`.
 - [x] Rotación de cookies (access/refresh/usuario) + reintento de la misma URL; si el refresh falla → /login
 - [x] Edge-safe (fetch + atob, sin node:crypto en el middleware); build OK
 
+## Estado de S13 — UI operativa (Server Actions)
+
+- [x] Subir documentos al expediente desde la UI (auto-vincula checklist y sube readiness)
+- [x] Acciones de cotización: Enviar (DRAFT→SENT), Aceptar (→ crea expediente), generar/abrir PDF
+- [x] Server Actions leen la cookie httpOnly y reenvían el token (el navegador nunca ve el access_token)
+- [x] Helpers de presentación separados a `lib/format.ts` (seguro en Client Components)
+- [x] Build OK
+
 Pendientes (requieren terceros): integración real SENAE/ECUAPASS (doc del usuario); WhatsApp real (credenciales Meta).

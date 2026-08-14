@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet, type CaseDetail, docLabel, readiness, semaphore, stateLabel } from "@/app/lib/api";
 import { Semaphore } from "@/app/components/ui";
+import { CaseUpload } from "@/app/components/CaseUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,12 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             <h2>Checklist documental</h2>
             <span className="count">{c.checklist.length}</span>
           </div>
+          {c.checklist.length > 0 ? (
+            <CaseUpload
+              caseId={c.id}
+              docTypes={c.checklist.map((i) => i.doc_type)}
+            />
+          ) : null}
           {c.checklist.length === 0 ? (
             <div className="empty">Sin ítems de checklist.</div>
           ) : (
