@@ -264,8 +264,8 @@ export function NewQuoteForm({
       </div>
       {items.map((it, i) => (
         <div className="grid-items" key={i}>
-          <input type="text" placeholder="Descripción" value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} />
           <input type="text" placeholder="Modelo" value={it.model} onChange={(e) => setItem(i, "model", e.target.value)} />
+          <input type="text" placeholder="Descripción" value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} />
           <SubpartidaInput
             value={it.hs_code}
             onChange={(v) => setItem(i, "hs_code", v)}

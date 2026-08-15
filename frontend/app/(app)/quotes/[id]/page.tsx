@@ -65,7 +65,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           <table className="tbl" style={{ width: "100%" }}>
             <thead>
               <tr>
-                <th>#</th><th>Descripción</th><th>Modelo</th><th>Subpartida</th>
+                <th>#</th><th>Modelo</th><th>Descripción</th><th>Subpartida</th>
                 <th className="num">CIF</th><th className="num">Tributos (normal)</th>
                 <th className="num">Con preferencia</th><th className="num">Ahorro</th>
               </tr>
@@ -74,10 +74,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
               {quote.items.map((it) => (
                 <tr key={it.id}>
                   <td>{it.line_no}</td>
+                  <td className="mono">{it.model || "—"}</td>
                   <td>{it.description || "—"}
                     {!it.tax_complete ? <span className="pill warn" style={{ marginLeft: 6 }}>incompleta</span> : null}
                   </td>
-                  <td className="mono">{it.model || "—"}</td>
                   <td className="mono">
                     {it.hs_code || "—"}
                     {it.hs_validation === "NOT_FOUND" ? <span className="pill crit" style={{ marginLeft: 4 }}>no en maestro</span> : null}
