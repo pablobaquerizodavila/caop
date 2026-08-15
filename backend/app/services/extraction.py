@@ -47,8 +47,21 @@ class ExtractedField:
 
 
 @dataclass
+class LineItem:
+    """Ítem de una proforma/factura extraído del texto. Sin inventar: campos no
+    reconocidos quedan en None y la confianza refleja la calidad de la lectura."""
+    description: str | None = None
+    hs_code: str | None = None
+    quantity: str | None = None
+    unit_price: str | None = None
+    amount: str | None = None
+    confidence: float = 0.0
+
+
+@dataclass
 class ExtractionResult:
     fields: list[ExtractedField] = field(default_factory=list)
+    line_items: list[LineItem] = field(default_factory=list)
     model_version: str = TEXT_MODEL_VERSION
 
 
@@ -180,6 +193,213 @@ def extract_fields_from_text(text: str) -> ExtractionResult:
     return result
 
 
+# --------------------------------------------------------------------------- #
+#  Capa 2b: extracción de ÍTEMS línea por línea (proformas / facturas)
+# --------------------------------------------------------------------------- #
+_HS_INLINE = re.compile(r"\b(\d{4}\.\d{2}(?:\.\d{2}){0,3}|\d{6,10})\b")
+_LINE_NUM_PREFIX = re.compile(r"^\s*(\d{1,3})[\).\-]?\s+")
+_NUMTOK = re.compile(r"[-+]?\d[\d.,]*")
+
+_COL_QTY = re.compile(
+    r"\b(qty|quantity|cantidad|cant|units?(?!\s*(?:price|precio|cost))|unidades|pcs|pzas?)\b",
+    re.I,
+)
+_COL_UNIT = re.compile(
+    r"(unit\s*price|precio\s*unit\w*|p\.?\s*unit|unit\s*cost|u\.?\s*price|"
+    r"precio\s*x\s*unidad|price/unit|valor\s*unit\w*|\bprice\b|\bprecio\b)",
+    re.I,
+)
+_COL_AMT = re.compile(r"\b(amount|importe|monto|value|valor|line\s*total|ext\w*|total)\b", re.I)
+_COL_DESC = re.compile(
+    r"\b(description|descripci[oó]n|item|product\w*|art[ií]culo|detalle|goods|"
+    r"mercanc[ií]a|concepto)\b",
+    re.I,
+)
+_STOP_LINE = re.compile(
+    r"\b(sub\s*total|subtotal|grand\s+total|total\s+amount|amount\s+due|balance\s+due|"
+    r"freight|flete|insurance|seguro|shipping|discount|descuento|\btax\b|\biva\b|\bvat\b|"
+    r"packing|handling)\b",
+    re.I,
+)
+# Líneas de encabezado/pie del documento que NO son ítems (defensa anti falsos positivos).
+_LABEL_LINE = re.compile(
+    r"^\s*(invoice|factura|proforma|date|fecha|incoterm|currency|moneda|supplier|vendor|"
+    r"seller|buyer|bill\s*to|ship\s*to|sold\s*to|customer|cliente|tel|phone|e-?mail|"
+    r"address|direcci[oó]n|\bruc\b|tax\s*id|payment|terms|order\s*no|po\s*no|page)\b",
+    re.I,
+)
+
+
+def _parse_number(tok: str) -> float | None:
+    """Normaliza un número en formato US (1,234.56) o europeo (1.234,56)."""
+    tok = tok.strip()
+    if not re.fullmatch(r"[-+]?[\d.,]+", tok) or not any(c.isdigit() for c in tok):
+        return None
+    neg = tok.startswith("-")
+    t = tok.lstrip("+-")
+    has_dot, has_comma = "." in t, "," in t
+    try:
+        if has_dot and has_comma:
+            # El separador más a la derecha es el decimal.
+            if t.rfind(".") > t.rfind(","):
+                t = t.replace(",", "")            # 1,234.56
+            else:
+                t = t.replace(".", "").replace(",", ".")  # 1.234,56
+        elif has_comma:
+            parts = t.split(",")
+            if len(parts) > 2 or len(parts[-1]) == 3:
+                t = t.replace(",", "")            # 1,000 / 1,000,000 -> miles
+            else:
+                t = parts[0] + "." + parts[-1]    # 0,25 -> decimal
+        elif has_dot and t.count(".") > 1:
+            t = t.replace(".", "")                # 1.000.000 -> miles
+        val = float(t)
+        return -val if neg else val
+    except ValueError:
+        return None
+
+
+def _fmt_num(v: float) -> str:
+    if v == int(v):
+        return str(int(v))
+    return f"{v:.4f}".rstrip("0").rstrip(".")
+
+
+def _detect_column_order(header: str) -> list[str] | None:
+    """De una línea de cabecera devuelve el orden L→R de las columnas de valor
+    reconocidas entre {qty, unit_price, amount}, o None si no parece cabecera."""
+    hits: list[tuple[int, str]] = []
+    for rx, key in ((_COL_QTY, "quantity"), (_COL_UNIT, "unit_price"), (_COL_AMT, "amount")):
+        m = rx.search(header)
+        if m:
+            hits.append((m.start(), key))
+    has_desc = _COL_DESC.search(header) is not None
+    # Cabecera creíble: descripción + ≥1 columna de valor, o ≥2 columnas de valor,
+    # y sin exceso de dígitos (las cabeceras casi no llevan números).
+    digits = sum(c.isdigit() for c in header)
+    if digits > 4:
+        return None
+    if (has_desc and hits) or len(hits) >= 2:
+        # dedup preservando la 1ª aparición de cada key, ordenado por posición
+        hits.sort(key=lambda h: h[0])
+        seen: set[str] = set()
+        order = [k for _, k in hits if not (k in seen or seen.add(k))]
+        return order
+    return None
+
+
+def _parse_item_line(line: str, order: list[str] | None) -> LineItem | None:
+    if not line.strip() or _STOP_LINE.search(line) or _LABEL_LINE.match(line):
+        return None
+    body = line
+    hs = None
+    mhs = _HS_INLINE.search(body)
+    if mhs:
+        hs = mhs.group(1)
+        body = body[: mhs.start()] + "  " + body[mhs.end():]
+    body = _LINE_NUM_PREFIX.sub("", body)
+
+    toks = [(m, _parse_number(m.group(0))) for m in _NUMTOK.finditer(body)]
+    vals = [(m, v) for m, v in toks if v is not None]
+    if len(vals) < 2:
+        return None  # una línea de ítem trae al menos cantidad + un precio
+
+    n = len(order) if order else 0
+    conf = 0.0
+    qty = unit = amount = None
+
+    def whole_positive(x: float) -> bool:
+        return x > 0 and abs(x - round(x)) < 1e-9
+
+    if order:
+        take = vals[-min(n, 3):]
+        keys = order[-len(take):]
+        mapping = dict(zip(keys, [v for _, v in take]))
+        qty = mapping.get("quantity")
+        unit = mapping.get("unit_price")
+        amount = mapping.get("amount")
+        first = take[0][0].start()
+        conf = 0.6
+        if qty is not None and unit is not None and amount is not None:
+            conf = 0.78 if abs(qty * unit - amount) <= max(0.02 * abs(amount), 0.01) else 0.55
+    else:
+        # Sin cabecera: heurística por los números al final de la línea.
+        last3 = vals[-3:]
+        if len(last3) == 3:
+            a, b, c = (v for _, v in last3)
+            if abs(a * b - c) <= max(0.02 * abs(c), 0.01):
+                qty, unit, amount = a, b, c
+                first = last3[0][0].start()
+                conf = 0.6
+            else:
+                qty, unit = a, b  # asume Cant. | P.unit | (importe dudoso)
+                first = last3[0][0].start()
+                conf = 0.35
+        else:
+            (mq, qv), (mu, uv) = vals[-2:]
+            qty, unit = qv, uv
+            first = mq.start()
+            conf = 0.35
+
+    # Plausibilidad: un ítem real tiene cantidad > 0 y precio ≥ 0 (filtra fechas,
+    # números de folio y otras líneas de encabezado que colaron 2 números).
+    if qty is None or qty <= 0 or unit is None or unit < 0:
+        return None
+    if amount is not None and amount < 0:
+        return None
+
+    desc = body[:first].strip(" .:-|\t")
+    if not any(ch.isalpha() for ch in desc):
+        return None  # sin texto no es un ítem (evita filas de totales/números sueltos)
+    if not whole_positive(qty) and unit > qty:
+        # cantidad y precio probablemente invertidos (qty decimal < precio): baja confianza
+        conf = min(conf, 0.4)
+
+    return LineItem(
+        description=desc[:200] or None,
+        hs_code=hs,
+        quantity=_fmt_num(qty) if qty is not None else None,
+        unit_price=_fmt_num(unit) if unit is not None else None,
+        amount=_fmt_num(amount) if amount is not None else None,
+        confidence=round(conf, 2),
+    )
+
+
+def extract_line_items_from_text(text: str, max_items: int = 60) -> list[LineItem]:
+    """Extrae ítems de una proforma/factura. Determinista y explicable.
+
+    Detecta la cabecera de la tabla (para conocer el orden de columnas), lee las
+    filas siguientes hasta la zona de totales y normaliza los números. No inventa:
+    campos no reconocidos quedan en None.
+    """
+    lines = text.splitlines()
+    order: list[str] | None = None
+    header_idx = -1
+    for i, ln in enumerate(lines):
+        od = _detect_column_order(ln)
+        if od:
+            order, header_idx = od, i
+            break
+
+    items: list[LineItem] = []
+    start = header_idx + 1 if header_idx >= 0 else 0
+    stopped = False
+    for ln in lines[start:]:
+        if header_idx >= 0 and _STOP_LINE.search(ln):
+            # Tras la cabecera, la primera línea de totales cierra la tabla.
+            stopped = True
+            break
+        it = _parse_item_line(ln, order)
+        if it:
+            items.append(it)
+            if len(items) >= max_items:
+                break
+    # Sin cabecera detectada, no cortamos por totales dentro del bucle (para no
+    # perder ítems), pero _parse_item_line ya ignora líneas con palabras de total.
+    _ = stopped
+    return items
+
+
 def _norm_date(s: str | None) -> str | None:
     """Normaliza fechas comunes a ISO (asume dd/mm/aaaa en formatos ambiguos)."""
     if not s:
@@ -265,6 +485,7 @@ class HeuristicProformaExtractor:
     def extract(self, data: bytes, content_type: str | None, filename: str | None) -> ExtractionResult:
         text, pages, _ = acquire_text(data, content_type, filename, ocr_enabled=False)
         result = extract_fields_from_text(text)
+        result.line_items = extract_line_items_from_text(text)
         result.model_version = TEXT_MODEL_VERSION + (f"+pdf({pages}p)" if pages else "")
         return result
 
@@ -275,6 +496,7 @@ class OcrExtractor:
     def extract(self, data: bytes, content_type: str | None, filename: str | None) -> ExtractionResult:
         text, pages, method = acquire_text(data, content_type, filename, ocr_enabled=settings.ocr_enabled)
         result = extract_fields_from_text(text)
+        result.line_items = extract_line_items_from_text(text)
         base = OCR_MODEL_VERSION if method == "ocr" else TEXT_MODEL_VERSION
         result.model_version = base + (f"+pdf({pages}p)" if pages and pages > 1 else "")
         return result

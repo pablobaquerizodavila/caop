@@ -55,10 +55,21 @@ class ExtractedFieldPreview(BaseModel):
     confidence: float
 
 
+class LineItemPreview(BaseModel):
+    """Ítem de proforma/factura leído del documento, para prellenar la cotización."""
+    description: str | None = None
+    hs_code: str | None = None
+    quantity: str | None = None
+    unit_price: str | None = None
+    amount: str | None = None
+    confidence: float = 0.0
+
+
 class ExtractionPreview(BaseModel):
     """Extracción efímera (sin persistir) para prellenar formularios (p. ej. cotización)."""
     model_version: str
     fields: list[ExtractedFieldPreview]
+    line_items: list[LineItemPreview] = []
 
 
 class CaseExtractionDoc(BaseModel):

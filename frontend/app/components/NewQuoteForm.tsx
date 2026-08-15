@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createQuote, extractPreview, type PreviewField } from "@/app/lib/actions";
+import type { PreviewLineItem } from "@/app/lib/actions";
 import { SubpartidaInput } from "@/app/components/SubpartidaInput";
 import type { CustomerSummary } from "@/app/lib/format";
 
@@ -71,17 +72,39 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
         setHeader("currency", cur);
         applied.push(`moneda ${cur}`);
       }
-      const total = map.total_amount?.value;
-      if (total) {
-        setItems((p) =>
-          p.map((it, idx) =>
-            idx === 0 && (!it.unit_price || it.unit_price === "0")
-              ? { ...it, unit_price: total }
-              : it,
-          ),
+
+      // Ítems leídos línea por línea (lo mejor: reemplazan la lista para revisión).
+      const li: PreviewLineItem[] = (r.line_items ?? []).filter(
+        (x) => x.description || x.quantity || x.unit_price,
+      );
+      if (li.length) {
+        setItems(
+          li.map((x) => ({
+            description: x.description ?? "",
+            hs_code: x.hs_code ?? "",
+            quantity: x.quantity ?? "1",
+            unit_price: x.unit_price ?? "0",
+          })),
         );
-        applied.push(`monto → ítem 1 (${total})`);
+        const low = li.filter((x) => x.confidence < 0.5).length;
+        applied.push(
+          `${li.length} ítem(s)` + (low ? ` (${low} de baja confianza)` : ""),
+        );
+      } else {
+        // Sin ítems reconocidos: al menos usa el total en el ítem 1.
+        const total = map.total_amount?.value;
+        if (total) {
+          setItems((p) =>
+            p.map((it, idx) =>
+              idx === 0 && (!it.unit_price || it.unit_price === "0")
+                ? { ...it, unit_price: total }
+                : it,
+            ),
+          );
+          applied.push(`monto → ítem 1 (${total})`);
+        }
       }
+
       setOcrMsg(
         applied.length
           ? `Prellenado desde proforma: ${applied.join(", ")}. Revisa antes de crear.`

@@ -221,10 +221,25 @@ export interface PreviewField {
   confidence: number;
 }
 
+export interface PreviewLineItem {
+  description: string | null;
+  hs_code: string | null;
+  quantity: string | null;
+  unit_price: string | null;
+  amount: string | null;
+  confidence: number;
+}
+
 async function _preview(
   path: string,
   formData: FormData,
-): Promise<{ ok: boolean; fields?: PreviewField[]; model?: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  fields?: PreviewField[];
+  line_items?: PreviewLineItem[];
+  model?: string;
+  error?: string;
+}> {
   const file = formData.get("file");
   if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
   const fd = new FormData();
@@ -237,7 +252,12 @@ async function _preview(
   });
   if (!res.ok) return { ok: false, error: `Error ${res.status}` };
   const j = await res.json();
-  return { ok: true, fields: j.fields as PreviewField[], model: j.model_version as string };
+  return {
+    ok: true,
+    fields: j.fields as PreviewField[],
+    line_items: (j.line_items ?? []) as PreviewLineItem[],
+    model: j.model_version as string,
+  };
 }
 
 export async function extractPreview(formData: FormData) {

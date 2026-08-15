@@ -18,6 +18,7 @@ from app.schemas.document import (
     DocumentRead,
     ExtractedFieldPreview,
     ExtractionPreview,
+    LineItemPreview,
     PresignedUrl,
 )
 from app.services.doc_linking import autolink_document
@@ -166,6 +167,17 @@ async def extract_preview(
         fields=[
             ExtractedFieldPreview(field_name=f.field_name, value=f.value, confidence=f.confidence)
             for f in result.fields
+        ],
+        line_items=[
+            LineItemPreview(
+                description=li.description,
+                hs_code=li.hs_code,
+                quantity=li.quantity,
+                unit_price=li.unit_price,
+                amount=li.amount,
+                confidence=li.confidence,
+            )
+            for li in result.line_items
         ],
     )
 
