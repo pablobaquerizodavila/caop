@@ -10,6 +10,7 @@ import {
   deleteSettlementLine,
   generateSettlement,
   issueSettlement,
+  sendPaymentReminder,
   settlementPdf,
   updateSettlement,
   updateSettlementLine,
@@ -187,6 +188,19 @@ export function SettlementPanel({
     setNp({ ...np, amount: "", reference: "" });
   }
 
+  async function remind() {
+    setBusy(true);
+    try {
+      const r = await sendPaymentReminder(caseId, s.id);
+      if (!r.ok) alert(r.error ?? "No se pudo enviar");
+      else if (r.status === "SKIPPED") alert(`Recordatorio omitido: ${r.reason}`);
+      else alert(`Recordatorio enviado a ${r.to}`);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const fees = s.lines.filter((l) => l.kind === "FEE");
   const disb = s.lines.filter((l) => l.kind === "DISBURSEMENT");
   const showCobranza = s.status === "ISSUED" && payments;
@@ -317,6 +331,21 @@ export function SettlementPanel({
               </tbody>
             </table>
           ) : null}
+          {payments!.balance > 0 ? (
+            <div className="form-row" style={{ paddingTop: 0 }}>
+              {canWrite ? (
+                <button className="btn ghost" disabled={busy} onClick={remind}>
+                  Recordar al cliente
+                </button>
+              ) : null}
+              {s.last_reminder_at ? (
+                <span className="tag" style={{ color: "var(--muted)" }}>
+                  Último recordatorio: {new Date(s.last_reminder_at).toLocaleDateString("es-EC")}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           {canWrite && payments!.balance > 0 ? (
             <div className="form-row" style={{ borderTop: "1px solid var(--border-soft)", flexWrap: "wrap" }}>
               <input type="text" placeholder="Monto" value={np.amount}

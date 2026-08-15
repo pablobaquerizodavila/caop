@@ -446,6 +446,8 @@ export interface Settlement {
   total: number;
   notes: string | null;
   issued_at: string | null;
+  due_date: string | null;
+  last_reminder_at: string | null;
   lines: SettlementLine[];
 }
 

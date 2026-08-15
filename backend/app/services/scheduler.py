@@ -10,8 +10,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.core.config import settings
 from app.db.session import get_sessionmaker
 from app.services.alerts import send_digest
+from app.services.reminders import send_due_reminders
 from app.services.sla_engine import evaluate_all
 
 logger = logging.getLogger("caop.scheduler")
@@ -57,3 +59,23 @@ async def alert_digest_loop(interval_minutes: int) -> None:
                 logger.info("Digest de alertas enviado: %s", result)
         except Exception:  # noqa: BLE001
             logger.exception("Fallo en el envío del digest de alertas")
+
+
+async def run_collection_reminders(sessionmaker=None) -> dict:
+    maker = sessionmaker or get_sessionmaker()
+    async with maker() as session:
+        result = await send_due_reminders(session, settings.collection_reminder_min_days)
+        await session.commit()
+        return result
+
+
+async def collection_reminder_loop(interval_minutes: int) -> None:
+    logger.info("Recordatorios de cobro activos: cada %s min", interval_minutes)
+    while True:
+        await asyncio.sleep(interval_minutes * 60)
+        try:
+            result = await run_collection_reminders()
+            if result.get("sent"):
+                logger.info("Recordatorios de cobro enviados: %s", result)
+        except Exception:  # noqa: BLE001
+            logger.exception("Fallo en el envío de recordatorios de cobro")

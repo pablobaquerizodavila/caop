@@ -32,6 +32,29 @@ DEFAULTS: list[dict] = [
         ),
     },
     {
+        "code": "PAYMENT_REMINDER",
+        "version": 1,
+        "channel": "EMAIL",
+        "subject_template": "Recordatorio de pago — liquidación {{settlement_number}}",
+        "body_template": (
+            "Estimado/a {{customer_name}}:\n\n"
+            "Le recordamos que la liquidación {{settlement_number}} tiene un saldo pendiente "
+            "de {{currency}} {{balance}} con vencimiento {{due_date}} ({{days_overdue}} días).\n\n"
+            "Agradecemos su pronta gestión. Si ya realizó el pago, por favor ignore este mensaje.\n\n"
+            "Saludos,\nCAOP"
+        ),
+    },
+    {
+        "code": "PAYMENT_REMINDER",
+        "version": 1,
+        "channel": "WHATSAPP",
+        "subject_template": None,
+        "body_template": (
+            "Hola {{customer_name}}, la liquidación {{settlement_number}} tiene saldo pendiente "
+            "de {{currency}} {{balance}} (vence {{due_date}}). Gracias por su gestión. — CAOP"
+        ),
+    },
+    {
         "code": "ALERT_DIGEST",
         "version": 1,
         "channel": "EMAIL",
