@@ -60,6 +60,11 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             {c.email ? <span className="mono">{c.email}</span> : null}
           </div>
         </div>
+        <div className="actions">
+          <Link href={`/quotes/new?customer=${params.id}`} className="btn">
+            + Crear cotización
+          </Link>
+        </div>
       </div>
 
       <div className="kpis">

@@ -42,11 +42,13 @@ export function NewQuoteForm({
   countries = [],
   initial,
   quoteId,
+  defaultCustomerId,
 }: {
   customers: CustomerSummary[];
   countries?: CountryOption[];
   initial?: QuoteInitial;
   quoteId?: string;
+  defaultCustomerId?: string;
 }) {
   const router = useRouter();
   const isEdit = Boolean(quoteId);
@@ -64,7 +66,7 @@ export function NewQuoteForm({
 
   const [h, setH] = useState(
     initial?.header ?? {
-      customer_id: "",
+      customer_id: defaultCustomerId ?? "",
       transport_mode: "OCEAN",
       incoterm: "FOB",
       origin_country: "",
