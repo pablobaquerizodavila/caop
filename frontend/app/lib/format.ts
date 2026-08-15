@@ -745,6 +745,22 @@ export function payStatusLabel(s: string): string {
   return { PAID: "Pagada", PARTIAL: "Parcial", PENDING: "Pendiente" }[s] ?? s;
 }
 
+// ---------- Búsqueda global ----------
+export interface SearchHit {
+  id: string;
+  label: string;
+  sub: string;
+}
+
+export interface SearchResults {
+  query: string;
+  cases: SearchHit[];
+  quotes: SearchHit[];
+  customers: SearchHit[];
+  suppliers: SearchHit[];
+  total?: number;
+}
+
 export const SLA_RISKY = ["AT_RISK", "CRITICAL", "BREACHED"];
 
 export function slaChipClass(status: string): string {
