@@ -196,7 +196,8 @@ export function NewCustomerForm() {
           <input type="text" value={f.legal_name} onChange={(e) => set("legal_name", e.target.value)} required />
         </label>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+          {/* Fila 1: nombres */}
           <label className="field">
             <span>1er Nombre</span>
             <input type="text" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} required />
@@ -205,6 +206,7 @@ export function NewCustomerForm() {
             <span>2do Nombre</span>
             <input type="text" value={f.middle_name} onChange={(e) => set("middle_name", e.target.value)} />
           </label>
+          {/* Fila 2: apellidos (debajo de los nombres) */}
           <label className="field">
             <span>1er Apellido</span>
             <input type="text" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} required />
