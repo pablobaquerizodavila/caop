@@ -146,6 +146,43 @@ export interface CustomerSummary {
   email: string | null;
 }
 
+export interface Contact {
+  id: string;
+  customer_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  is_primary: boolean;
+}
+
+export interface CustomerRecord {
+  id: string;
+  ruc: string;
+  legal_name: string;
+  trade_name: string | null;
+  email: string | null;
+  status: string;
+  contacts: Contact[];
+}
+
+export interface Consent {
+  id: string;
+  customer_id: string;
+  contact_id: string | null;
+  purpose: string;
+  legal_basis: string;
+  granted_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  country: string | null;
+  aliases: Record<string, unknown> | null;
+}
+
 export interface CustomerHistory {
   customer: { id: string; ruc: string; legal_name: string; trade_name: string | null; email: string | null; status: string };
   stats: { total_cases: number; ready_for_customs: number; total_quotes: number };

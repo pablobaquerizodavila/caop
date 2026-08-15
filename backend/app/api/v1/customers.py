@@ -1,6 +1,7 @@
 """Endpoints de Clientes, Contactos y Consentimiento (LOPDP)."""
 
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -181,6 +182,17 @@ async def add_contact(
     return contact
 
 
+@router.delete("/{customer_id}/contacts/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_contact(
+    customer_id: uuid.UUID, contact_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> None:
+    contact = await session.get(Contact, contact_id)
+    if contact is None or contact.customer_id != customer_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Contacto no encontrado")
+    await session.delete(contact)
+    await session.flush()
+
+
 @router.post(
     "/{customer_id}/consents", response_model=ConsentRead, status_code=status.HTTP_201_CREATED
 )
@@ -206,3 +218,17 @@ async def list_consents(
         select(ConsentRecord).where(ConsentRecord.customer_id == customer_id)
     )
     return list(result)
+
+
+@router.post("/{customer_id}/consents/{consent_id}/revoke", response_model=ConsentRead)
+async def revoke_consent(
+    customer_id: uuid.UUID, consent_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> ConsentRecord:
+    """Revoca un consentimiento (LOPDP): registra la fecha de revocación."""
+    consent = await session.get(ConsentRecord, consent_id)
+    if consent is None or consent.customer_id != customer_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Consentimiento no encontrado")
+    consent.revoked_at = datetime.now(timezone.utc)
+    await session.flush()
+    await session.refresh(consent)
+    return consent
