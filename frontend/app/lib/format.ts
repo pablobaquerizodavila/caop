@@ -166,6 +166,8 @@ export interface CustomerSummary {
   legal_name: string;
   status: string;
   email: string | null;
+  entity_type?: string;
+  legal_rep_name?: string | null;
 }
 
 export interface Contact {
