@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createCustomer, uploadCustomerDocument } from "@/app/lib/actions";
-import { EC_PROVINCES, capitalOf } from "@/app/lib/ecuador";
+import { EC_PROVINCES, capitalOf, citiesOf } from "@/app/lib/ecuador";
 
 /** Deduce el tipo de contribuyente por el 3.º dígito del RUC ecuatoriano:
  *  0-5 = persona natural, 6 = sector público, 9 = sociedad privada. */
@@ -187,7 +187,7 @@ export function NewCustomerForm() {
             <span>Ciudad</span>
             <select value={f.city} onChange={(e) => set("city", e.target.value)} disabled={!f.province}>
               {f.province ? (
-                <option value={capitalOf(f.province)}>{capitalOf(f.province)}</option>
+                citiesOf(f.province).map((ci) => <option key={ci} value={ci}>{ci}</option>)
               ) : (
                 <option value="">— Elige provincia primero —</option>
               )}
