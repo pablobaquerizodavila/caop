@@ -30,7 +30,9 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const record = await apiGet<CustomerRecord>(`/customers/${params.id}`);
   const consents = await apiGet<Consent[]>(`/customers/${params.id}/consents`);
   const docs = (await apiGet<CustomerDoc[]>(`/documents?customer_id=${params.id}`)) ?? [];
-  const legalDocs = docs.filter((d) => d.doc_type === "RUC" || d.doc_type === "APPOINTMENT");
+  const legalDocs = docs.filter(
+    (d) => d.doc_type === "RUC" || d.doc_type === "CEDULA" || d.doc_type === "APPOINTMENT",
+  );
   const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
 
   if (!h) {

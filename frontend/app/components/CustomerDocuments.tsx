@@ -7,6 +7,7 @@ import type { CustomerDoc } from "@/app/lib/format";
 
 const DOC_LABELS: Record<string, string> = {
   RUC: "RUC (escaneado)",
+  CEDULA: "Cédula de identidad",
   APPOINTMENT: "Nombramiento legal",
 };
 

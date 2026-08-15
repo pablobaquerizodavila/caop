@@ -44,6 +44,7 @@ export function NewCustomerForm() {
     phone: "",
   });
   const rucFileRef = useRef<HTMLInputElement>(null);
+  const cedulaFileRef = useRef<HTMLInputElement>(null);
   const nombramientoFileRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -132,6 +133,13 @@ export function NewCustomerForm() {
       fd.append("file", rucFile, rucFile.name);
       const r = await uploadCustomerDocument(res.id, "RUC", fd);
       if (!r.ok) warnings.push("no se pudo subir el RUC escaneado");
+    }
+    const cedulaFile = cedulaFileRef.current?.files?.[0];
+    if (cedulaFile) {
+      const fd = new FormData();
+      fd.append("file", cedulaFile, cedulaFile.name);
+      const r = await uploadCustomerDocument(res.id, "CEDULA", fd);
+      if (!r.ok) warnings.push("no se pudo subir la cédula");
     }
     if (isCompany) {
       const nomFile = nombramientoFileRef.current?.files?.[0];
@@ -317,6 +325,11 @@ export function NewCustomerForm() {
       <label className="field">
         <span>RUC escaneado (PDF)</span>
         <input ref={rucFileRef} type="file" accept={DOC_ACCEPT} />
+      </label>
+
+      <label className="field">
+        <span>{isCompany ? "Cédula del representante legal (PDF)" : "Cédula de identidad (PDF)"}</span>
+        <input ref={cedulaFileRef} type="file" accept={DOC_ACCEPT} />
       </label>
 
       {isCompany ? (
