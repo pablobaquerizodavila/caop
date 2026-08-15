@@ -255,8 +255,8 @@ export function NewQuoteForm({
         </button>
       </div>
       <div className="grid-items items-head" style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }} aria-hidden>
-        <span>Descripción</span>
         <span>Modelo</span>
+        <span>Descripción</span>
         <span>Subpartida</span>
         <span>Cantidad</span>
         <span>Precio unitario</span>
