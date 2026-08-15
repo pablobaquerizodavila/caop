@@ -184,6 +184,9 @@ export interface CustomerRecord {
   legal_name: string;
   trade_name: string | null;
   entity_type?: string;
+  country?: string | null;
+  province?: string | null;
+  city?: string | null;
   address?: string | null;
   legal_rep_name?: string | null;
   legal_rep_id?: string | null;

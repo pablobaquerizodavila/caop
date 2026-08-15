@@ -73,7 +73,13 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             <div>{record?.entity_type === "COMPANY" ? "Empresa / sociedad" : "Persona natural"}</div></div>
           <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>RUC</span>
             <div className="mono">{c.ruc}</div></div>
-          <div className="field" style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--muted)", fontSize: 12 }}>Dirección física</span>
+          <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>País</span>
+            <div>{record?.country || "Ecuador"}</div></div>
+          <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Provincia</span>
+            <div>{record?.province || <span style={{ color: "var(--muted-2)" }}>—</span>}</div></div>
+          <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Ciudad</span>
+            <div>{record?.city || <span style={{ color: "var(--muted-2)" }}>—</span>}</div></div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--muted)", fontSize: 12 }}>Dirección (calle, número, referencia)</span>
             <div>{record?.address || <span style={{ color: "var(--muted-2)" }}>— no registrada —</span>}</div></div>
           {record?.entity_type === "COMPANY" ? (
             <>

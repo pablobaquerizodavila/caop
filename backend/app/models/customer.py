@@ -21,7 +21,11 @@ class Customer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     trade_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # NATURAL (persona natural) | COMPANY (sociedad/empresa)
     entity_type: Mapped[str] = mapped_column(String(16), default="NATURAL", nullable=False)
-    address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Dirección física estructurada.
+    country: Mapped[str] = mapped_column(String(64), default="Ecuador", nullable=False)
+    province: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(512), nullable=True)  # calle, número, referencia
     # Representante legal (solo aplica a empresas).
     legal_rep_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     legal_rep_id: Mapped[str | None] = mapped_column(String(20), nullable=True)

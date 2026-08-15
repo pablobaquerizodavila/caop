@@ -57,6 +57,23 @@ async def test_natural_person_defaults(client):
 
 
 @pytest.mark.asyncio
+async def test_create_customer_structured_address(client):
+    payload = {
+        "ruc": VALID_RUC,
+        "legal_name": "Con Dirección",
+        "province": "Pichincha",
+        "city": "Quito",
+        "address": "Av. Amazonas N34-45 y Pereira",
+    }
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["country"] == "Ecuador"  # por defecto
+    assert body["province"] == "Pichincha"
+    assert body["city"] == "Quito"
+
+
+@pytest.mark.asyncio
 async def test_delete_customer_without_history(client):
     cid = (await client.post(
         "/api/v1/customers", json={"ruc": VALID_RUC, "legal_name": "Borrable"}

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createCustomer, uploadCustomerDocument } from "@/app/lib/actions";
+import { EC_PROVINCES, capitalOf } from "@/app/lib/ecuador";
 
 /** Deduce el tipo de contribuyente por el 3.º dígito del RUC ecuatoriano:
  *  0-5 = persona natural, 6 = sector público, 9 = sociedad privada. */
@@ -24,6 +25,9 @@ export function NewCustomerForm() {
     legal_name: "",
     trade_name: "",
     entity_type: "NATURAL" as "NATURAL" | "COMPANY",
+    country: "Ecuador",
+    province: "",
+    city: "",
     address: "",
     legal_rep_name: "",
     legal_rep_id: "",
@@ -62,6 +66,9 @@ export function NewCustomerForm() {
       legal_name: f.legal_name.trim(),
       trade_name: f.trade_name.trim() || null,
       entity_type: f.entity_type,
+      country: f.country.trim() || "Ecuador",
+      province: f.province.trim() || null,
+      city: f.city.trim() || null,
       address: f.address.trim() || null,
       email: f.email.trim() || null,
     };
@@ -153,15 +160,50 @@ export function NewCustomerForm() {
         <input type="text" value={f.trade_name} onChange={(e) => set("trade_name", e.target.value)} />
       </label>
 
-      <label className="field">
-        <span>Dirección física</span>
-        <textarea
-          value={f.address}
-          onChange={(e) => set("address", e.target.value)}
-          rows={2}
-          placeholder="Calle principal, número, intersección, ciudad, provincia"
-        />
-      </label>
+      <fieldset className="stack" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
+        <legend style={{ padding: "0 6px", color: "var(--muted)", fontSize: 12.5 }}>Dirección física</legend>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+          <label className="field">
+            <span>País</span>
+            <input type="text" value={f.country} onChange={(e) => set("country", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Provincia</span>
+            <select
+              value={f.province}
+              onChange={(e) => {
+                const prov = e.target.value;
+                // Al elegir provincia, propone su ciudad capital.
+                setF((p) => ({ ...p, province: prov, city: capitalOf(prov) }));
+              }}
+            >
+              <option value="">— Selecciona —</option>
+              {EC_PROVINCES.map((p) => (
+                <option key={p.province} value={p.province}>{p.province}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Ciudad</span>
+            <select value={f.city} onChange={(e) => set("city", e.target.value)} disabled={!f.province}>
+              {f.province ? (
+                <option value={capitalOf(f.province)}>{capitalOf(f.province)}</option>
+              ) : (
+                <option value="">— Elige provincia primero —</option>
+              )}
+            </select>
+          </label>
+        </div>
+        <label className="field">
+          <span>Calle, número y referencia</span>
+          <textarea
+            value={f.address}
+            onChange={(e) => set("address", e.target.value)}
+            rows={2}
+            placeholder="Av. Amazonas N34-45 y Pereira, edificio…, oficina…"
+          />
+        </label>
+      </fieldset>
 
       <label className="field">
         <span>RUC escaneado (PDF)</span>

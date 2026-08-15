@@ -33,6 +33,9 @@ class CustomerBase(BaseModel):
     legal_name: str
     trade_name: str | None = None
     entity_type: str = "NATURAL"
+    country: str = "Ecuador"
+    province: str | None = None
+    city: str | None = None
     address: str | None = None
     legal_rep_name: str | None = None
     legal_rep_id: str | None = None
@@ -72,6 +75,9 @@ class CustomerUpdate(BaseModel):
     legal_name: str | None = None
     trade_name: str | None = None
     entity_type: str | None = None
+    country: str | None = None
+    province: str | None = None
+    city: str | None = None
     address: str | None = None
     legal_rep_name: str | None = None
     legal_rep_id: str | None = None
