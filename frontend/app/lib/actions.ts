@@ -958,6 +958,39 @@ export async function tariffHistory(hsCode: string): Promise<unknown[]> {
   return (await res.json()) as unknown[];
 }
 
+// ---------- Arancel: preferencias / acuerdos ----------
+export async function seedAgreements(): Promise<{ ok: boolean; agreements?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/seed-agreements`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, agreements: Array.isArray(j.agreements_created) ? j.agreements_created.length : 0 };
+}
+
+export async function createTariffPreference(data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/preferences`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function deleteTariffPreference(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/preferences/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Arancel: administración (import / publicar) ----------
 export async function importTariff(
   formData: FormData,

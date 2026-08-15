@@ -27,6 +27,7 @@ from app.models.tariff import (
     TariffVersion,
 )
 from app.models.tax import TaxRule
+from app.models.trade import Country, TariffPreference, TradeAgreement
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
 from app.models.warehouse import WarehouseStorage
@@ -43,6 +44,7 @@ __all__ = [
     "CreditNote",
     "Contact",
     "CostLine",
+    "Country",
     "Customer",
     "CustomsCase",
     "CustomsDeclaration",
@@ -73,8 +75,10 @@ __all__ = [
     "Supplier",
     "TariffCode",
     "TariffImport",
+    "TariffPreference",
     "TariffVersion",
     "TaxRule",
+    "TradeAgreement",
     "User",
     "VuePermit",
     "VueRule",

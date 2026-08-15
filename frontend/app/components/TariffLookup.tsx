@@ -16,7 +16,15 @@ interface HistoryRow {
   ad_valorem: string | number | null; effective_from: string; effective_to: string | null;
 }
 interface CalcComp { tax_type: string; amount: number; rate_applied: number | null; verified: boolean }
-interface Calc { total_cif: number; total_taxes: number; complete: boolean; data_version: string | null; items: { components: CalcComp[]; warnings: string[]; missing_information: string[]; hs_validation: string }[] }
+interface Pref {
+  agreement_code: string; agreement_name: string; liberation_pct: number;
+  preferential_adval_pct: number; requires_certificate: boolean; verified: boolean;
+  total_taxes: number; savings: number;
+}
+interface Calc {
+  total_cif: number; total_taxes: number; complete: boolean; data_version: string | null;
+  items: { components: CalcComp[]; warnings: string[]; missing_information: string[]; hs_validation: string; preference: Pref | null }[];
+}
 
 export function TariffLookup() {
   const [hs, setHs] = useState("");
@@ -24,6 +32,7 @@ export function TariffLookup() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [fob, setFob] = useState("1000");
+  const [origin, setOrigin] = useState("");
   const [calc, setCalc] = useState<Calc | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -49,7 +58,7 @@ export function TariffLookup() {
     setBusy(true);
     try {
       const c = (await tariffCalculate({
-        items: [{ hs_code: hs, invoice_value: Number(fob) || 0 }],
+        items: [{ hs_code: hs, invoice_value: Number(fob) || 0, origin_country: origin.trim().toUpperCase() || null }],
       })) as Calc | null;
       setCalc(c);
     } finally {
@@ -167,6 +176,10 @@ export function TariffLookup() {
             <label className="field"><span>Valor FOB (USD)</span>
               <input value={fob} onChange={(e) => setFob(e.target.value)} style={{ width: 120 }} />
             </label>
+            <label className="field"><span>País de origen (ISO2)</span>
+              <input value={origin} placeholder="p. ej. CO, CN, PE" maxLength={2}
+                onChange={(e) => setOrigin(e.target.value)} style={{ width: 110 }} />
+            </label>
             <button className="btn" disabled={busy} onClick={runCalc}>Calcular tributos</button>
           </div>
         </div>
@@ -202,6 +215,26 @@ export function TariffLookup() {
             <div className="blocker-banner" style={{ marginTop: 12, borderColor: "rgba(180,83,9,0.4)", color: "var(--muted)" }}>
               <b>Estimación tributaria incompleta.</b> Falta información arancelaria verificada.
               {calc.items[0]?.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, marginTop: 4 }}>⚠ {w}</div>)}
+            </div>
+          ) : null}
+
+          {calc.items[0]?.preference ? (
+            <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(45,212,191,0.08)", border: "1px solid rgba(45,212,191,0.35)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                <b>Con preferencia potencial · {calc.items[0].preference.agreement_name}</b>
+                <span className="pill accent">ahorro ${calc.items[0].preference.savings.toFixed(2)}</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 6 }}>
+                Ad-Valorem preferencial <b>{calc.items[0].preference.preferential_adval_pct}%</b>
+                {" "}(liberación {calc.items[0].preference.liberation_pct}%) → total tributos{" "}
+                <b>${calc.items[0].preference.total_taxes.toFixed(2)}</b>.
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 6 }}>
+                {calc.items[0].preference.requires_certificate
+                  ? "⚠ Requiere certificado de origen válido para aplicarse. Escenario estimado."
+                  : "Sin requisito de certificado."}
+                {!calc.items[0].preference.verified ? " · Preferencia sin verificar (revisar excepciones)." : ""}
+              </div>
             </div>
           ) : null}
         </div>

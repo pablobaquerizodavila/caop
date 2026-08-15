@@ -188,3 +188,94 @@ async def test_api_calculate_incomplete(client, db_sessionmaker):
     out = r.json()
     assert out["complete"] is False
     assert out["items"][0]["hs_validation"] == "NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_api_history(client, db_sessionmaker):
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+    r = await client.get("/api/v1/tariff/codes/8471.30.00.00/history")
+    assert r.status_code == 200
+    rows = r.json()
+    assert any(row["status"] == "ACTIVE" and float(row["ad_valorem"]) == 5 for row in rows)
+
+
+@pytest.mark.asyncio
+async def test_api_ficha_hierarchy(client, db_sessionmaker):
+    parent = TariffRecord(
+        code="8471.30", code_normalized="847130", level=6,
+        description="Máquinas automáticas portátiles", physical_unit=None,
+        ad_valorem=None, parent_code=None,
+    )
+    child = TariffRecord(
+        code="8471.30.00.00", code_normalized="8471300000", level=10,
+        description="De peso inferior o igual a 10 kg", physical_unit="u",
+        ad_valorem=Decimal("5"), parent_code="847130",
+    )
+    async with db_sessionmaker() as s:
+        await _seed_general(s)
+        res = await import_arancel(s, records=[parent, child], version_number="H-1",
+                                   effective_from=date(2023, 9, 1))
+        await publish_version(s, res.version_id)
+        await s.commit()
+
+    r = await client.get("/api/v1/tariff/codes/8471.30.00.00")
+    assert any(a["code"] == "8471.30" for a in r.json()["ancestors"])
+    r2 = await client.get("/api/v1/tariff/codes/8471.30")
+    assert any(c["code"] == "8471.30.00.00" for c in r2.json()["children"])
+
+
+# ---------- preferencias (Fase 2B) ----------
+async def _seed_agreements(session):
+    from app.services.trade_agreement_seed import seed_agreements, seed_countries
+    await seed_countries(session)
+    await seed_agreements(session)
+
+
+@pytest.mark.asyncio
+async def test_preference_scenario_can(db_sessionmaker):
+    async with db_sessionmaker() as s:
+        await _ingest(s)          # 8471.30.00.00 con Ad-Valorem 5%
+        await _seed_agreements(s)  # CAN 100% liberación para originarios
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00", origin_country="CO"),
+            date.today(),
+        )
+        assert ri.preference is not None
+        assert ri.preference.agreement_code == "CAN"
+        assert ri.preference.preferential_adval_pct == Decimal("0")   # 100% liberación
+        assert ri.preference.result.total_taxes < ri.result.total_taxes
+        assert ri.preference.savings > 0
+        assert ri.preference.requires_certificate is True
+
+
+@pytest.mark.asyncio
+async def test_no_preference_for_nonmember(db_sessionmaker):
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        await _seed_agreements(s)
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00", origin_country="US"),
+            date.today(),
+        )
+        assert ri.preference is None   # EE.UU. no es miembro de un acuerdo con preferencia cargada
+
+
+@pytest.mark.asyncio
+async def test_api_calculate_with_preference(client, db_sessionmaker):
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        await _seed_agreements(s)
+        await s.commit()
+    r = await client.post("/api/v1/tariff/calculate", json={
+        "items": [{"hs_code": "8471.30.00.00", "invoice_value": 1000, "origin_country": "PE"}]
+    })
+    out = r.json()
+    pref = out["items"][0]["preference"]
+    assert pref is not None
+    assert pref["agreement_code"] == "CAN"
+    assert pref["savings"] > 0
