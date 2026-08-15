@@ -41,6 +41,50 @@ async def test_create_company_with_legal_rep_and_address(client):
 
 
 @pytest.mark.asyncio
+async def test_company_legal_rep_name_parts(client):
+    payload = {
+        "ruc": VALID_RUC,
+        "legal_name": "IMPORTADORA ANDINA S.A.",
+        "entity_type": "COMPANY",
+        "legal_rep_name": "PEREZ GARCIA JUAN CARLOS",
+        "legal_rep_first_name": "Juan",
+        "legal_rep_middle_name": "Carlos",
+        "legal_rep_last_name": "Pérez",
+        "legal_rep_second_last_name": "García",
+    }
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["legal_rep_first_name"] == "Juan"
+    assert body["legal_rep_last_name"] == "Pérez"
+    assert body["legal_rep_second_last_name"] == "García"
+
+
+@pytest.mark.asyncio
+async def test_list_customers_search_by_name(client):
+    # Persona natural con apellido Pérez.
+    await client.post("/api/v1/customers", json={
+        "ruc": VALID_RUC, "legal_name": "PEREZ JUAN", "first_name": "Juan", "last_name": "Pérez",
+    })
+    # Empresa cuyo representante se apellida Zambrano.
+    await client.post("/api/v1/customers", json={
+        "ruc": "0912345675001", "legal_name": "OTRA CIA", "entity_type": "COMPANY",
+        "legal_rep_name": "ZAMBRANO ANA", "legal_rep_first_name": "Ana", "legal_rep_last_name": "Zambrano",
+    })
+    # Filtra por apellido de la persona natural.
+    r1 = await client.get("/api/v1/customers?q=Pérez")
+    assert r1.status_code == 200
+    assert any(c["legal_name"] == "PEREZ JUAN" for c in r1.json())
+    assert all(c["legal_name"] != "OTRA CIA" for c in r1.json())
+    # Filtra por apellido del representante legal (empresa).
+    r2 = await client.get("/api/v1/customers?q=Zambrano")
+    assert any(c["legal_name"] == "OTRA CIA" for c in r2.json())
+    # Sin coincidencias.
+    r3 = await client.get("/api/v1/customers?q=inexistente-xyz")
+    assert r3.json() == []
+
+
+@pytest.mark.asyncio
 async def test_company_requires_legal_rep(client):
     payload = {"ruc": VALID_RUC, "legal_name": "Empresa Sin Rep", "entity_type": "COMPANY"}
     resp = await client.post("/api/v1/customers", json=payload)

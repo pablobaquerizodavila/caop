@@ -39,6 +39,10 @@ export function NewCustomerForm() {
     dispatch_city: "",
     dispatch_address: "",
     legal_rep_name: "",
+    legal_rep_first_name: "",
+    legal_rep_middle_name: "",
+    legal_rep_last_name: "",
+    legal_rep_second_last_name: "",
     legal_rep_id: "",
     email: "",
     phone: "",
@@ -65,10 +69,18 @@ export function NewCustomerForm() {
     setBusy(true);
     setError(null);
 
-    if (isCompany && !f.legal_rep_name.trim()) {
-      setError("Una empresa requiere el nombre del representante legal.");
-      setBusy(false);
-      return;
+    // Empresa: compone el nombre del representante legal (apellidos + nombres) desde los 4 campos.
+    let repName = "";
+    if (isCompany) {
+      if (!f.legal_rep_first_name.trim() || !f.legal_rep_last_name.trim()) {
+        setError("Ingresa al menos el primer nombre y el primer apellido del representante legal.");
+        setBusy(false);
+        return;
+      }
+      repName = [f.legal_rep_last_name, f.legal_rep_second_last_name, f.legal_rep_first_name, f.legal_rep_middle_name]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(" ");
     }
 
     // Persona natural: compone el nombre completo (apellidos + nombres) a partir de los 4 campos.
@@ -111,7 +123,11 @@ export function NewCustomerForm() {
       payload.dispatch_address = f.dispatch_address.trim() || null;
     }
     if (isCompany) {
-      payload.legal_rep_name = f.legal_rep_name.trim();
+      payload.legal_rep_name = repName;
+      payload.legal_rep_first_name = f.legal_rep_first_name.trim();
+      payload.legal_rep_middle_name = f.legal_rep_middle_name.trim() || null;
+      payload.legal_rep_last_name = f.legal_rep_last_name.trim();
+      payload.legal_rep_second_last_name = f.legal_rep_second_last_name.trim() || null;
       payload.legal_rep_id = f.legal_rep_id.trim() || null;
     }
     if (f.phone.trim()) {
@@ -339,15 +355,26 @@ export function NewCustomerForm() {
           <legend style={{ padding: "0 6px", color: "var(--muted)", fontSize: 12.5 }}>
             Representante legal
           </legend>
-          <label className="field">
-            <span>Nombre del representante legal</span>
-            <input
-              type="text"
-              value={f.legal_rep_name}
-              onChange={(e) => set("legal_rep_name", e.target.value)}
-              required={isCompany}
-            />
-          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+            {/* Fila 1: nombres */}
+            <label className="field">
+              <span>1er Nombre</span>
+              <input type="text" value={f.legal_rep_first_name} onChange={(e) => set("legal_rep_first_name", e.target.value)} required={isCompany} />
+            </label>
+            <label className="field">
+              <span>2do Nombre</span>
+              <input type="text" value={f.legal_rep_middle_name} onChange={(e) => set("legal_rep_middle_name", e.target.value)} />
+            </label>
+            {/* Fila 2: apellidos */}
+            <label className="field">
+              <span>1er Apellido</span>
+              <input type="text" value={f.legal_rep_last_name} onChange={(e) => set("legal_rep_last_name", e.target.value)} required={isCompany} />
+            </label>
+            <label className="field">
+              <span>2do Apellido</span>
+              <input type="text" value={f.legal_rep_second_last_name} onChange={(e) => set("legal_rep_second_last_name", e.target.value)} />
+            </label>
+          </div>
           <label className="field">
             <span>Cédula / RUC del representante (opcional)</span>
             <input type="text" value={f.legal_rep_id} onChange={(e) => set("legal_rep_id", e.target.value)} />

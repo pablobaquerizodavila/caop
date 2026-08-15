@@ -61,6 +61,10 @@ async def create_customer(
         dispatch_city=payload.dispatch_city,
         dispatch_address=payload.dispatch_address,
         legal_rep_name=payload.legal_rep_name,
+        legal_rep_first_name=payload.legal_rep_first_name,
+        legal_rep_middle_name=payload.legal_rep_middle_name,
+        legal_rep_last_name=payload.legal_rep_last_name,
+        legal_rep_second_last_name=payload.legal_rep_second_last_name,
         legal_rep_id=payload.legal_rep_id,
         email=payload.email,
         billing_data=payload.billing_data,
@@ -78,12 +82,30 @@ async def create_customer(
 @router.get("", response_model=list[CustomerRead])
 async def list_customers(
     session: AsyncSession = Depends(get_session),
+    q: str | None = Query(None, description="Filtra por nombres/apellidos, razón social o RUC"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> list[Customer]:
-    result = await session.scalars(
-        select(Customer).order_by(Customer.created_at.desc()).limit(limit).offset(offset)
-    )
+    stmt = select(Customer).order_by(Customer.created_at.desc())
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        # Busca en el nombre de la persona natural y en el del representante legal,
+        # además de razón social, nombre comercial y RUC → un solo listado unificado.
+        stmt = stmt.where(
+            or_(
+                Customer.legal_name.ilike(like),
+                Customer.trade_name.ilike(like),
+                Customer.ruc.ilike(like),
+                Customer.first_name.ilike(like),
+                Customer.last_name.ilike(like),
+                Customer.second_last_name.ilike(like),
+                Customer.legal_rep_name.ilike(like),
+                Customer.legal_rep_first_name.ilike(like),
+                Customer.legal_rep_last_name.ilike(like),
+                Customer.legal_rep_second_last_name.ilike(like),
+            )
+        )
+    result = await session.scalars(stmt.limit(limit).offset(offset))
     return list(result)
 
 

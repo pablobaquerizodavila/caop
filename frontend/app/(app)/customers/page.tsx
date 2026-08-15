@@ -4,8 +4,14 @@ import { apiGet, type CustomerSummary } from "@/app/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
-  const customers = await apiGet<CustomerSummary[]>("/customers?limit=200");
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string };
+}) {
+  const q = (searchParams?.q ?? "").trim();
+  const url = q ? `/customers?limit=200&q=${encodeURIComponent(q)}` : "/customers?limit=200";
+  const customers = await apiGet<CustomerSummary[]>(url);
 
   return (
     <>
@@ -19,14 +25,27 @@ export default async function CustomersPage() {
         </Link>
       </div>
 
+      <form method="GET" className="card rise section-gap" style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+        <label className="field" style={{ flex: 1, minWidth: 220 }}>
+          <span>Buscar por nombres, apellidos, razón social o RUC</span>
+          <input type="text" name="q" defaultValue={q} placeholder="Ej: Pérez, García, ANDINA, 1790…" />
+        </label>
+        <button className="btn" type="submit">Buscar</button>
+        {q ? <Link href="/customers" className="btn ghost">Limpiar</Link> : null}
+      </form>
+
       <div className="card rise">
         <div className="head">
-          <h2>Clientes registrados</h2>
+          <h2>{q ? `Resultados para “${q}”` : "Clientes registrados"}</h2>
           <span className="count">{customers?.length ?? 0}</span>
         </div>
         {!customers || customers.length === 0 ? (
           <div className="empty">
-            {customers === null ? "No se pudo conectar con el backend." : "Aún no hay clientes."}
+            {customers === null
+              ? "No se pudo conectar con el backend."
+              : q
+                ? "Sin coincidencias para la búsqueda."
+                : "Aún no hay clientes."}
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>

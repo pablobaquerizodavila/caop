@@ -47,6 +47,10 @@ class CustomerBase(BaseModel):
     dispatch_city: str | None = None
     dispatch_address: str | None = None
     legal_rep_name: str | None = None
+    legal_rep_first_name: str | None = None
+    legal_rep_middle_name: str | None = None
+    legal_rep_last_name: str | None = None
+    legal_rep_second_last_name: str | None = None
     legal_rep_id: str | None = None
     email: EmailStr | None = None
     billing_data: dict | None = None
@@ -108,6 +112,10 @@ class CustomerUpdate(BaseModel):
     dispatch_city: str | None = None
     dispatch_address: str | None = None
     legal_rep_name: str | None = None
+    legal_rep_first_name: str | None = None
+    legal_rep_middle_name: str | None = None
+    legal_rep_last_name: str | None = None
+    legal_rep_second_last_name: str | None = None
     legal_rep_id: str | None = None
     email: EmailStr | None = None
     billing_data: dict | None = None

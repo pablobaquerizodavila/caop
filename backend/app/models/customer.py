@@ -37,8 +37,12 @@ class Customer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     dispatch_province: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dispatch_city: Mapped[str | None] = mapped_column(String(80), nullable=True)
     dispatch_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # Representante legal (solo aplica a empresas).
+    # Representante legal (solo aplica a empresas): nombre completo + desglose.
     legal_rep_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    legal_rep_first_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    legal_rep_middle_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    legal_rep_last_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    legal_rep_second_last_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     legal_rep_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     billing_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
