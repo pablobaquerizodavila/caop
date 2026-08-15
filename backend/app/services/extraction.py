@@ -465,6 +465,100 @@ def extract_transport_from_text(text: str) -> ExtractionResult:
     return result
 
 
+# --------------------------------------------------------------------------- #
+#  Extracción de datos del certificado de RUC (SRI)
+# --------------------------------------------------------------------------- #
+@dataclass
+class RucFields:
+    ruc: str | None = None
+    legal_name: str | None = None
+    trade_name: str | None = None
+    entity_type: str | None = None  # NATURAL | COMPANY
+    confidence: float = 0.0
+    model_version: str = TEXT_MODEL_VERSION
+
+
+_RUC_LABELED = re.compile(r"R\.?\s*U\.?\s*C\.?\s*(?:N[°ºo.]*)?\s*[:\-]?\s*(\d{13})", re.I)
+_RUC_ANY = re.compile(r"\b(\d{13})\b")
+# Etiquetas que marcan el fin del valor de un campo (para no arrastrar el siguiente).
+_CUT_LABELS = re.compile(
+    r"\b(NOMBRE\s+COMERCIAL|RAZ[OÓ]N\s+SOCIAL|APELLIDOS|TIPO\s+(?:DE\s+)?CONTRIBUYENTE|"
+    r"CLASE\s+(?:DE\s+)?CONTRIBUYENTE|ESTADO|FECHA|DIRECCI[OÓ]N|ACTIVIDAD|OBLIGAD|"
+    r"REPRESENTANTE|N[UÚ]MERO|RUC)\b",
+    re.I,
+)
+
+
+def _clean_ruc_value(v: str) -> str | None:
+    m = _CUT_LABELS.search(v)
+    if m:
+        v = v[: m.start()]
+    # Recorta espacios y separadores de etiqueta, pero conserva los puntos
+    # internos/finales (p. ej. "S.A.").
+    v = v.strip().strip(":|-").strip()
+    if not v or v.upper() in {"S/N", "N/A", "-", "NINGUNO", "."}:
+        return None
+    return v[:200]
+
+
+def _ruc_label_value(text: str, labels: list[str]) -> str | None:
+    for lab in labels:
+        m = re.search(rf"{lab}\s*[:\-]?\s*(.+)", text, re.I)
+        if m:
+            val = _clean_ruc_value(m.group(1))
+            if val:
+                return val
+    return None
+
+
+def extract_ruc_fields_from_text(text: str) -> RucFields:
+    """Parsea el certificado de RUC del SRI. Determinista; no inventa: lo no
+    reconocido queda en None y la confianza refleja cuántos campos se hallaron."""
+    r = RucFields()
+
+    m = _RUC_LABELED.search(text) or _RUC_ANY.search(text)
+    if m:
+        r.ruc = m.group(1)
+
+    r.legal_name = _ruc_label_value(
+        text, [r"RAZ[OÓ]N\s+SOCIAL", r"APELLIDOS\s+Y\s+NOMBRES", r"NOMBRES?\s+Y\s+APELLIDOS"]
+    )
+    r.trade_name = _ruc_label_value(text, [r"NOMBRE\s+COMERCIAL"])
+
+    up = text.upper()
+    mt = re.search(r"TIPO\s+(?:DE\s+)?CONTRIBUYENTE\s*[:\-]?\s*([^\n]+)", up)
+    if mt:
+        v = mt.group(1)
+        if "SOCIEDAD" in v:
+            r.entity_type = "COMPANY"
+        elif "NATURAL" in v:
+            r.entity_type = "NATURAL"
+    if r.entity_type is None:
+        if "SOCIEDAD" in up:
+            r.entity_type = "COMPANY"
+        elif "PERSONA NATURAL" in up or "PERSONAS NATURALES" in up:
+            r.entity_type = "NATURAL"
+    # Respaldo: 3.º dígito del RUC (9/6 = sociedad/sector público).
+    if r.entity_type is None and r.ruc:
+        r.entity_type = "COMPANY" if r.ruc[2] in ("9", "6") else "NATURAL"
+
+    found = sum(x is not None for x in (r.ruc, r.legal_name, r.trade_name, r.entity_type))
+    r.confidence = round(min(1.0, 0.25 * found + (0.15 if m else 0.0)), 2)
+    return r
+
+
+def extract_ruc(data: bytes, content_type: str | None, filename: str | None) -> RucFields:
+    """Adquiere texto (con OCR si aplica) y extrae los campos del RUC."""
+    text, pages, method = acquire_text(
+        data, content_type, filename, ocr_enabled=settings.ocr_enabled
+    )
+    r = extract_ruc_fields_from_text(text)
+    r.model_version = (OCR_MODEL_VERSION if method == "ocr" else TEXT_MODEL_VERSION) + (
+        f"+pdf({pages}p)" if pages and pages > 1 else ""
+    )
+    return r
+
+
 def extract_transport(
     data: bytes, content_type: str | None, filename: str | None
 ) -> ExtractionResult:

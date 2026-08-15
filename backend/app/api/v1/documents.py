@@ -20,9 +20,10 @@ from app.schemas.document import (
     ExtractionPreview,
     LineItemPreview,
     PresignedUrl,
+    RucExtractionPreview,
 )
 from app.services.doc_linking import autolink_document
-from app.services.extraction import Extractor, extract_transport, get_extractor
+from app.services.extraction import Extractor, extract_ruc, extract_transport, get_extractor
 from app.services.storage import StorageService, get_storage, sha256_hex
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,24 @@ async def extract_transport_preview(
             ExtractedFieldPreview(field_name=f.field_name, value=f.value, confidence=f.confidence)
             for f in result.fields
         ],
+    )
+
+
+@router.post("/extract-ruc-preview", response_model=RucExtractionPreview)
+async def extract_ruc_preview(file: UploadFile = File(...)) -> RucExtractionPreview:
+    """Lee un certificado de RUC (SRI) SIN persistirlo y devuelve RUC, razón social /
+    nombres, nombre comercial y tipo de contribuyente para prellenar el cliente."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Archivo vacío")
+    r = await run_in_threadpool(extract_ruc, data, file.content_type, file.filename)
+    return RucExtractionPreview(
+        ruc=r.ruc,
+        legal_name=r.legal_name,
+        trade_name=r.trade_name,
+        entity_type=r.entity_type,
+        confidence=r.confidence,
+        model_version=r.model_version,
     )
 
 

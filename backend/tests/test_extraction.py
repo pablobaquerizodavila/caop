@@ -5,6 +5,7 @@ import pytest
 from app.services.extraction import (
     _parse_number,
     extract_line_items_from_text,
+    extract_ruc_fields_from_text,
 )
 
 PROFORMA = (
@@ -122,6 +123,63 @@ def test_line_items_ignores_header_and_footer_noise():
     assert len(items) == 1
     assert items[0].description == "Cable USB"
     assert items[0].quantity == "10"
+
+
+def test_ruc_fields_company():
+    text = (
+        "SERVICIO DE RENTAS INTERNAS\n"
+        "CERTIFICADO DE REGISTRO ÚNICO DE CONTRIBUYENTES (RUC)\n"
+        "NÚMERO RUC: 1790000001001\n"
+        "RAZÓN SOCIAL: IMPORTADORA ANDINA S.A.\n"
+        "NOMBRE COMERCIAL: ANDINA IMPORT\n"
+        "TIPO DE CONTRIBUYENTE: SOCIEDAD\n"
+        "ESTADO: ACTIVO\n"
+    )
+    r = extract_ruc_fields_from_text(text)
+    assert r.ruc == "1790000001001"
+    assert r.legal_name == "IMPORTADORA ANDINA S.A."
+    assert r.trade_name == "ANDINA IMPORT"
+    assert r.entity_type == "COMPANY"
+    assert r.confidence >= 0.8
+
+
+def test_ruc_fields_natural_person():
+    text = (
+        "NÚMERO RUC: 1710000009001\n"
+        "APELLIDOS Y NOMBRES: PEREZ GARCIA JUAN CARLOS\n"
+        "NOMBRE COMERCIAL: S/N\n"
+        "TIPO DE CONTRIBUYENTE: PERSONA NATURAL\n"
+    )
+    r = extract_ruc_fields_from_text(text)
+    assert r.ruc == "1710000009001"
+    assert r.legal_name == "PEREZ GARCIA JUAN CARLOS"
+    assert r.trade_name is None  # "S/N" se descarta
+    assert r.entity_type == "NATURAL"
+
+
+def test_ruc_fields_entity_type_fallback_from_ruc():
+    # Sin etiqueta de tipo: se infiere del 3.º dígito (9 = sociedad).
+    r = extract_ruc_fields_from_text("RUC: 1790000001001\nRAZÓN SOCIAL: X CIA LTDA\n")
+    assert r.entity_type == "COMPANY"
+
+
+@pytest.mark.asyncio
+async def test_extract_ruc_preview_endpoint(client):
+    doc = (
+        "NÚMERO RUC: 1790000001001\n"
+        "RAZÓN SOCIAL: IMPORTADORA ANDINA S.A.\n"
+        "NOMBRE COMERCIAL: ANDINA\n"
+        "TIPO DE CONTRIBUYENTE: SOCIEDAD\n"
+    ).encode("utf-8")
+    resp = await client.post(
+        "/api/v1/documents/extract-ruc-preview",
+        files={"file": ("ruc.txt", doc, "text/plain")},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ruc"] == "1790000001001"
+    assert body["legal_name"] == "IMPORTADORA ANDINA S.A."
+    assert body["entity_type"] == "COMPANY"
 
 
 @pytest.mark.asyncio
