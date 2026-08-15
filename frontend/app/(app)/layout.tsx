@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { GlobalSearch } from "@/app/components/GlobalSearch";
 import { NavLink } from "@/app/components/NavLink";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <div className="sub">CONTROL TOWER</div>
           </div>
         </div>
+        <GlobalSearch />
         <nav className="nav">
           <NavLink href="/">Torre de Control</NavLink>
           <NavLink href="/cases">Expedientes</NavLink>

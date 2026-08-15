@@ -18,6 +18,7 @@ from app.api.v1 import (
     portal,
     quotes,
     retention,
+    search,
     settlements,
     sla,
     suppliers,
@@ -60,6 +61,7 @@ api_router.include_router(notifications.router, dependencies=protected)
 api_router.include_router(sla.router, dependencies=protected)
 api_router.include_router(analytics.router, dependencies=protected)
 api_router.include_router(exports.router, dependencies=protected)
+api_router.include_router(search.router, dependencies=protected)
 api_router.include_router(ocean.router, dependencies=protected)
 api_router.include_router(tracking.admin_router, dependencies=protected)
 api_router.include_router(vue.router, dependencies=protected)
