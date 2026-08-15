@@ -1,7 +1,16 @@
+import { cookies } from "next/headers";
+
 import { apiGet } from "@/app/lib/api";
+import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
+import { TariffAdmin } from "@/app/components/TariffAdmin";
 import { TariffLookup } from "@/app/components/TariffLookup";
 
 export const dynamic = "force-dynamic";
+
+interface Version {
+  id: string; number: string; status: string;
+  codes_count: number; rules_count: number; published_at?: string | null; created_at: string;
+}
 
 interface SyncStatus {
   active_version: { number: string; status: string; codes_count: number; rules_count: number } | null;
@@ -11,8 +20,10 @@ interface SyncStatus {
 }
 
 export default async function TariffPage() {
+  const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
   const status = await apiGet<SyncStatus>("/tariff/sync-status");
   const ver = status?.active_version ?? null;
+  const versions = caps.canAdmin ? (await apiGet<Version[]>("/tariff/versions")) ?? [] : [];
 
   return (
     <>
@@ -45,6 +56,8 @@ export default async function TariffPage() {
           Arancel del Ecuador (PDF oficial) vía <code>POST /api/v1/tariff/import</code> y publicarla.
         </div>
       ) : null}
+
+      {caps.canAdmin ? <TariffAdmin versions={versions} /> : null}
 
       <TariffLookup />
     </>

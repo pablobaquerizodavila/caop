@@ -949,6 +949,56 @@ export async function tariffCalculate(payload: unknown): Promise<unknown | null>
   return await res.json();
 }
 
+export async function tariffHistory(hsCode: string): Promise<unknown[]> {
+  const res = await fetch(
+    `${API}/api/v1/tariff/codes/${encodeURIComponent(hsCode)}/history`,
+    { headers: authHeader(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return (await res.json()) as unknown[];
+}
+
+// ---------- Arancel: administración (import / publicar) ----------
+export async function importTariff(
+  formData: FormData,
+): Promise<{ ok: boolean; codes?: number; rules?: number; version_id?: string; status?: string; errors?: string[]; error?: string }> {
+  const file = formData.get("file");
+  const version = String(formData.get("version_number") ?? "").trim();
+  const eff = String(formData.get("effective_from") ?? "").trim();
+  if (!file || typeof file === "string") return { ok: false, error: "Selecciona el PDF del arancel" };
+  if (!version || !eff) return { ok: false, error: "Indica versión y fecha de vigencia" };
+  const fd = new FormData();
+  fd.append("file", file, (file as File).name);
+  const res = await fetch(
+    `${API}/api/v1/tariff/import?version_number=${encodeURIComponent(version)}&effective_from=${encodeURIComponent(eff)}`,
+    { method: "POST", headers: authHeader(), body: fd, cache: "no-store" },
+  );
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  const j = await res.json();
+  revalidatePath("/tariff");
+  return { ok: true, codes: j.codes, rules: j.rules, version_id: j.version_id, status: j.status, errors: j.errors };
+}
+
+export async function publishTariffVersion(
+  versionId: string,
+): Promise<{ ok: boolean; codes?: number; rules?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/versions/${versionId}/publish`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  const j = await res.json();
+  revalidatePath("/tariff");
+  return { ok: true, codes: j.codes, rules: j.rules };
+}
+
 // ---------- Administración: privilegios por rol ----------
 export async function seedRolePrivileges(): Promise<{ ok: boolean; created?: number; error?: string }> {
   const res = await fetch(`${API}/api/v1/admin/roles/seed-defaults`, {
