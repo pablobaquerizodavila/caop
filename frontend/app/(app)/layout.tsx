@@ -42,6 +42,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {caps.canAdmin || caps.roles.includes("AUDITOR") ? (
             <NavLink href="/audit">Auditoría</NavLink>
           ) : null}
+          {caps.isSuperAdmin ? (
+            <NavLink href="/admin">Usuarios y roles</NavLink>
+          ) : null}
         </nav>
         <div className="foot">
           {user ? (
