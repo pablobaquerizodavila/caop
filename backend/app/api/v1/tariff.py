@@ -20,6 +20,7 @@ from app.models.trade import (
     PriceBandPeriod,
     TariffPreference,
     TradeAgreement,
+    TradeRemedy,
 )
 from app.schemas.tariff import (
     IceMeasureCreate,
@@ -30,6 +31,8 @@ from app.schemas.tariff import (
     PriceBandPeriodCreate,
     PriceBandPeriodOut,
     SyncStatusOut,
+    TradeRemedyCreate,
+    TradeRemedyOut,
     TariffCalcComponent,
     TariffCalcItemOut,
     TariffCalcRequest,
@@ -517,4 +520,36 @@ async def delete_band_period(period_id: uuid.UUID, session: AsyncSession = Depen
     p = await session.get(PriceBandPeriod, period_id)
     if p is not None:
         await session.delete(p)
+        await session.flush()
+
+
+# ---------- Medidas de defensa comercial (antidumping/salvaguardia/compensatorio) ----------
+@router.get("/trade-remedies", response_model=list[TradeRemedyOut])
+async def list_trade_remedies(session: AsyncSession = Depends(get_session)) -> list[TradeRemedy]:
+    return list(await session.scalars(
+        select(TradeRemedy).order_by(TradeRemedy.kind, TradeRemedy.hs_prefix).limit(500)
+    ))
+
+
+@router.post("/trade-remedies", response_model=TradeRemedyOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_trade_remedy(
+    payload: TradeRemedyCreate, session: AsyncSession = Depends(get_session)
+) -> TradeRemedy:
+    data = payload.model_dump()
+    data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    if data.get("origin_country"):
+        data["origin_country"] = data["origin_country"].upper()
+    r = TradeRemedy(**data)
+    session.add(r)
+    await session.flush()
+    await session.refresh(r)
+    return r
+
+
+@router.delete("/trade-remedies/{remedy_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_trade_remedy(remedy_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    r = await session.get(TradeRemedy, remedy_id)
+    if r is not None:
+        await session.delete(r)
         await session.flush()

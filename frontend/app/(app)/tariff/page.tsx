@@ -4,6 +4,7 @@ import { apiGet } from "@/app/lib/api";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 import { PriceBandAdmin } from "@/app/components/PriceBandAdmin";
 import { TariffAdmin } from "@/app/components/TariffAdmin";
+import { TradeRemedyAdmin } from "@/app/components/TradeRemedyAdmin";
 import { TariffLookup } from "@/app/components/TariffLookup";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function TariffPage() {
   const preferences = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/preferences")) ?? [] : [];
   const iceMeasures = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/ice-measures")) ?? [] : [];
   const priceBands = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/price-bands")) ?? [] : [];
+  const remedies = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/trade-remedies")) ?? [] : [];
 
   return (
     <>
@@ -72,6 +74,8 @@ export default async function TariffPage() {
       ) : null}
 
       {caps.canAdmin ? <PriceBandAdmin measures={priceBands as never[]} /> : null}
+
+      {caps.canAdmin ? <TradeRemedyAdmin remedies={remedies as never[]} /> : null}
 
       <TariffLookup />
     </>

@@ -1067,6 +1067,29 @@ export async function deleteIceMeasure(id: string): Promise<{ ok: boolean; error
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Medidas de defensa comercial ----------
+export async function createTradeRemedy(data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/trade-remedies`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function deleteTradeRemedy(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/trade-remedies/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- SAFP (franja de precios) ----------
 export async function createPriceBand(data: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`${API}/api/v1/tariff/price-bands`, {

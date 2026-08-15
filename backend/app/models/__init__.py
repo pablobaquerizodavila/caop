@@ -36,6 +36,7 @@ from app.models.trade import (
     PriceBandPeriod,
     TariffPreference,
     TradeAgreement,
+    TradeRemedy,
 )
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
@@ -93,6 +94,7 @@ __all__ = [
     "TaxReconciliation",
     "TaxRule",
     "TradeAgreement",
+    "TradeRemedy",
     "User",
     "VuePermit",
     "VueRule",

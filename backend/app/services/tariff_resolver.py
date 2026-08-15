@@ -25,6 +25,7 @@ from app.models.trade import (
     PriceBandPeriod,
     TariffPreference,
     TradeAgreement,
+    TradeRemedy,
 )
 from app.services.tariff_ingest import active_version
 from app.services.tax_engine import TaxComponent, TaxItemInput, TaxItemResult, compute_item
@@ -263,6 +264,38 @@ def _compute_ice(measure: IceMeasure, item: TaxItemInput, base_ex_aduana: Decima
     return comp, warn
 
 
+async def _trade_remedies(session: AsyncSession) -> list[TradeRemedy]:
+    return list(await session.scalars(select(TradeRemedy).where(TradeRemedy.status == "ACTIVE")))
+
+
+def _applicable_remedies(remedies: list[TradeRemedy], hs_norm: str, origin: str | None, on: date):
+    out = []
+    for r in remedies:
+        if r.hs_prefix and not hs_norm.startswith(r.hs_prefix):
+            continue
+        if r.origin_country and r.origin_country != origin:
+            continue
+        if not (r.effective_from <= on and (r.effective_to is None or on <= r.effective_to)):
+            continue
+        out.append(r)
+    return out
+
+
+def _compute_remedy(remedy: TradeRemedy, item: TaxItemInput) -> TaxComponent:
+    """Derecho de defensa comercial: ad valorem sobre CIF o específico por unidad."""
+    if (remedy.method or "AD_VALOREM").upper() == "SPECIFIC":
+        amount = _q2(Decimal(remedy.specific_rate or 0) * Decimal(item.quantity or 0))
+        rate = None
+    else:
+        rate = Decimal(remedy.ad_valorem_pct or 0)
+        amount = _q2(item.cif * rate / Decimal(100))
+    return TaxComponent(
+        tax_type=remedy.kind, base_amount=_q2(item.cif), rate_applied=rate, amount=amount,
+        sequence=4, rule_id=f"remedy:{remedy.id}", legal_source=remedy.legal_source,
+        verified=remedy.verification_status == "VERIFIED",
+    )
+
+
 async def resolve_item(
     session: AsyncSession,
     item: TaxItemInput,
@@ -274,6 +307,7 @@ async def resolve_item(
     prefs_cache: tuple[list, dict] | None = None,
     ice_cache: list | None = None,
     band_cache: tuple[list, list] | None = None,
+    remedy_cache: list | None = None,
 ) -> ResolvedItem:
     if rules is None:
         rules = await _active_rules(session)
@@ -325,6 +359,13 @@ async def resolve_item(
             if ice_warn:
                 extra_warns.append(ice_warn)
 
+    # Medidas de defensa comercial (antidumping/salvaguardia/compensatorio): pueden
+    # aplicar varias a la vez, sobre CIF. Se inyectan como su propio tipo.
+    if item.hs_code:
+        remedies = remedy_cache if remedy_cache is not None else await _trade_remedies(session)
+        for r in _applicable_remedies(remedies, hs_norm, item.origin_country, on):
+            full_injected.append(_compute_remedy(r, item))
+
     result = compute_item(rules, item, on, injected=full_injected) if full_injected else prelim
     injected_types = {c.tax_type for c in full_injected}
     hs_validation = _finalize(result, item, tc, version_number, injected_types)
@@ -370,9 +411,10 @@ async def resolve_items(
     prefs_cache = await _preferences(session)
     ice_cache = await _ice_measures(session)
     band_cache = await _price_bands(session)
+    remedy_cache = await _trade_remedies(session)
     out: list[ResolvedItem] = []
     for it in items:
         out.append(await resolve_item(session, it, on, rules=rules, version_number=vn,
                                       prefs_cache=prefs_cache, ice_cache=ice_cache,
-                                      band_cache=band_cache))
+                                      band_cache=band_cache, remedy_cache=remedy_cache))
     return out

@@ -134,6 +134,34 @@ class PriceBandPeriod(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
 
 
+class TradeRemedy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Medida de defensa comercial: antidumping, salvaguardia o derecho compensatorio.
+
+    Derecho adicional (por resolución COMEX) sobre una subpartida, normalmente por país de
+    origen (antidumping) o general (salvaguardia). Ad valorem sobre CIF o específico por
+    unidad. Temporal (effective_from/to). Si no hay medida => no aplica.
+    """
+
+    __tablename__ = "trade_remedy"
+
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, index=True)  # ANTIDUMPING/SAFEGUARD/COMPENSATORY
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)  # normalizado
+    origin_country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)  # None = todo origen
+    exporter: Mapped[str | None] = mapped_column(String(255), nullable=True)  # productor/exportador específico
+    product: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, default="AD_VALOREM")  # AD_VALOREM/SPECIFIC
+    ad_valorem_pct: Mapped[Decimal | None] = mapped_column(Numeric(9, 4), nullable=True)
+    specific_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    specific_unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE", index=True)
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
+    legal_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class IceMeasure(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """ICE (Impuesto a los Consumos Especiales) por subpartida. 3 metodologías (LRTI):
     específico (tarifa por unidad), ad valorem (% sobre base ex-aduana) o mixto.

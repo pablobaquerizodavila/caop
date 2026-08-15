@@ -144,6 +144,40 @@ class TariffPreferenceCreate(BaseModel):
     legal_source: str | None = None
 
 
+class TradeRemedyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    kind: str
+    hs_prefix: str
+    origin_country: str | None = None
+    exporter: str | None = None
+    product: str | None = None
+    method: str
+    ad_valorem_pct: Decimal | None = None
+    specific_rate: Decimal | None = None
+    specific_unit: str | None = None
+    effective_from: date
+    effective_to: date | None = None
+    status: str
+    verification_status: str
+    legal_source: str | None = None
+
+
+class TradeRemedyCreate(BaseModel):
+    kind: str  # ANTIDUMPING / SAFEGUARD / COMPENSATORY
+    hs_prefix: str
+    origin_country: str | None = None
+    exporter: str | None = None
+    product: str | None = None
+    method: str = "AD_VALOREM"
+    ad_valorem_pct: Decimal | None = None
+    specific_rate: Decimal | None = None
+    specific_unit: str | None = None
+    effective_from: date
+    effective_to: date | None = None
+    legal_source: str | None = None
+
+
 class PriceBandMeasureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

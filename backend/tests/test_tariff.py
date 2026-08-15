@@ -36,8 +36,9 @@ async def _seed_general(session):
     ))
     session.add(TaxRule(
         tax_type="IVA", calculation_method="AD_VALOREM_PCT", percentage=Decimal("15"),
-        base_formula="CIF+AD_VALOREM+FODINFA+ICE+SAFP+SAFEGUARD",
-        depends_on=["AD_VALOREM", "FODINFA", "ICE", "SAFP", "SAFEGUARD"],
+        base_formula="CIF+AD_VALOREM+FODINFA+ICE+SAFP+SAFEGUARD+ANTIDUMPING+COMPENSATORY",
+        depends_on=["AD_VALOREM", "FODINFA", "ICE", "SAFP", "SAFEGUARD",
+                    "ANTIDUMPING", "COMPENSATORY"],
         effective_from=date(2020, 1, 1), status="ACTIVE", version=1,
         verification_status="VERIFIED", verified_at=now, last_verified_at=now,
     ))
@@ -406,6 +407,49 @@ async def test_safp_missing_period_insufficient(db_sessionmaker):
         )
         assert ri.result.complete is False
         assert any("SAFP_INFO_INSUFICIENTE" in w for w in ri.result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_trade_remedy_antidumping_by_origin(db_sessionmaker):
+    from app.models.trade import TradeRemedy
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        s.add(TradeRemedy(kind="ANTIDUMPING", hs_prefix="8471", origin_country="CN",
+                          method="AD_VALOREM", ad_valorem_pct=Decimal("20"),
+                          effective_from=date(2020, 1, 1), verification_status="VERIFIED"))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00", origin_country="CN"),
+            date.today(),
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        assert comps.get("ANTIDUMPING") == Decimal("200.00")  # 20% de CIF
+        assert comps.get("IVA") == Decimal("188.25")          # IVA incluye antidumping
+        # otro origen → no aplica
+        ri2 = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00", origin_country="US"),
+            date.today(),
+        )
+        assert all(c.tax_type != "ANTIDUMPING" for c in ri2.result.components)
+
+
+@pytest.mark.asyncio
+async def test_trade_remedy_safeguard_all_origins(db_sessionmaker):
+    from app.models.trade import TradeRemedy
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        s.add(TradeRemedy(kind="SAFEGUARD", hs_prefix="8471", origin_country=None,
+                          method="AD_VALOREM", ad_valorem_pct=Decimal("15"),
+                          effective_from=date(2020, 1, 1), verification_status="VERIFIED"))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00", origin_country="US"),
+            date.today(),
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        assert comps.get("SAFEGUARD") == Decimal("150.00")  # 15% de CIF, cualquier origen
 
 
 @pytest.mark.asyncio
