@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createCustomer, extractRucPreview, uploadCustomerDocument } from "@/app/lib/actions";
+import { createCustomer, uploadCustomerDocument } from "@/app/lib/actions";
 import { EC_PROVINCES, capitalOf, citiesOf } from "@/app/lib/ecuador";
 
 /** Deduce el tipo de contribuyente por el 3.º dígito del RUC ecuatoriano:
@@ -20,8 +20,6 @@ export function NewCustomerForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entityTouched, setEntityTouched] = useState(false);
-  const [rucOcrBusy, setRucOcrBusy] = useState(false);
-  const [rucOcrMsg, setRucOcrMsg] = useState<string | null>(null);
   const [f, setF] = useState({
     ruc: "",
     legal_name: "",
@@ -51,41 +49,6 @@ export function NewCustomerForm() {
   }
 
   const isCompany = f.entity_type === "COMPANY";
-
-  // Lee el PDF del RUC y autorrellena RUC, tipo, razón social/nombres y nombre comercial.
-  async function onRucFileChange(file: File) {
-    setRucOcrBusy(true);
-    setRucOcrMsg(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await extractRucPreview(fd);
-      if (!r.ok || !r.data) {
-        setRucOcrMsg("No se pudo leer el RUC. Ingresa los datos manualmente.");
-        return;
-      }
-      const d = r.data;
-      const applied: string[] = [];
-      setF((p) => {
-        const next = { ...p };
-        if (d.ruc) { next.ruc = d.ruc; applied.push("RUC"); }
-        if (d.entity_type === "COMPANY" || d.entity_type === "NATURAL") {
-          next.entity_type = d.entity_type; applied.push("tipo");
-        }
-        if (d.legal_name) { next.legal_name = d.legal_name; applied.push(next.entity_type === "COMPANY" ? "razón social" : "nombres"); }
-        if (d.trade_name) { next.trade_name = d.trade_name; applied.push("nombre comercial"); }
-        return next;
-      });
-      if (d.entity_type) setEntityTouched(true); // respeta lo leído del documento
-      setRucOcrMsg(
-        applied.length
-          ? `Prellenado desde el RUC: ${applied.join(", ")}. Revisa antes de crear.`
-          : "No se reconocieron campos con confianza. Ingresa los datos manualmente.",
-      );
-    } finally {
-      setRucOcrBusy(false);
-    }
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -244,18 +207,7 @@ export function NewCustomerForm() {
 
       <label className="field">
         <span>RUC escaneado (PDF)</span>
-        <input
-          ref={rucFileRef}
-          type="file"
-          accept={DOC_ACCEPT}
-          disabled={rucOcrBusy}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onRucFileChange(file);
-          }}
-        />
-        {rucOcrBusy ? <span className="tag" style={{ color: "var(--muted)" }}>Leyendo el RUC…</span> : null}
-        {rucOcrMsg ? <span className="tag" style={{ color: "var(--muted)", marginTop: 4 }}>{rucOcrMsg}</span> : null}
+        <input ref={rucFileRef} type="file" accept={DOC_ACCEPT} />
       </label>
 
       {isCompany ? (

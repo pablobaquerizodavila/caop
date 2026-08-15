@@ -113,33 +113,6 @@ export async function deleteCustomer(
   return { ok: false, status: res.status, error };
 }
 
-export interface RucPreview {
-  ruc: string | null;
-  legal_name: string | null;
-  trade_name: string | null;
-  entity_type: string | null;
-  confidence: number;
-  model_version: string;
-}
-
-/** Lee un certificado de RUC (PDF/imagen) SIN guardarlo y devuelve los campos. */
-export async function extractRucPreview(
-  formData: FormData,
-): Promise<{ ok: boolean; data?: RucPreview; error?: string }> {
-  const file = formData.get("file");
-  if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
-  const fd = new FormData();
-  fd.append("file", file, (file as File).name);
-  const res = await fetch(`${API}/api/v1/documents/extract-ruc-preview`, {
-    method: "POST",
-    headers: authHeader(),
-    body: fd,
-    cache: "no-store",
-  });
-  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
-  return { ok: true, data: (await res.json()) as RucPreview };
-}
-
 /** Sube un documento (PDF/imagen) ligado a un cliente (p. ej. RUC, Nombramiento). */
 export async function uploadCustomerDocument(
   customerId: string,

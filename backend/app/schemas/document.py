@@ -72,17 +72,6 @@ class ExtractionPreview(BaseModel):
     line_items: list[LineItemPreview] = []
 
 
-class RucExtractionPreview(BaseModel):
-    """Datos leídos de un certificado de RUC del SRI (sin persistir), para prellenar
-    el formulario de cliente."""
-    ruc: str | None = None
-    legal_name: str | None = None
-    trade_name: str | None = None
-    entity_type: str | None = None
-    confidence: float = 0.0
-    model_version: str
-
-
 class CaseExtractionDoc(BaseModel):
     """Datos extraídos de un documento de un expediente (para revisión en el caso)."""
     document_id: uuid.UUID
