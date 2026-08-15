@@ -314,3 +314,46 @@ async def test_quote_preference_and_certificate(db_sessionmaker):
         await recompute_quote(s, q)
         await s.flush()
         assert q.items[0].preference["certificate_present"] is True  # certificado válido → aplicable
+
+
+@pytest.mark.asyncio
+async def test_reconciliation(db_sessionmaker):
+    from app.models.customer import Customer
+    from app.models.quote import Quote, QuoteItem
+    from app.models.shipment import CustomsCase, Shipment
+    from app.services.quotation import recompute_quote
+    from app.services.reconciliation import estimate_from_case, get_reconciliation, set_actual
+
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        cust = Customer(ruc="1790012345001", legal_name="ACME")
+        s.add(cust)
+        await s.flush()
+        q = Quote(quote_number="Q-R", currency="USD", calculation_date=date.today())
+        q.items = [QuoteItem(line_no=1, hs_code="8471.30.00.00", description="Laptop",
+                             quantity=Decimal(1), unit_price=Decimal(1000), line_value=Decimal(1000))]
+        q.cost_lines = []
+        q.status_history = []
+        s.add(q)
+        await s.flush()
+        await recompute_quote(s, q)
+        await s.flush()
+        ship = Shipment(customer_id=cust.id, source_quote_id=q.id)
+        s.add(ship)
+        await s.flush()
+        case = CustomsCase(shipment_id=ship.id, case_number="CASE-R")
+        s.add(case)
+        await s.flush()
+
+        est, total = await estimate_from_case(s, case)
+        assert total == q.total_taxes
+        assert "AD_VALOREM" in est and "IVA" in est
+
+        view = await set_actual(
+            s, case,
+            {"AD_VALOREM": est["AD_VALOREM"] + 10, "FODINFA": est.get("FODINFA", 0), "IVA": est.get("IVA", 0)},
+            "ajuste de base", "tester",
+        )
+        assert view["difference"] is not None
+        assert round(view["difference"], 2) == 10.0
+        assert view["actual_total"] > view["estimated_total"]

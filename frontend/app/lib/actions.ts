@@ -958,6 +958,26 @@ export async function tariffHistory(hsCode: string): Promise<unknown[]> {
   return (await res.json()) as unknown[];
 }
 
+// ---------- Reconciliación tributaria (estimado vs. liquidación SENAE) ----------
+export async function getReconciliation(caseId: string): Promise<unknown | null> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/reconciliation`, {
+    headers: authHeader(), cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+export async function setReconciliation(
+  caseId: string, actual: Record<string, number>, reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/reconciliation`, {
+    method: "PUT", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ actual, reason: reason || null }), cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Certificados de origen (por cotización) ----------
 export async function addCertificate(quoteId: string, data: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`${API}/api/v1/quotes/${quoteId}/certificates`, {

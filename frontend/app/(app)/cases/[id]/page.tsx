@@ -31,6 +31,7 @@ import { DaiPanel } from "@/app/components/DaiPanel";
 import { EinvoicePanel } from "@/app/components/EinvoicePanel";
 import { ExtractionPanel } from "@/app/components/ExtractionPanel";
 import { OceanPanel } from "@/app/components/OceanPanel";
+import { ReconciliationPanel, type RecData } from "@/app/components/ReconciliationPanel";
 import { SettlementPanel } from "@/app/components/SettlementPanel";
 import { TrackingPanel } from "@/app/components/TrackingPanel";
 import { VuePanel } from "@/app/components/VuePanel";
@@ -62,6 +63,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const warehouse = await apiGet<WarehouseSummary>(`/cases/${params.id}/warehouse`);
   const warehouseTariffs = await apiGet<WarehouseTariff[]>(`/warehouse/tariffs`);
   const settlement = await apiGet<Settlement>(`/cases/${params.id}/settlement`);
+  const reconciliation = await apiGet<RecData>(`/cases/${params.id}/reconciliation`);
   const documents = await apiGet<CaseDocument[]>(`/documents?customs_case_id=${params.id}`);
   const invoice = settlement
     ? await apiGet<Einvoice>(`/settlements/${settlement.id}/invoice`)
@@ -203,6 +205,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             creditNotes={creditNotes ?? []}
             debitNotes={debitNotes ?? []}
           />
+
+          {reconciliation ? <ReconciliationPanel caseId={c.id} data={reconciliation} /> : null}
 
           <TrackingPanel caseId={c.id} link={tracking} />
 
