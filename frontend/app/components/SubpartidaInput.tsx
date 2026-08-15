@@ -51,12 +51,13 @@ export function SubpartidaInput({
   }, []);
 
   return (
-    <div ref={boxRef} style={{ position: "relative" }}>
+    <div ref={boxRef} style={{ position: "relative", width: "100%" }}>
       <input
         type="text"
         placeholder={placeholder}
         value={value}
         autoComplete="off"
+        style={{ width: "100%", boxSizing: "border-box" }}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
