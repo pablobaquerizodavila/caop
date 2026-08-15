@@ -97,6 +97,7 @@ def _items_from_payload(payload: QuoteCreate) -> list[QuoteItem]:
             QuoteItem(
                 line_no=idx,
                 description=it.description,
+                model=it.model,
                 hs_code=it.hs_code,
                 hs_status=it.hs_status,
                 origin_country=it.origin_country or payload.origin_country,

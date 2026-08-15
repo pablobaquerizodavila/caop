@@ -90,6 +90,16 @@ async def test_update_draft_adds_subpartida_and_recomputes(client):
 
 
 @pytest.mark.asyncio
+async def test_item_model_field(client):
+    await _setup_tax(client)
+    payload = _quote_payload()
+    payload["items"][0]["model"] = "PV33-6048 TLV"
+    resp = await client.post("/api/v1/quotes", json=payload)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["items"][0]["model"] == "PV33-6048 TLV"
+
+
+@pytest.mark.asyncio
 async def test_cannot_edit_non_draft(client):
     await _setup_tax(client)
     qid = (await client.post("/api/v1/quotes", json=_quote_payload())).json()["id"]

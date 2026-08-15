@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 interface ItemRead {
   description?: string | null;
+  model?: string | null;
   hs_code?: string | null;
   quantity: number | string;
   unit_price: number | string;
@@ -74,11 +75,12 @@ export default async function EditQuotePage({ params }: { params: { id: string }
     items: quote.items.length
       ? quote.items.map((it) => ({
           description: it.description ?? "",
+          model: it.model ?? "",
           hs_code: it.hs_code ?? "",
           quantity: String(num(it.quantity)),
           unit_price: String(num(it.unit_price)),
         }))
-      : [{ description: "", hs_code: "", quantity: "1", unit_price: "0" }],
+      : [{ description: "", model: "", hs_code: "", quantity: "1", unit_price: "0" }],
     costs: quote.cost_lines.length
       ? quote.cost_lines.map((c) => ({
           category: c.category,

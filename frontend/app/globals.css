@@ -219,7 +219,7 @@ input[type="file"] { padding: 6px 8px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field > span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-.grid-items { display: grid; grid-template-columns: 2fr 1.2fr 0.7fr 0.9fr 44px; gap: 8px; }
+.grid-items { display: grid; grid-template-columns: 2fr 1fr 1.2fr 0.7fr 0.9fr 44px; gap: 8px; }
 .grid-costs { display: grid; grid-template-columns: 1fr 2fr 1fr 44px; gap: 8px; }
 .subhead { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .subhead h3 { font-size: 13px; margin: 0; letter-spacing: 0.02em; }

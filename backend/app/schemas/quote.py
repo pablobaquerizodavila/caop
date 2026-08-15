@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------- Entrada ----------
 class QuoteItemCreate(BaseModel):
     description: str | None = None
+    model: str | None = None
     hs_code: str | None = None
     hs_status: str = "PRELIMINARY"
     origin_country: str | None = None
@@ -76,6 +77,7 @@ class QuoteItemRead(BaseModel):
     id: uuid.UUID
     line_no: int
     description: str | None
+    model: str | None = None
     hs_code: str | None
     hs_status: str
     quantity: Decimal

@@ -10,6 +10,7 @@ import type { CustomerSummary } from "@/app/lib/format";
 
 interface Item {
   description: string;
+  model: string;
   hs_code: string;
   quantity: string;
   unit_price: string;
@@ -64,7 +65,7 @@ export function NewQuoteForm({
     },
   );
   const [items, setItems] = useState<Item[]>(
-    initial?.items?.length ? initial.items : [{ description: "", hs_code: "", quantity: "1", unit_price: "0" }],
+    initial?.items?.length ? initial.items : [{ description: "", model: "", hs_code: "", quantity: "1", unit_price: "0" }],
   );
   const [costs, setCosts] = useState<Cost[]>(
     initial?.costs?.length ? initial.costs : [{ category: "FEE", description: "Honorarios de despacho", estimated_amount: "0" }],
@@ -106,6 +107,7 @@ export function NewQuoteForm({
         setItems(
           li.map((x) => ({
             description: x.description ?? "",
+            model: "",
             hs_code: x.hs_code ?? "",
             quantity: x.quantity ?? "1",
             unit_price: x.unit_price ?? "0",
@@ -159,6 +161,7 @@ export function NewQuoteForm({
       total_insurance: h.total_insurance || null,
       items: items.map((it) => ({
         description: it.description || null,
+        model: it.model || null,
         hs_code: it.hs_code || null,
         quantity: it.quantity || "1",
         unit_price: it.unit_price || "0",
@@ -247,12 +250,13 @@ export function NewQuoteForm({
 
       <div className="subhead">
         <h3>Ítems</h3>
-        <button type="button" className="btn ghost" onClick={() => setItems((p) => [...p, { description: "", hs_code: "", quantity: "1", unit_price: "0" }])}>
+        <button type="button" className="btn ghost" onClick={() => setItems((p) => [...p, { description: "", model: "", hs_code: "", quantity: "1", unit_price: "0" }])}>
           + Ítem
         </button>
       </div>
       <div className="grid-items items-head" style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }} aria-hidden>
         <span>Descripción</span>
+        <span>Modelo</span>
         <span>Subpartida</span>
         <span>Cantidad</span>
         <span>Precio unitario</span>
@@ -261,6 +265,7 @@ export function NewQuoteForm({
       {items.map((it, i) => (
         <div className="grid-items" key={i}>
           <input type="text" placeholder="Descripción" value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} />
+          <input type="text" placeholder="Modelo" value={it.model} onChange={(e) => setItem(i, "model", e.target.value)} />
           <SubpartidaInput
             value={it.hs_code}
             onChange={(v) => setItem(i, "hs_code", v)}
