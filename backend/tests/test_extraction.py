@@ -134,6 +134,28 @@ def test_line_items_column_matching_partno_en():
     assert items[0].unit_price == "5"
 
 
+def test_line_items_money_anchored_collapsed_table():
+    # Factura real cuyo PDF colapsa la tabla: "Nº Modelo Cant $PU $Importe",
+    # el modelo trae números y la descripción va en otro bloque (no asociable).
+    text = (
+        "NO. Model QTY\n"
+        "(pcs) Unit Price AMOUNT\n"
+        "1 PV33-6048 TLV 4 $525,00 $2.100,00\n"
+        "2 PH50-6000M 4 $405,00 $1.620,00\n"
+        "3 SM300W 50 $83,00 $4.150,00\n"
+        "74 SUBTOTAL $11.454,00\n"
+    )
+    items = extract_line_items_from_text(text)
+    assert len(items) == 3
+    assert items[0].model == "PV33-6048 TLV"
+    assert items[0].quantity == "4"
+    assert items[0].unit_price == "525"
+    assert items[0].amount == "2100"
+    assert items[2].model == "SM300W"
+    assert items[2].quantity == "50"
+    assert items[2].unit_price == "83"
+
+
 def test_line_items_ignores_header_and_footer_noise():
     # Fechas, folios y direcciones NO deben convertirse en ítems.
     text = (

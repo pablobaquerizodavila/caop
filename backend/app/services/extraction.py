@@ -416,7 +416,9 @@ def _detect_columns(header: str) -> list[tuple[int, str]] | None:
     keys = {k for _, k in cols}
     if not ({"description", "model"} & keys):
         return None
-    if not ({"quantity", "unit_price", "amount"} & keys):
+    # Exige ≥2 columnas de valor para no confundir cabeceras partidas/parciales
+    # (p. ej. una línea "Model QTY") con una tabla real alineada.
+    if len({"quantity", "unit_price", "amount"} & keys) < 2:
         return None
     return cols
 
@@ -483,18 +485,110 @@ def _item_from_columns(line: str, cols: list[tuple[int, str]]) -> LineItem | Non
     )
 
 
+_CUR = re.compile(r"[$€]")
+
+
+def _money_val(tok: str) -> tuple[float | None, bool]:
+    """Devuelve (valor, es_monto). 'es_monto' si trae símbolo de moneda o decimales."""
+    s = tok.strip()
+    has_cur = bool(_CUR.search(s))
+    s2 = _CUR.sub("", s).strip()
+    v = _parse_number(s2)
+    if v is None:
+        return None, False
+    is_money = has_cur or bool(re.search(r"[.,]\d{2}$", s2))
+    return v, is_money
+
+
+def _parse_row_freeform(line: str) -> LineItem | None:
+    """Respaldo para filas sin columnas alineadas (texto de PDF colapsado).
+
+    Ancla en los montos: precio unitario e importe son los tokens con moneda /
+    decimales al final; la cantidad es el entero justo antes; lo de la izquierda
+    es el modelo/descripción. Maneja que el modelo tenga números (p. ej. PV33-6048).
+    """
+    if not line.strip() or _STOP_LINE.search(line) or _LABEL_LINE.match(line):
+        return None
+    body = line
+    hs = None
+    mhs = _HS_INLINE.search(body)
+    if mhs:
+        hs = mhs.group(1)
+        body = body[: mhs.start()] + " " + body[mhs.end():]
+
+    toks = [m.group(0) for m in re.finditer(r"\S+", body)]
+    if not toks:
+        return None
+    # Quita el nº de línea al inicio ("1", "1)", "1.").
+    if re.fullmatch(r"\d{1,3}[\).\-]?", toks[0]):
+        toks = toks[1:]
+    if not toks:
+        return None
+
+    # Montos contiguos al final de la fila.
+    money: list[tuple[int, float]] = []
+    i = len(toks) - 1
+    while i >= 0:
+        v, ism = _money_val(toks[i])
+        if ism and v is not None:
+            money.append((i, v))
+            i -= 1
+        else:
+            break
+    if not money:
+        return None
+    money.reverse()
+    first_money_idx = money[0][0]
+    if len(money) >= 2:
+        unit, amount = money[-2][1], money[-1][1]
+    else:
+        unit, amount = money[-1][1], None
+
+    # Cantidad: último número "plano" (sin moneda/decimales) antes del primer monto.
+    qty = None
+    qty_idx = None
+    for j in range(first_money_idx - 1, -1, -1):
+        v, ism = _money_val(toks[j])
+        if v is not None and not ism:
+            qty, qty_idx = v, j
+            break
+    if qty is None or qty <= 0 or unit is None or unit < 0:
+        return None
+
+    text = " ".join(toks[:qty_idx]).strip(" .:-|") if qty_idx is not None else ""
+    if not any(c.isalpha() for c in text):
+        return None
+
+    # ¿El texto parece un modelo (código con letras+dígitos o guion) o una descripción?
+    first = text.split()[0] if text.split() else ""
+    looks_model = bool(re.search(r"[A-Za-z]", first) and re.search(r"\d", first)) or "-" in first
+    conf = 0.55
+    if amount is not None and abs(qty * unit - amount) <= max(0.02 * abs(amount), 0.01):
+        conf = 0.72
+    return LineItem(
+        description=None if looks_model else text[:200],
+        model=text[:120] if looks_model else None,
+        hs_code=hs,
+        quantity=_fmt_num(qty),
+        unit_price=_fmt_num(unit),
+        amount=_fmt_num(amount) if amount is not None else None,
+        confidence=round(conf, 2),
+    )
+
+
 def extract_line_items_from_text(text: str, max_items: int = 60) -> list[LineItem]:
     """Extrae ítems de una proforma/factura. Determinista y explicable.
 
     1) Detecta la cabecera y hace *matching* de columnas (modelo, descripción,
        cantidad, precio, importe, subpartida) por su posición, cortando cada fila
-       en celdas. Funciona con distintos layouts (ES/EN + sinónimos).
-    2) Si no hay cabecera reconocible, cae a una heurística por los números al
-       final de la línea (sin modelo). No inventa: lo no reconocido queda en None.
+       en celdas. Funciona con tablas alineadas (ES/EN + sinónimos).
+    2) Si no hay cabecera alineada (o no dio ítems), usa un respaldo anclado en los
+       montos ($/decimales), útil cuando el PDF colapsa la tabla a texto plano.
+    No inventa: lo no reconocido queda en None.
     """
     lines = text.splitlines()
 
-    # (1) Matching por columnas si hay cabecera con nombres.
+    # (1) Matching por columnas si hay una cabecera alineada con nombres.
     cols: list[tuple[int, str]] | None = None
     header_idx = -1
     for i, ln in enumerate(lines):
@@ -513,9 +607,20 @@ def extract_line_items_from_text(text: str, max_items: int = 60) -> list[LineIte
                 items.append(it)
                 if len(items) >= max_items:
                     break
+        if items:
+            return items  # si no dio ítems, cae al respaldo de abajo
+
+    # (2) Respaldo anclado en montos (filas con texto colapsado).
+    for ln in lines:
+        it = _parse_row_freeform(ln)
+        if it:
+            items.append(it)
+            if len(items) >= max_items:
+                break
+    if items:
         return items
 
-    # (2) Fallback sin cabecera: heurística por posición de los números.
+    # (3) Última heurística por posición de los números (sin modelo).
     order: list[str] | None = None
     for ln in lines:
         od = _detect_column_order(ln)
