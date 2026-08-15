@@ -5,6 +5,7 @@ from app.models.checklist import ChecklistItem, Requirement
 from app.models.customer import ConsentRecord, Contact, Customer
 from app.models.credit_note import CreditNote
 from app.models.customs_declaration import CustomsDeclaration
+from app.models.debit_note import DebitNote
 from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.models.einvoice import ElectronicInvoice
 from app.models.notification import Notification, NotificationTemplate
@@ -35,6 +36,7 @@ __all__ = [
     "Customer",
     "CustomsCase",
     "CustomsDeclaration",
+    "DebitNote",
     "Document",
     "DocumentExtraction",
     "DocumentVersion",
