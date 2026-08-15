@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { apiGet } from "@/app/lib/api";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
+import { ControlAdmin } from "@/app/components/ControlAdmin";
 import { PriceBandAdmin } from "@/app/components/PriceBandAdmin";
 import { TariffAdmin } from "@/app/components/TariffAdmin";
 import { TariffTierAdmin } from "@/app/components/TariffTierAdmin";
@@ -33,6 +34,10 @@ export default async function TariffPage() {
   const priceBands = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/price-bands")) ?? [] : [];
   const remedies = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/trade-remedies")) ?? [] : [];
   const tiers = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/tiers")) ?? [] : [];
+  const legal = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/legal-instruments")) ?? [] : [];
+  const authorities = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/control-authorities")) ?? [] : [];
+  const documents = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/control-documents")) ?? [] : [];
+  const restrictions = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/restrictions")) ?? [] : [];
 
   return (
     <>
@@ -80,6 +85,15 @@ export default async function TariffPage() {
       {caps.canAdmin ? <TradeRemedyAdmin remedies={remedies as never[]} /> : null}
 
       {caps.canAdmin ? <TariffTierAdmin tiers={tiers as never[]} /> : null}
+
+      {caps.canAdmin ? (
+        <ControlAdmin
+          legalInstruments={legal as never[]}
+          authorities={authorities as never[]}
+          documents={documents as never[]}
+          restrictions={restrictions as never[]}
+        />
+      ) : null}
 
       <TariffLookup />
     </>

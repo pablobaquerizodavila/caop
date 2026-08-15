@@ -13,12 +13,16 @@ from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.tariff import TariffCode, TariffImport, TariffVersion
 from app.models.tax import TaxRule
+from app.models.tariff import LegalInstrument
 from app.models.trade import (
+    ControlAuthority,
+    ControlDocument,
     Country,
     IceMeasure,
     PriceBandMeasure,
     PriceBandPeriod,
     TariffPreference,
+    TariffRestriction,
     TariffTier,
     TradeAgreement,
     TradeRemedy,
@@ -31,7 +35,16 @@ from app.schemas.tariff import (
     PriceBandMeasureOut,
     PriceBandPeriodCreate,
     PriceBandPeriodOut,
+    ControlAuthorityCreate,
+    ControlAuthorityOut,
+    ControlDocumentCreate,
+    ControlDocumentOut,
+    LegalInstrumentCreate,
+    LegalInstrumentOut,
+    RestrictionOut,
     SyncStatusOut,
+    TariffRestrictionCreate,
+    TariffRestrictionOut,
     TariffTierCreate,
     TariffTierOut,
     TradeRemedyCreate,
@@ -177,11 +190,32 @@ async def code_detail(
         ).order_by(TariffCode.code_normalized).limit(60)
     ))
 
+    # Restricciones / control previo cuyo prefijo cubre esta subpartida.
+    restrictions: list[RestrictionOut] = []
+    all_restr = await session.scalars(
+        select(TariffRestriction).where(TariffRestriction.status == "ACTIVE")
+    )
+    authorities = {a.id: a for a in await session.scalars(select(ControlAuthority))}
+    documents = {d.id: d for d in await session.scalars(select(ControlDocument))}
+    for r in all_restr:
+        if r.hs_prefix and not norm.startswith(r.hs_prefix):
+            continue
+        if not (r.effective_from <= on and (r.effective_to is None or on <= r.effective_to)):
+            continue
+        doc = documents.get(r.control_document_id)
+        auth = authorities.get(r.authority_id) or (authorities.get(doc.authority_id) if doc else None)
+        restrictions.append(RestrictionOut(
+            kind=r.kind, document=(doc.name if doc else None),
+            authority=(auth.name if auth else None), requirement=r.requirement,
+            blocking=r.blocking, legal=None,
+        ))
+
     detail = TariffCodeDetail.model_validate(code)
     detail.taxes = taxes
     detail.warnings = warnings
     detail.ancestors = [TariffCodeOut.model_validate(a) for a in ancestors]
     detail.children = [TariffCodeOut.model_validate(c) for c in children]
+    detail.restrictions = restrictions
     return detail
 
 
@@ -586,4 +620,96 @@ async def delete_tier(tier_id: uuid.UUID, session: AsyncSession = Depends(get_se
     t = await session.get(TariffTier, tier_id)
     if t is not None:
         await session.delete(t)
+        await session.flush()
+
+
+# ---------- #6: Base legal estructurada (normas) ----------
+@router.get("/legal-instruments", response_model=list[LegalInstrumentOut])
+async def list_legal(session: AsyncSession = Depends(get_session)) -> list[LegalInstrument]:
+    return list(await session.scalars(
+        select(LegalInstrument).order_by(LegalInstrument.created_at.desc()).limit(300)
+    ))
+
+
+@router.post("/legal-instruments", response_model=LegalInstrumentOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_legal(
+    payload: LegalInstrumentCreate, session: AsyncSession = Depends(get_session)
+) -> LegalInstrument:
+    li = LegalInstrument(**payload.model_dump())
+    session.add(li)
+    await session.flush()
+    await session.refresh(li)
+    return li
+
+
+@router.delete("/legal-instruments/{li_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_legal(li_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    li = await session.get(LegalInstrument, li_id)
+    if li is not None:
+        await session.delete(li)
+        await session.flush()
+
+
+# ---------- #5: Entidades, documentos y restricciones de control previo ----------
+@router.get("/control-authorities", response_model=list[ControlAuthorityOut])
+async def list_authorities(session: AsyncSession = Depends(get_session)) -> list[ControlAuthority]:
+    return list(await session.scalars(select(ControlAuthority).order_by(ControlAuthority.code)))
+
+
+@router.post("/control-authorities", response_model=ControlAuthorityOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_authority(
+    payload: ControlAuthorityCreate, session: AsyncSession = Depends(get_session)
+) -> ControlAuthority:
+    a = ControlAuthority(**payload.model_dump())
+    session.add(a)
+    await session.flush()
+    await session.refresh(a)
+    return a
+
+
+@router.get("/control-documents", response_model=list[ControlDocumentOut])
+async def list_documents(session: AsyncSession = Depends(get_session)) -> list[ControlDocument]:
+    return list(await session.scalars(select(ControlDocument).order_by(ControlDocument.code)))
+
+
+@router.post("/control-documents", response_model=ControlDocumentOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_document(
+    payload: ControlDocumentCreate, session: AsyncSession = Depends(get_session)
+) -> ControlDocument:
+    d = ControlDocument(**payload.model_dump())
+    session.add(d)
+    await session.flush()
+    await session.refresh(d)
+    return d
+
+
+@router.get("/restrictions", response_model=list[TariffRestrictionOut])
+async def list_restrictions(session: AsyncSession = Depends(get_session)) -> list[TariffRestriction]:
+    return list(await session.scalars(
+        select(TariffRestriction).order_by(TariffRestriction.hs_prefix).limit(500)
+    ))
+
+
+@router.post("/restrictions", response_model=TariffRestrictionOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_restriction(
+    payload: TariffRestrictionCreate, session: AsyncSession = Depends(get_session)
+) -> TariffRestriction:
+    data = payload.model_dump()
+    data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    r = TariffRestriction(**data)
+    session.add(r)
+    await session.flush()
+    await session.refresh(r)
+    return r
+
+
+@router.delete("/restrictions/{restriction_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_restriction(restriction_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    r = await session.get(TariffRestriction, restriction_id)
+    if r is not None:
+        await session.delete(r)
         await session.flush()

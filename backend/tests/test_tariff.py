@@ -499,6 +499,64 @@ async def test_conditional_ice_tier_by_value(db_sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_restriction_in_ficha(client, db_sessionmaker):
+    from app.models.trade import ControlAuthority, ControlDocument, TariffRestriction
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        auth = ControlAuthority(code="ARCSA", name="ARCSA")
+        s.add(auth)
+        await s.flush()
+        doc = ControlDocument(code="RS", name="Registro sanitario", authority_id=auth.id)
+        s.add(doc)
+        await s.flush()
+        s.add(TariffRestriction(
+            hs_prefix="8471", kind="CONTROL_PREVIO", control_document_id=doc.id,
+            authority_id=auth.id, requirement="Requiere registro", effective_from=date(2020, 1, 1),
+        ))
+        await s.commit()
+    r = await client.get("/api/v1/tariff/codes/8471.30.00.00")
+    restr = r.json()["restrictions"]
+    assert any(x["kind"] == "CONTROL_PREVIO" and x["document"] == "Registro sanitario" for x in restr)
+
+
+@pytest.mark.asyncio
+async def test_legal_instrument_crud(client):
+    r = await client.post("/api/v1/tariff/legal-instruments",
+                          json={"kind": "RESOLUCION_COMEX", "number": "002-2023", "organism": "COMEX"})
+    assert r.status_code == 201
+    r2 = await client.get("/api/v1/tariff/legal-instruments")
+    assert any(li["number"] == "002-2023" for li in r2.json())
+
+
+@pytest.mark.asyncio
+async def test_case_certificates(client, db_sessionmaker):
+    from app.models.customer import Customer
+    from app.models.shipment import CustomsCase, Shipment
+    async with db_sessionmaker() as s:
+        cust = Customer(ruc="1790012399001", legal_name="X")
+        s.add(cust)
+        await s.flush()
+        ship = Shipment(customer_id=cust.id)
+        s.add(ship)
+        await s.flush()
+        case = CustomsCase(shipment_id=ship.id, case_number="C-CERT")
+        s.add(case)
+        await s.flush()
+        cid = str(case.id)
+        await s.commit()
+    r = await client.post(f"/api/v1/cases/{cid}/certificates",
+                          json={"cert_type": "ORIGEN", "issuing_country": "co", "number": "ABC"})
+    assert r.status_code == 201
+    cert_id = r.json()["id"]
+    assert r.json()["issuing_country"] == "CO"
+    r2 = await client.patch(f"/api/v1/cases/{cid}/certificates/{cert_id}",
+                            json={"validation_status": "VALID"})
+    assert r2.json()["validation_status"] == "VALID"
+    r3 = await client.get(f"/api/v1/cases/{cid}/certificates")
+    assert len(r3.json()) == 1
+
+
+@pytest.mark.asyncio
 async def test_reconciliation(db_sessionmaker):
     from app.models.customer import Customer
     from app.models.quote import Quote, QuoteItem

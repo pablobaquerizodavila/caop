@@ -30,11 +30,110 @@ class TariffTaxOut(BaseModel):
     legal_source: str | None = None
 
 
+class RestrictionOut(BaseModel):
+    tax_type: str = "RESTRICTION"  # placeholder para UI uniforme
+    kind: str
+    document: str | None = None
+    authority: str | None = None
+    requirement: str | None = None
+    blocking: bool = True
+    legal: str | None = None
+
+
 class TariffCodeDetail(TariffCodeOut):
     taxes: list[TariffTaxOut] = []
     warnings: list[str] = []
     ancestors: list[TariffCodeOut] = []
     children: list[TariffCodeOut] = []
+    restrictions: list[RestrictionOut] = []
+
+
+# --- Base legal (#6) ---
+class LegalInstrumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    kind: str
+    number: str
+    organism: str | None = None
+    issued_at: date | None = None
+    published_at: date | None = None
+    effective_from: date | None = None
+    registro_oficial: str | None = None
+    supplement: str | None = None
+    url: str | None = None
+
+
+class LegalInstrumentCreate(BaseModel):
+    kind: str
+    number: str
+    organism: str | None = None
+    issued_at: date | None = None
+    published_at: date | None = None
+    effective_from: date | None = None
+    registro_oficial: str | None = None
+    supplement: str | None = None
+    url: str | None = None
+    notes: str | None = None
+
+
+# --- Control previo / restricciones (#5) ---
+class ControlAuthorityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    kind: str | None = None
+
+
+class ControlAuthorityCreate(BaseModel):
+    code: str
+    name: str
+    kind: str | None = None
+
+
+class ControlDocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    authority_id: uuid.UUID | None = None
+    description: str | None = None
+
+
+class ControlDocumentCreate(BaseModel):
+    code: str
+    name: str
+    authority_id: uuid.UUID | None = None
+    description: str | None = None
+
+
+class TariffRestrictionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    hs_prefix: str
+    kind: str
+    control_document_id: uuid.UUID | None = None
+    authority_id: uuid.UUID | None = None
+    legal_instrument_id: uuid.UUID | None = None
+    requirement: str | None = None
+    blocking: bool
+    effective_from: date
+    effective_to: date | None = None
+    status: str
+    verification_status: str
+
+
+class TariffRestrictionCreate(BaseModel):
+    hs_prefix: str
+    kind: str = "CONTROL_PREVIO"
+    control_document_id: uuid.UUID | None = None
+    authority_id: uuid.UUID | None = None
+    legal_instrument_id: uuid.UUID | None = None
+    requirement: str | None = None
+    blocking: bool = True
+    effective_from: date
+    effective_to: date | None = None
+    notes: str | None = None
 
 
 class TariffHistoryEntry(BaseModel):

@@ -134,6 +134,55 @@ class PriceBandPeriod(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
 
 
+class ControlAuthority(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Entidad de control (INEN, ARCSA, AGROCALIDAD, MSP, MPCEIP, ...)."""
+
+    __tablename__ = "control_authority"
+
+    code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class ControlDocument(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Documento de control previo (registro sanitario, certificado INEN, permiso, ...)."""
+
+    __tablename__ = "control_document"
+
+    code: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    authority_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("control_authority.id"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class TariffRestriction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Restricción/prohibición/control previo por subpartida, vinculada al maestro.
+    Relaciona: subpartida → documento → entidad → norma → vigencia."""
+
+    __tablename__ = "tariff_restriction"
+
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)  # normalizado
+    kind: Mapped[str] = mapped_column(String(24), nullable=False, default="CONTROL_PREVIO")  # RESTRICCION/PROHIBICION/CONTROL_PREVIO
+    control_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("control_document.id"), nullable=True
+    )
+    authority_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("control_authority.id"), nullable=True
+    )
+    legal_instrument_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("legal_instrument.id"), nullable=True
+    )
+    requirement: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blocking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE", index=True)
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class TariffTier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Tarifa condicional / por tramos (p. ej. vehículos: Ad-Valorem por cilindraje, ICE por
     rango de precio). El tramo se elige según un atributo del ítem (CC, valor unitario, peso).

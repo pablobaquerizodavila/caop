@@ -1012,6 +1012,40 @@ export async function deleteCertificate(quoteId: string, certId: string): Promis
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Certificados de origen (por expediente, #7) ----------
+export async function addCaseCertificate(caseId: string, data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/certificates`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function validateCaseCertificate(
+  caseId: string, certId: string, validation_status: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/certificates/${certId}`, {
+    method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ validation_status }), cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteCaseCertificate(caseId: string, certId: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/cases/${caseId}/certificates/${certId}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath(`/cases/${caseId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Arancel: preferencias / acuerdos ----------
 export async function seedAgreements(): Promise<{ ok: boolean; agreements?: number; error?: string }> {
   const res = await fetch(`${API}/api/v1/tariff/seed-agreements`, {
@@ -1066,6 +1100,36 @@ export async function deleteIceMeasure(id: string): Promise<{ ok: boolean; error
   revalidatePath("/tariff");
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
+
+// ---------- Base legal y control previo (#5/#6) ----------
+async function _tpost(path: string, data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/${path}`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+async function _tdelete(path: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/${path}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function createLegalInstrument(d: unknown) { return _tpost("legal-instruments", d); }
+export async function deleteLegalInstrument(id: string) { return _tdelete(`legal-instruments/${id}`); }
+export async function createControlAuthority(d: unknown) { return _tpost("control-authorities", d); }
+export async function createControlDocument(d: unknown) { return _tpost("control-documents", d); }
+export async function createRestriction(d: unknown) { return _tpost("restrictions", d); }
+export async function deleteRestriction(id: string) { return _tdelete(`restrictions/${id}`); }
 
 // ---------- Tarifas condicionales / por tramos ----------
 export async function createTariffTier(data: unknown): Promise<{ ok: boolean; error?: string }> {

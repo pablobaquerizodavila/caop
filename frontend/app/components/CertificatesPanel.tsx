@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { addCertificate, deleteCertificate, validateCertificate } from "@/app/lib/actions";
+import {
+  addCaseCertificate,
+  addCertificate,
+  deleteCaseCertificate,
+  deleteCertificate,
+  validateCaseCertificate,
+  validateCertificate,
+} from "@/app/lib/actions";
 
 interface Cert {
   id: string; cert_type: string; number?: string | null; issuing_country?: string | null;
@@ -11,8 +18,15 @@ interface Cert {
   validation_status: string;
 }
 
-export function CertificatesPanel({ quoteId, certificates }: { quoteId: string; certificates: Cert[] }) {
+export function CertificatesPanel({
+  quoteId, certificates, scope = "quote",
+}: {
+  quoteId: string; certificates: Cert[]; scope?: "quote" | "case";
+}) {
   const router = useRouter();
+  const doAdd = scope === "case" ? addCaseCertificate : addCertificate;
+  const doValidate = scope === "case" ? validateCaseCertificate : validateCertificate;
+  const doDelete = scope === "case" ? deleteCaseCertificate : deleteCertificate;
   const [busy, setBusy] = useState(false);
   const [nc, setNc] = useState({
     cert_type: "ORIGEN", number: "", issuing_country: "", organism: "", valid_until: "",
@@ -22,7 +36,7 @@ export function CertificatesPanel({ quoteId, certificates }: { quoteId: string; 
     if (!nc.issuing_country.trim()) { alert("Indica el país emisor (ISO2)."); return; }
     setBusy(true);
     try {
-      const r = await addCertificate(quoteId, {
+      const r = await doAdd(quoteId, {
         cert_type: nc.cert_type, number: nc.number || null,
         issuing_country: nc.issuing_country.trim().toUpperCase(),
         organism: nc.organism || null, valid_until: nc.valid_until || null,
@@ -37,14 +51,14 @@ export function CertificatesPanel({ quoteId, certificates }: { quoteId: string; 
 
   async function setStatus(id: string, st: string) {
     setBusy(true);
-    try { await validateCertificate(quoteId, id, st); router.refresh(); }
+    try { await doValidate(quoteId, id, st); router.refresh(); }
     finally { setBusy(false); }
   }
 
   async function remove(id: string) {
     if (!confirm("¿Eliminar el certificado?")) return;
     setBusy(true);
-    try { await deleteCertificate(quoteId, id); router.refresh(); }
+    try { await doDelete(quoteId, id); router.refresh(); }
     finally { setBusy(false); }
   }
 

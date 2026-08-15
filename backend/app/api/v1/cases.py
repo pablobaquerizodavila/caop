@@ -24,6 +24,7 @@ from app.schemas.case import (
     RequirementRead,
     ShipmentRead,
 )
+from app.schemas.trade import CertificateCreate, CertificateRead, CertificateValidate
 from app.services.checklist import recompute_readiness
 from app.services.requirement_seed import seed_requirement_defaults
 
@@ -231,3 +232,60 @@ async def set_case_reconciliation(
 async def reconciliation_summary(session: AsyncSession = Depends(get_session)) -> dict:
     from app.services.reconciliation import summary
     return await summary(session)
+
+
+# ---------- Certificados de origen a nivel de expediente (#7) ----------
+@router.get("/cases/{case_id}/certificates", response_model=list[CertificateRead])
+async def list_case_certificates(
+    case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list:
+    from app.models.trade import CertificateOfOrigin
+    await _load_case(session, case_id)
+    return list(await session.scalars(
+        select(CertificateOfOrigin).where(CertificateOfOrigin.customs_case_id == case_id)
+        .order_by(CertificateOfOrigin.created_at.desc())
+    ))
+
+
+@router.post("/cases/{case_id}/certificates", response_model=CertificateRead, status_code=201)
+async def add_case_certificate(
+    case_id: uuid.UUID, payload: CertificateCreate, session: AsyncSession = Depends(get_session)
+):
+    from app.models.trade import CertificateOfOrigin
+    await _load_case(session, case_id)
+    data = payload.model_dump()
+    if data.get("issuing_country"):
+        data["issuing_country"] = data["issuing_country"].upper()
+    cert = CertificateOfOrigin(customs_case_id=case_id, **data)
+    session.add(cert)
+    await session.flush()
+    await session.refresh(cert)
+    return cert
+
+
+@router.patch("/cases/{case_id}/certificates/{cert_id}", response_model=CertificateRead)
+async def validate_case_certificate(
+    case_id: uuid.UUID, cert_id: uuid.UUID, payload: CertificateValidate,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.models.trade import CertificateOfOrigin
+    cert = await session.get(CertificateOfOrigin, cert_id)
+    if cert is None or cert.customs_case_id != case_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificado no encontrado")
+    cert.validation_status = payload.validation_status
+    if payload.notes is not None:
+        cert.notes = payload.notes
+    await session.flush()
+    await session.refresh(cert)
+    return cert
+
+
+@router.delete("/cases/{case_id}/certificates/{cert_id}", status_code=204)
+async def delete_case_certificate(
+    case_id: uuid.UUID, cert_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> None:
+    from app.models.trade import CertificateOfOrigin
+    cert = await session.get(CertificateOfOrigin, cert_id)
+    if cert is not None and cert.customs_case_id == case_id:
+        await session.delete(cert)
+        await session.flush()

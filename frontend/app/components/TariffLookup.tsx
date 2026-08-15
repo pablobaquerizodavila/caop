@@ -7,9 +7,10 @@ import { SubpartidaInput } from "@/app/components/SubpartidaInput";
 
 interface Tax { tax_type: string; percentage: string | number | null; verified: boolean; legal_source?: string | null }
 interface CodeRef { code: string; description: string; ad_valorem?: string | number | null }
+interface Restriction { kind: string; document?: string | null; authority?: string | null; requirement?: string | null; blocking: boolean }
 interface Detail {
   code: string; full_description?: string | null; description: string; physical_unit?: string | null;
-  taxes: Tax[]; warnings: string[]; ancestors?: CodeRef[]; children?: CodeRef[];
+  taxes: Tax[]; warnings: string[]; ancestors?: CodeRef[]; children?: CodeRef[]; restrictions?: Restriction[];
 }
 interface HistoryRow {
   version: string | null; status: string; verification_status: string;
@@ -134,6 +135,25 @@ export function TariffLookup() {
           {detail.warnings?.length ? (
             <div style={{ marginTop: 10, color: "var(--warn, #b45309)", fontSize: 12.5 }}>
               {detail.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+            </div>
+          ) : null}
+
+          {detail.restrictions && detail.restrictions.length ? (
+            <div style={{ marginTop: 14 }}>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Restricciones / control previo</div>
+              <table className="tx-tbl" style={{ width: "100%" }}>
+                <thead><tr><th>Tipo</th><th>Documento</th><th>Entidad</th><th>Requisito</th></tr></thead>
+                <tbody>
+                  {detail.restrictions.map((r, i) => (
+                    <tr key={i}>
+                      <td><span className={`pill ${r.kind === "PROHIBICION" ? "crit" : "warn"}`}>{r.kind}</span></td>
+                      <td>{r.document || "—"}</td>
+                      <td>{r.authority || "—"}</td>
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{r.requirement || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : null}
 
