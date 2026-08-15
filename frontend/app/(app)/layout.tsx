@@ -27,6 +27,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/">Torre de Control</NavLink>
           <NavLink href="/cases">Expedientes</NavLink>
           <NavLink href="/quotes">Cotizaciones</NavLink>
+          <NavLink href="/tariff">Arancel</NavLink>
           <NavLink href="/customers">Clientes</NavLink>
           <NavLink href="/suppliers">Proveedores</NavLink>
           <NavLink href="/retentions">Retenciones</NavLink>

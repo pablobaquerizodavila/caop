@@ -910,6 +910,45 @@ export async function sendTracking(
   return { ok: true, to: j.to as string, status: j.status as string };
 }
 
+// ---------- Arancel: autocompletar subpartida ----------
+export interface TariffSuggestion {
+  code: string;
+  description: string;
+  full_description?: string | null;
+  physical_unit?: string | null;
+  ad_valorem?: string | number | null;
+}
+
+export async function searchTariffCodes(q: string): Promise<TariffSuggestion[]> {
+  if (!q || q.trim().length < 2) return [];
+  const res = await fetch(
+    `${API}/api/v1/tariff/codes?q=${encodeURIComponent(q)}&limit=15`,
+    { headers: authHeader(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return (await res.json()) as TariffSuggestion[];
+}
+
+export async function tariffDetail(hsCode: string): Promise<unknown | null> {
+  const res = await fetch(
+    `${API}/api/v1/tariff/codes/${encodeURIComponent(hsCode)}`,
+    { headers: authHeader(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+export async function tariffCalculate(payload: unknown): Promise<unknown | null> {
+  const res = await fetch(`${API}/api/v1/tariff/calculate`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.json();
+}
+
 // ---------- Administración: privilegios por rol ----------
 export async function seedRolePrivileges(): Promise<{ ok: boolean; created?: number; error?: string }> {
   const res = await fetch(`${API}/api/v1/admin/roles/seed-defaults`, {
