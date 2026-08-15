@@ -213,6 +213,29 @@ export async function createQuote(payload: unknown): Promise<Result> {
   return r;
 }
 
+/** Elimina una cotización. Si ya generó expediente, sin cascade responde 409. */
+export async function deleteQuote(
+  quoteId: string,
+  cascade = false,
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  const qs = cascade ? "?cascade=true" : "";
+  const res = await fetch(`${API}/api/v1/quotes/${quoteId}${qs}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/quotes");
+  if (res.ok) return { ok: true };
+  let error = `Error ${res.status}`;
+  try {
+    const b = await res.json();
+    if (typeof b.detail === "string") error = b.detail;
+  } catch {
+    /* ignore */
+  }
+  return { ok: false, status: res.status, error };
+}
+
 /** Edita una cotización en DRAFT (reemplaza ítems/cabecera y recalcula). */
 export async function updateQuote(quoteId: string, payload: unknown): Promise<Result> {
   const res = await fetch(`${API}/api/v1/quotes/${quoteId}`, {

@@ -90,6 +90,38 @@ async def test_update_draft_adds_subpartida_and_recomputes(client):
 
 
 @pytest.mark.asyncio
+async def test_delete_quote_without_case(client):
+    await _setup_tax(client)
+    qid = (await client.post("/api/v1/quotes", json=_quote_payload())).json()["id"]
+    r = await client.delete(f"/api/v1/quotes/{qid}")
+    assert r.status_code == 204, r.text
+    assert (await client.get(f"/api/v1/quotes/{qid}")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_quote_with_case_blocks_then_cascades(client):
+    await _setup_tax(client)
+    cid = (await client.post(
+        "/api/v1/customers", json={"ruc": "1712345675001", "legal_name": "Cli"}
+    )).json()["id"]
+    payload = {**_quote_payload(), "customer_id": cid}
+    qid = (await client.post("/api/v1/quotes", json=payload)).json()["id"]
+    await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "SENT"})
+    await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "ACCEPTED"})
+    case_id = (await client.get(f"/api/v1/quotes/{qid}/case")).json()["id"]
+
+    # Ya generó expediente: sin cascade, protegido (409).
+    assert (await client.delete(f"/api/v1/quotes/{qid}")).status_code == 409
+    assert (await client.get(f"/api/v1/quotes/{qid}")).status_code == 200
+
+    # Con cascade: elimina cotización + expediente.
+    ok = await client.delete(f"/api/v1/quotes/{qid}?cascade=true")
+    assert ok.status_code == 204, ok.text
+    assert (await client.get(f"/api/v1/quotes/{qid}")).status_code == 404
+    assert (await client.get(f"/api/v1/cases/{case_id}")).status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_item_model_field(client):
     await _setup_tax(client)
     payload = _quote_payload()

@@ -6,13 +6,15 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.customer import Customer
+from app.models.notification import Notification
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
 from app.models.shipment import CustomsCase, Shipment
+from app.models.sla import SLAInstance
 from app.models.trade import CertificateOfOrigin
 from app.schemas.case import CustomsCaseRead
 from app.schemas.trade import CertificateCreate, CertificateRead, CertificateValidate
@@ -268,6 +270,50 @@ async def update_quote(
     await session.flush()
     await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])
     return quote
+
+
+@router.delete("/{quote_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_quote(
+    quote_id: uuid.UUID,
+    cascade: bool = Query(
+        False,
+        description="Si la cotización ya generó expediente, con cascade=true se elimina "
+        "también el expediente y su cascada. Sin cascade responde 409.",
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Elimina una cotización. Si ya se convirtió en expediente, protege: responde
+    409 salvo cascade=true (que elimina también el expediente)."""
+    quote = await _load(session, quote_id)
+    ship = await session.scalar(select(Shipment).where(Shipment.source_quote_id == quote_id))
+
+    if ship is not None and not cascade:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Esta cotización ya generó un expediente. Confirma para eliminar también el expediente.",
+        )
+    if ship is not None:
+        case_ids = list(
+            await session.scalars(select(CustomsCase.id).where(CustomsCase.shipment_id == ship.id))
+        )
+        if case_ids:
+            await session.execute(
+                delete(Notification).where(Notification.customs_case_id.in_(case_ids))
+            )
+            await session.execute(
+                delete(SLAInstance).where(
+                    SLAInstance.entity_type == "CUSTOMS_CASE",
+                    SLAInstance.entity_id.in_(case_ids),
+                )
+            )
+            # Expediente(s) explícito(s): en Postgres cascada a sus hijos; en SQLite
+            # (tests) evita dejar el caso huérfano.
+            await session.execute(delete(CustomsCase).where(CustomsCase.id.in_(case_ids)))
+        await session.execute(delete(Shipment).where(Shipment.id == ship.id))
+
+    # Cascada DB de la cotización: ítems, costos, historial y certificados.
+    await session.delete(quote)
+    await session.flush()
 
 
 @router.post("/{quote_id}/status", response_model=QuoteReadInternal)

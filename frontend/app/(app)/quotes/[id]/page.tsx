@@ -1,7 +1,10 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { apiGet, money } from "@/app/lib/api";
+import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 import { CertificatesPanel } from "@/app/components/CertificatesPanel";
+import { DeleteQuoteButton } from "@/app/components/DeleteQuoteButton";
 import { QuoteActions } from "@/app/components/QuoteActions";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +39,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
     );
   }
   const certificates = (await apiGet<Cert[]>(`/quotes/${params.id}/certificates`)) ?? [];
+  const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
   const cur = quote.currency;
   const fmt = (v: number | string) => money(v, cur);
   const withPref = quote.items.filter((i) => i.preference);
@@ -126,6 +130,13 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       </div>
 
       <CertificatesPanel quoteId={quote.id} certificates={certificates} />
+
+      {caps.canAdmin ? (
+        <div className="card rise section-gap">
+          <div className="eyebrow" style={{ color: "var(--muted-2)", marginBottom: 8 }}>Zona de riesgo</div>
+          <DeleteQuoteButton quoteId={quote.id} />
+        </div>
+      ) : null}
     </>
   );
 }
