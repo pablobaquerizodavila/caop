@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet, money, type Receivables, stateLabel } from "@/app/lib/api";
 import { ExportCsvButton } from "@/app/components/ExportCsvButton";
+import { Donut, LineChart } from "@/app/components/charts";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +39,6 @@ interface Overview {
   sla: { open: number; at_risk: number; breached: number };
 }
 
-const STATE_COLOR: Record<string, string> = {
-  READY_FOR_CUSTOMS: "var(--ok)",
-  AWAITING_DOCUMENTS: "var(--warn)",
-  CASE_CREATED: "var(--accent)",
-};
-
 export default async function ReportsPage() {
   const d = await apiGet<Overview>("/analytics/overview");
   const ops = await apiGet<Operations>("/analytics/operations");
@@ -78,20 +73,20 @@ export default async function ReportsPage() {
         <Kpi label="Prep. promedio" value={`${d.cases.avg_prep_hours}`} unit="h" sub="creado → listo" />
       </div>
 
-      <div className="card section-gap rise">
-        <div className="head">
-          <h2>Expedientes por estado</h2>
+      <div className="cols">
+        <div className="card rise">
+          <div className="head"><h2>Expedientes por estado</h2></div>
+          <Donut data={Object.entries(d.cases.by_state).map(([k, v]) => ({ label: stateLabel(k), value: v }))} />
         </div>
-        <Bars data={d.cases.by_state} labelFn={stateLabel} colorFn={(k) => STATE_COLOR[k] ?? "var(--accent)"} />
-      </div>
-
-      <div className="card section-gap rise">
-        <div className="head">
-          <h2>Cotizaciones por estado</h2>
-          <span className="count">{d.commercial.total_quotes}</span>
+        <div className="card rise">
+          <div className="head">
+            <h2>Cotizaciones por estado</h2>
+            <span className="count">{d.commercial.total_quotes}</span>
+          </div>
+          <Donut data={Object.entries(d.commercial.by_status).map(([k, v]) => ({ label: k, value: v }))} />
         </div>
-        <Bars data={d.commercial.by_status} />
       </div>
+      <div className="section-gap" />
 
       <div className="kpis">
         <Kpi label="SLA abiertos" value={`${d.sla.open}`} />
@@ -138,25 +133,25 @@ export default async function ReportsPage() {
             )}
           </div>
 
+          <div className="card section-gap rise">
+            <div className="head"><h2>Throughput mensual</h2></div>
+            {ops.throughput.length === 0 ? (
+              <div className="empty">Sin datos.</div>
+            ) : (
+              <LineChart
+                labels={ops.throughput.map((m) => m.month)}
+                series={[
+                  { label: "Creados", color: "var(--accent)", points: ops.throughput.map((m) => m.created) },
+                  { label: "Liberados", color: "var(--ok)", points: ops.throughput.map((m) => m.released) },
+                ]}
+              />
+            )}
+          </div>
+
           <div className="cols">
             <div className="card rise">
-              <div className="head"><h2>Throughput mensual</h2></div>
-              {ops.throughput.length === 0 ? (
-                <div className="empty">Sin datos.</div>
-              ) : (
-                <table className="tbl">
-                  <thead><tr><th>Mes</th><th className="num">Creados</th><th className="num">Liberados</th></tr></thead>
-                  <tbody>
-                    {ops.throughput.map((m) => (
-                      <tr key={m.month}>
-                        <td className="mono">{m.month}</td>
-                        <td className="num">{m.created}</td>
-                        <td className="num">{m.released}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <div className="head"><h2>Canal de aforo</h2></div>
+              <Donut data={Object.entries(ops.aforo).map(([k, v]) => ({ label: k, value: v }))} />
             </div>
 
             <div className="card rise">
@@ -179,11 +174,7 @@ export default async function ReportsPage() {
               )}
             </div>
           </div>
-
-          <div className="card section-gap rise">
-            <div className="head"><h2>Canal de aforo</h2></div>
-            <Bars data={ops.aforo} />
-          </div>
+          <div className="section-gap" />
         </>
       ) : null}
 
@@ -283,37 +274,3 @@ function Kpi({
   );
 }
 
-function Bars({
-  data,
-  labelFn,
-  colorFn,
-}: {
-  data: Record<string, number>;
-  labelFn?: (k: string) => string;
-  colorFn?: (k: string) => string;
-}) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(1, ...entries.map(([, v]) => v));
-  if (entries.length === 0) {
-    return <div className="empty">Sin datos.</div>;
-  }
-  return (
-    <div className="bars">
-      {entries.map(([k, v]) => (
-        <div className="bar-row" key={k}>
-          <span className="lbl">{labelFn ? labelFn(k) : k}</span>
-          <div className="track2">
-            <div
-              className="fill2"
-              style={{
-                width: `${(v / max) * 100}%`,
-                background: colorFn ? colorFn(k) : "var(--accent)",
-              }}
-            />
-          </div>
-          <span className="n">{v}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
