@@ -910,6 +910,113 @@ export async function sendTracking(
   return { ok: true, to: j.to as string, status: j.status as string };
 }
 
+// ---------- Administración: privilegios por rol ----------
+export async function seedRolePrivileges(): Promise<{ ok: boolean; created?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/admin/roles/seed-defaults`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, created: Array.isArray(j.created) ? j.created.length : 0 };
+}
+
+export async function createRolePrivilege(data: unknown): Promise<Result> {
+  const r = await postJson("/admin/roles", data);
+  revalidatePath("/admin");
+  return r;
+}
+
+export async function updateRolePrivilege(id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/roles/${id}`, {
+    method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function deleteRolePrivilege(id: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/roles/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+// ---------- Administración: usuarios (Keycloak) ----------
+export async function createKcUser(data: unknown): Promise<Result> {
+  const r = await postJson("/admin/users", data);
+  revalidatePath("/admin");
+  return r;
+}
+
+export async function updateKcUser(id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/users/${id}`, {
+    method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function deleteKcUser(id: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/users/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function setKcUserRoles(id: string, roles: string[]): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/users/${id}/roles`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ roles }), cache: "no-store",
+  });
+  revalidatePath("/admin");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function resetKcUserPassword(
+  id: string, password: string, temporary: boolean,
+): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/admin/users/${id}/reset-password`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ password, temporary }), cache: "no-store",
+  });
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
 export async function generateQuotePdf(quoteId: string): Promise<string | null> {
   await fetch(`${API}/api/v1/quotes/${quoteId}/pdf`, {
     method: "POST",

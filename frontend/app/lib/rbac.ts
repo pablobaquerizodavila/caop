@@ -13,6 +13,7 @@ export interface Caps {
   canWrite: boolean;
   canSign: boolean;
   canAdmin: boolean;
+  isSuperAdmin: boolean;
   isViewer: boolean;
   isStaff: boolean;
   isCustomer: boolean;
@@ -29,6 +30,7 @@ export function capsFromRoles(roles: string[]): Caps {
     canWrite,
     canSign: has(SIGN_ROLES),
     canAdmin: has(ADMIN_ROLES),
+    isSuperAdmin: roles.includes("SUPER_ADMIN"),
     isViewer: !canWrite,
     isStaff,
     isCustomer,

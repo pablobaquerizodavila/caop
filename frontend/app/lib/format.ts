@@ -55,6 +55,28 @@ export interface SlaRisk {
   escalation_level: number;
 }
 
+// --- Administración: privilegios por rol y usuarios (Keycloak) ---
+export interface RolePrivilege {
+  id: string;
+  role_name: string;
+  description: string | null;
+  is_staff: boolean;
+  can_write: boolean;
+  can_admin: boolean;
+  can_sign: boolean;
+  can_audit: boolean;
+}
+
+export interface KcUser {
+  id: string;
+  username: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  enabled: boolean;
+  roles: string[];
+}
+
 export interface QuoteSummary {
   id: string;
   quote_number: string;

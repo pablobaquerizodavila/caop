@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # jwks: URL desde donde el backend descarga las llaves (red interna del contenedor).
     keycloak_jwks_url: str = "http://keycloak:8080/realms/caop/protocol/openid-connect/certs"
     keycloak_audience: str = "caop-backend"
+    # Admin API de Keycloak (gestión de usuarios/roles). Base interna del contenedor.
+    keycloak_admin_base: str = "http://keycloak:8080"
+    keycloak_realm: str = "caop"
+    keycloak_admin_user: str = "admin"
+    keycloak_admin_password: str = "admin_dev_password"
     # Audiencias/azp aceptadas (el token del frontend no lleva aud=caop-backend por defecto).
     keycloak_allowed_audiences: str = "caop-backend,caop-frontend,account"
 
