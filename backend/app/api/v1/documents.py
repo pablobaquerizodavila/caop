@@ -171,6 +171,7 @@ async def extract_preview(
         line_items=[
             LineItemPreview(
                 description=li.description,
+                model=li.model,
                 hs_code=li.hs_code,
                 quantity=li.quantity,
                 unit_price=li.unit_price,

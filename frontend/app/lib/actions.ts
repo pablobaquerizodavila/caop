@@ -310,6 +310,7 @@ export interface PreviewField {
 
 export interface PreviewLineItem {
   description: string | null;
+  model: string | null;
   hs_code: string | null;
   quantity: string | null;
   unit_price: string | null;

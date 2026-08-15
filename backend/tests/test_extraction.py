@@ -107,6 +107,33 @@ def test_line_items_eu_decimals():
     assert items[0].unit_price == "0.25"
 
 
+def test_line_items_column_matching_with_model_es():
+    # Layout en español con columna Modelo; alineado por ancho de columna.
+    header = "Modelo".ljust(12) + "Descripción".ljust(22) + "Cantidad".ljust(11) + "P. Unitario".ljust(14) + "Total"
+    row1 = "PV33-6048".ljust(12) + "Transformador 33kV".ljust(22) + "4".ljust(11) + "525.00".ljust(14) + "2100.00"
+    row2 = "SM300W".ljust(12) + "Medidor smart".ljust(22) + "50".ljust(11) + "83.00".ljust(14) + "4150.00"
+    items = extract_line_items_from_text(header + "\n" + row1 + "\n" + row2 + "\n")
+    assert len(items) == 2
+    assert items[0].model == "PV33-6048"
+    assert items[0].description == "Transformador 33kV"
+    assert items[0].quantity == "4"
+    assert items[0].unit_price == "525"
+    assert items[1].model == "SM300W"
+    assert items[1].quantity == "50"
+
+
+def test_line_items_column_matching_partno_en():
+    # Layout distinto en inglés: "Part No" y "Price".
+    header = "Part No".ljust(14) + "Description".ljust(24) + "Qty".ljust(8) + "Price".ljust(12) + "Amount"
+    row = "ABC-100".ljust(14) + "Widget blue".ljust(24) + "3".ljust(8) + "5.00".ljust(12) + "15.00"
+    items = extract_line_items_from_text(header + "\n" + row + "\n")
+    assert len(items) == 1
+    assert items[0].model == "ABC-100"
+    assert items[0].description == "Widget blue"
+    assert items[0].quantity == "3"
+    assert items[0].unit_price == "5"
+
+
 def test_line_items_ignores_header_and_footer_noise():
     # Fechas, folios y direcciones NO deben convertirse en ítems.
     text = (

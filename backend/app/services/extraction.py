@@ -51,6 +51,7 @@ class LineItem:
     """Ítem de una proforma/factura extraído del texto. Sin inventar: campos no
     reconocidos quedan en None y la confianza refleja la calidad de la lectura."""
     description: str | None = None
+    model: str | None = None
     hs_code: str | None = None
     quantity: str | None = None
     unit_price: str | None = None
@@ -215,6 +216,16 @@ _COL_DESC = re.compile(
     r"mercanc[ií]a|concepto)\b",
     re.I,
 )
+_COL_MODEL = re.compile(
+    r"\b(model[oa]?|part\s*(?:no\.?|number|#)?|part-?no|c[oó]digo|item\s*(?:code|no\.?|#)|"
+    r"ref\.?(?:erencia)?|sku|cat\.?\s*(?:no\.?|#)?|n[°º]\s*parte|style)\b",
+    re.I,
+)
+_COL_HS = re.compile(
+    r"\b(hs\s*code|h\.?s\.?|sub\s*partida|partida|arancel\w*|nandina|naladisa|tariff\s*code|"
+    r"c[oó]d\.?\s*arancel\w*)\b",
+    re.I,
+)
 _STOP_LINE = re.compile(
     r"\b(sub\s*total|subtotal|grand\s+total|total\s+amount|amount\s+due|balance\s+due|"
     r"freight|flete|insurance|seguro|shipping|discount|descuento|\btax\b|\biva\b|\bvat\b|"
@@ -365,38 +376,158 @@ def _parse_item_line(line: str, order: list[str] | None) -> LineItem | None:
     )
 
 
+# --- Matching por columnas: mapea las columnas del documento a los campos de la
+#     plantilla (modelo/descripción/cantidad/precio) por la posición de la cabecera. ---
+_LINE_NUM_ONLY = re.compile(r"^\s*(\d{1,3})[\).\-]?\s+")
+
+
+def _detect_columns(header: str) -> list[tuple[int, str]] | None:
+    """Detecta columnas en la cabecera y su posición. Devuelve [(pos, key), …]
+    ordenado L→R, o None si no parece una cabecera de tabla de ítems.
+
+    Reconoce (ES/EN + sinónimos): modelo, descripción, subpartida (HS), cantidad,
+    precio unitario e importe. Resuelve solapes por prioridad."""
+    digits = sum(c.isdigit() for c in header)
+    if digits > 6:
+        return None
+    raw: list[tuple[int, int, str]] = []  # (start, priority, key)
+    for rx, key, pr in (
+        (_COL_MODEL, "model", 0),
+        (_COL_HS, "hs_code", 1),
+        (_COL_UNIT, "unit_price", 2),
+        (_COL_AMT, "amount", 3),
+        (_COL_QTY, "quantity", 4),
+        (_COL_DESC, "description", 5),
+    ):
+        m = rx.search(header)
+        if m:
+            raw.append((m.start(), pr, key))
+    raw.sort()  # por posición y, en empate, por prioridad (menor = más específico)
+    cols: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for start, _pr, key in raw:
+        if key in seen:
+            continue
+        if cols and abs(start - cols[-1][0]) <= 3:
+            continue  # otra etiqueta pegada a una ya tomada → se descarta la de menor prioridad
+        cols.append((start, key))
+        seen.add(key)
+    cols.sort()
+    keys = {k for _, k in cols}
+    if not ({"description", "model"} & keys):
+        return None
+    if not ({"quantity", "unit_price", "amount"} & keys):
+        return None
+    return cols
+
+
+def _num_in(text: str) -> float | None:
+    """Último número normalizado dentro de una celda (o None)."""
+    vals = [_parse_number(m.group(0)) for m in _NUMTOK.finditer(text or "")]
+    vals = [v for v in vals if v is not None]
+    return vals[-1] if vals else None
+
+
+def _item_from_columns(line: str, cols: list[tuple[int, str]]) -> LineItem | None:
+    if not line.strip() or _STOP_LINE.search(line) or _LABEL_LINE.match(line):
+        return None
+    # Corta la línea en celdas según las posiciones de la cabecera.
+    cells: dict[str, str] = {}
+    n = len(cols)
+    for i, (start, key) in enumerate(cols):
+        lo = 0 if i == 0 else start
+        hi = cols[i + 1][0] if i + 1 < n else len(line)
+        cells[key] = line[lo:hi]
+
+    qty = _num_in(cells.get("quantity", ""))
+    unit = _num_in(cells.get("unit_price", ""))
+    amount = _num_in(cells.get("amount", ""))
+    model = (cells.get("model") or "").strip(" .:-|\t")
+    desc = (cells.get("description") or "").strip(" .:-|\t")
+    # La primera celda suele arrastrar el nº de línea ("1  ..."): se quita.
+    if cols and cols[0][1] == "model":
+        model = _LINE_NUM_ONLY.sub("", model).strip(" .:-|\t")
+    elif cols and cols[0][1] == "description":
+        desc = _LINE_NUM_ONLY.sub("", desc).strip(" .:-|\t")
+
+    hs = None
+    hs_cell = cells.get("hs_code")
+    mhs = _HS_INLINE.search(hs_cell) if hs_cell else _HS_INLINE.search(line)
+    if mhs:
+        hs = mhs.group(1)
+
+    # Si no hay columna de precio unitario pero sí importe y cantidad, se deriva
+    # por aritmética (no es inventar: importe/cantidad).
+    if unit is None and amount is not None and qty:
+        unit = amount / qty
+
+    if qty is None or qty <= 0 or unit is None or unit < 0:
+        return None
+    if amount is not None and amount < 0:
+        return None
+    if not (any(c.isalpha() for c in desc) or any(c.isalpha() for c in model)):
+        return None  # ni descripción ni modelo con texto → no es un ítem
+
+    conf = 0.7
+    if amount is not None and abs(qty * unit - amount) <= max(0.02 * abs(amount), 0.01):
+        conf = 0.82
+
+    return LineItem(
+        description=desc[:200] or None,
+        model=model[:120] or None,
+        hs_code=hs,
+        quantity=_fmt_num(qty),
+        unit_price=_fmt_num(unit),
+        amount=_fmt_num(amount) if amount is not None else None,
+        confidence=round(conf, 2),
+    )
+
+
 def extract_line_items_from_text(text: str, max_items: int = 60) -> list[LineItem]:
     """Extrae ítems de una proforma/factura. Determinista y explicable.
 
-    Detecta la cabecera de la tabla (para conocer el orden de columnas), lee las
-    filas siguientes hasta la zona de totales y normaliza los números. No inventa:
-    campos no reconocidos quedan en None.
+    1) Detecta la cabecera y hace *matching* de columnas (modelo, descripción,
+       cantidad, precio, importe, subpartida) por su posición, cortando cada fila
+       en celdas. Funciona con distintos layouts (ES/EN + sinónimos).
+    2) Si no hay cabecera reconocible, cae a una heurística por los números al
+       final de la línea (sin modelo). No inventa: lo no reconocido queda en None.
     """
     lines = text.splitlines()
-    order: list[str] | None = None
+
+    # (1) Matching por columnas si hay cabecera con nombres.
+    cols: list[tuple[int, str]] | None = None
     header_idx = -1
     for i, ln in enumerate(lines):
-        od = _detect_column_order(ln)
-        if od:
-            order, header_idx = od, i
+        c = _detect_columns(ln)
+        if c:
+            cols, header_idx = c, i
             break
 
     items: list[LineItem] = []
-    start = header_idx + 1 if header_idx >= 0 else 0
-    stopped = False
-    for ln in lines[start:]:
-        if header_idx >= 0 and _STOP_LINE.search(ln):
-            # Tras la cabecera, la primera línea de totales cierra la tabla.
-            stopped = True
+    if cols:
+        for ln in lines[header_idx + 1:]:
+            if _STOP_LINE.search(ln):
+                break  # zona de totales cierra la tabla
+            it = _item_from_columns(ln, cols)
+            if it:
+                items.append(it)
+                if len(items) >= max_items:
+                    break
+        return items
+
+    # (2) Fallback sin cabecera: heurística por posición de los números.
+    order: list[str] | None = None
+    for ln in lines:
+        od = _detect_column_order(ln)
+        if od:
+            order = od
             break
+    for ln in lines:
         it = _parse_item_line(ln, order)
         if it:
             items.append(it)
             if len(items) >= max_items:
                 break
-    # Sin cabecera detectada, no cortamos por totales dentro del bucle (para no
-    # perder ítems), pero _parse_item_line ya ignora líneas con palabras de total.
-    _ = stopped
     return items
 
 

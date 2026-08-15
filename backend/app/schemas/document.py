@@ -58,6 +58,7 @@ class ExtractedFieldPreview(BaseModel):
 class LineItemPreview(BaseModel):
     """Ítem de proforma/factura leído del documento, para prellenar la cotización."""
     description: str | None = None
+    model: str | None = None
     hs_code: str | None = None
     quantity: str | None = None
     unit_price: str | None = None

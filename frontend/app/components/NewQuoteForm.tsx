@@ -101,13 +101,13 @@ export function NewQuoteForm({
 
       // Ítems leídos línea por línea (lo mejor: reemplazan la lista para revisión).
       const li: PreviewLineItem[] = (r.line_items ?? []).filter(
-        (x) => x.description || x.quantity || x.unit_price,
+        (x) => x.description || x.model || x.quantity || x.unit_price,
       );
       if (li.length) {
         setItems(
           li.map((x) => ({
             description: x.description ?? "",
-            model: "",
+            model: x.model ?? "",
             hs_code: x.hs_code ?? "",
             quantity: x.quantity ?? "1",
             unit_price: x.unit_price ?? "0",
