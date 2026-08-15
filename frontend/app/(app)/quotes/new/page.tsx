@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-import { apiGet, type CustomerSummary } from "@/app/lib/api";
+import { apiGet, type CountryOption, type CustomerSummary } from "@/app/lib/api";
 import { NewQuoteForm } from "@/app/components/NewQuoteForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewQuotePage() {
   const customers = (await apiGet<CustomerSummary[]>("/customers?limit=200")) ?? [];
+  const countries = (await apiGet<CountryOption[]>("/tariff/countries")) ?? [];
 
   return (
     <>
@@ -22,7 +23,7 @@ export default async function NewQuotePage() {
         </div>
       </div>
       <div className="card card-pad rise">
-        <NewQuoteForm customers={customers} />
+        <NewQuoteForm customers={customers} countries={countries} />
       </div>
     </>
   );

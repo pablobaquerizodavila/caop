@@ -503,7 +503,15 @@ async def delete_preference(pref_id: uuid.UUID, session: AsyncSession = Depends(
 @router.get("/countries", response_model=list[dict])
 async def list_countries(session: AsyncSession = Depends(get_session)) -> list[dict]:
     rows = await session.scalars(select(Country).where(Country.active).order_by(Country.name))
-    return [{"iso2": c.iso2, "name": c.name} for c in rows]
+    return [{"iso2": c.iso2, "name": c.name, "continent": c.continent} for c in rows]
+
+
+@router.post("/seed-countries", dependencies=[Depends(require_admin)])
+async def seed_countries_iso(session: AsyncSession = Depends(get_session)) -> dict:
+    """Carga/actualiza el catálogo ISO 3166-1 completo (249) con continente."""
+    from app.services.country_seed import seed_countries as _seed_iso
+
+    return await _seed_iso(session)
 
 
 # ---------- ICE (Impuesto a los Consumos Especiales) ----------

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createQuote, extractPreview, updateQuote, type PreviewField } from "@/app/lib/actions";
 import type { PreviewLineItem } from "@/app/lib/actions";
 import { SubpartidaInput } from "@/app/components/SubpartidaInput";
-import type { CustomerSummary } from "@/app/lib/format";
+import type { CountryOption, CustomerSummary } from "@/app/lib/format";
 
 interface Item {
   description: string;
@@ -39,15 +39,24 @@ const CATEGORIES = ["FEE", "FREIGHT", "INSURANCE", "PORT", "HANDLING", "TRANSPOR
 
 export function NewQuoteForm({
   customers,
+  countries = [],
   initial,
   quoteId,
 }: {
   customers: CustomerSummary[];
+  countries?: CountryOption[];
   initial?: QuoteInitial;
   quoteId?: string;
 }) {
   const router = useRouter();
   const isEdit = Boolean(quoteId);
+  const continents = Array.from(
+    new Set(countries.map((c) => c.continent).filter((x): x is string => Boolean(x))),
+  ).sort();
+  const continentOf = (iso2: string) => countries.find((c) => c.iso2 === iso2)?.continent ?? "";
+  const [continent, setContinent] = useState<string>(
+    initial?.header.origin_country ? continentOf(initial.header.origin_country) : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
@@ -231,8 +240,34 @@ export function NewQuoteForm({
           <input type="text" value={h.incoterm} onChange={(e) => setHeader("incoterm", e.target.value)} />
         </label>
         <label className="field">
-          <span>Origen (ISO-2)</span>
-          <input type="text" value={h.origin_country} onChange={(e) => setHeader("origin_country", e.target.value)} placeholder="CN" />
+          <span>Continente (origen)</span>
+          <select
+            value={continent}
+            onChange={(e) => {
+              const cont = e.target.value;
+              setContinent(cont);
+              // Si el origen actual no pertenece al continente elegido, se limpia.
+              if (cont && h.origin_country && continentOf(h.origin_country) !== cont) {
+                setHeader("origin_country", "");
+              }
+            }}
+          >
+            <option value="">Todos</option>
+            {continents.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span>Origen (país)</span>
+          {countries.length ? (
+            <select value={h.origin_country} onChange={(e) => setHeader("origin_country", e.target.value)}>
+              <option value="">— Selecciona —</option>
+              {countries
+                .filter((c) => !continent || c.continent === continent)
+                .map((c) => <option key={c.iso2} value={c.iso2}>{c.name} ({c.iso2})</option>)}
+            </select>
+          ) : (
+            <input type="text" value={h.origin_country} onChange={(e) => setHeader("origin_country", e.target.value)} placeholder="CN" />
+          )}
         </label>
         <label className="field">
           <span>Moneda</span>

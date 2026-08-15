@@ -23,6 +23,7 @@ class Country(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     iso2: Mapped[str] = mapped_column(String(2), nullable=False, unique=True, index=True)
     iso3: Mapped[str | None] = mapped_column(String(3), nullable=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    continent: Mapped[str | None] = mapped_column(String(24), nullable=True, index=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

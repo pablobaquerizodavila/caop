@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { apiGet, type CustomerSummary } from "@/app/lib/api";
+import { apiGet, type CountryOption, type CustomerSummary } from "@/app/lib/api";
 import { NewQuoteForm, type QuoteInitial } from "@/app/components/NewQuoteForm";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,7 @@ const num = (v: number | string | null | undefined) => (v == null ? 0 : Number(v
 export default async function EditQuotePage({ params }: { params: { id: string } }) {
   const quote = await apiGet<QuoteRead>(`/quotes/${params.id}`);
   const customers = (await apiGet<CustomerSummary[]>("/customers?limit=200")) ?? [];
+  const countries = (await apiGet<CountryOption[]>("/tariff/countries")) ?? [];
 
   if (!quote) {
     return (
@@ -100,7 +101,7 @@ export default async function EditQuotePage({ params }: { params: { id: string }
         <Link href={`/quotes/${quote.id}`} className="btn ghost">← Volver</Link>
       </div>
       <div className="card rise">
-        <NewQuoteForm customers={customers} initial={initial} quoteId={quote.id} />
+        <NewQuoteForm customers={customers} countries={countries} initial={initial} quoteId={quote.id} />
       </div>
     </>
   );

@@ -170,6 +170,12 @@ export interface CustomerSummary {
   legal_rep_name?: string | null;
 }
 
+export interface CountryOption {
+  iso2: string;
+  name: string;
+  continent: string | null;
+}
+
 export interface Contact {
   id: string;
   customer_id: string;
