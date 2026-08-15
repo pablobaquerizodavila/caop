@@ -42,6 +42,7 @@ from app.schemas.tariff import (
     LegalInstrumentCreate,
     LegalInstrumentOut,
     RestrictionOut,
+    SyncLogOut,
     SyncStatusOut,
     TariffRestrictionCreate,
     TariffRestrictionOut,
@@ -66,6 +67,7 @@ from app.schemas.tariff import (
 )
 from app.services.tariff_ingest import active_version, import_arancel, publish_version
 from app.services.tariff_resolver import resolve_item
+from app.services.tariff_sync import recent_logs, run_sync
 from app.services.tax_engine import TaxItemInput
 from app.services.trade_agreement_seed import seed_agreements, seed_countries
 
@@ -713,3 +715,16 @@ async def delete_restriction(restriction_id: uuid.UUID, session: AsyncSession = 
     if r is not None:
         await session.delete(r)
         await session.flush()
+
+
+# ---------- #9: Vigilante de fuentes oficiales (resoluciones COMEX) ----------
+@router.post("/sync/run", dependencies=[Depends(require_admin)])
+async def sync_run(
+    session: AsyncSession = Depends(get_session), source_code: str | None = Query(None)
+) -> dict:
+    return await run_sync(session, source_code=source_code)
+
+
+@router.get("/sync/log", response_model=list[SyncLogOut])
+async def sync_log(session: AsyncSession = Depends(get_session)):
+    return await recent_logs(session)

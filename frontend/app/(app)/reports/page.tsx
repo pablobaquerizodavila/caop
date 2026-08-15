@@ -39,10 +39,19 @@ interface Overview {
   sla: { open: number; at_risk: number; breached: number };
 }
 
+interface ReconSummary {
+  count: number;
+  avg_abs_difference_pct: number | null;
+  within_1pct: number;
+  total_estimated: number;
+  total_actual: number;
+}
+
 export default async function ReportsPage() {
   const d = await apiGet<Overview>("/analytics/overview");
   const ops = await apiGet<Operations>("/analytics/operations");
   const rec = await apiGet<Receivables>("/analytics/receivables");
+  const recon = await apiGet<ReconSummary>("/reconciliations/summary");
 
   if (!d) {
     return (
@@ -72,6 +81,17 @@ export default async function ReportsPage() {
         <Kpi label="Readiness promedio" value={`${d.cases.avg_readiness}`} unit="%" />
         <Kpi label="Prep. promedio" value={`${d.cases.avg_prep_hours}`} unit="h" sub="creado → listo" />
       </div>
+
+      {recon && recon.count > 0 ? (
+        <div className="kpis">
+          <Kpi label="Precisión del motor arancelario" value={`${recon.avg_abs_difference_pct ?? 0}`} unit="%"
+            cls={(recon.avg_abs_difference_pct ?? 0) <= 1 ? "ok" : "warn"} sub="diferencia media |estimado − SENAE|" />
+          <Kpi label="Expedientes reconciliados" value={`${recon.count}`} cls="accent" />
+          <Kpi label="Dentro de ±1%" value={`${recon.within_1pct}`} sub={`de ${recon.count}`} />
+          <Kpi label="Estimado vs real" value={`${money(recon.total_estimated, "USD")}`}
+            sub={`real ${money(recon.total_actual, "USD")}`} />
+        </div>
+      ) : null}
 
       <div className="cols">
         <div className="card rise">

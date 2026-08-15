@@ -116,6 +116,27 @@ class TariffCode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     extra: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
 
+class TariffSyncLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Bitácora de sincronización con fuentes oficiales (vigilante de resoluciones).
+
+    Registra cada corrida: qué fuente, cuántas referencias se hallaron, cuántas son
+    nuevas (no vistas), errores. Nunca escribe producción: solo detecta y notifica.
+    """
+
+    __tablename__ = "tariff_sync_log"
+
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("official_source.id"), nullable=True
+    )
+    source_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="OK", index=True)  # OK/FAILED/NO_SOURCE
+    found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    new_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    detected: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)  # refs nuevas detectadas
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class TariffImport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Lote de ingesta: evidencia y trazabilidad de una sincronización/carga."""
 

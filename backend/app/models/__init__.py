@@ -25,6 +25,7 @@ from app.models.tariff import (
     OfficialSource,
     TariffCode,
     TariffImport,
+    TariffSyncLog,
     TariffVersion,
 )
 from app.models.tax import TaxRule
@@ -97,6 +98,7 @@ __all__ = [
     "TariffImport",
     "TariffPreference",
     "TariffRestriction",
+    "TariffSyncLog",
     "TariffTier",
     "TariffVersion",
     "TaxReconciliation",

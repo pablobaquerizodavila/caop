@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     collection_reminder_interval_minutes: int = 0
     collection_reminder_min_days: int = 7
 
+    # Vigilante de fuentes arancelarias (resoluciones COMEX). 0 = desactivado.
+    tariff_sync_interval_minutes: int = 0
+
     @property
     def alerts_recipients_list(self) -> list[str]:
         return [e.strip() for e in self.alerts_recipients.split(",") if e.strip()]

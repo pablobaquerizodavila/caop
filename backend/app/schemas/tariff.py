@@ -414,6 +414,19 @@ class TariffVersionOut(BaseModel):
     created_at: datetime
 
 
+class SyncLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    source_code: str | None
+    status: str
+    found: int
+    new_count: int
+    detected: list | None = None
+    error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
+
+
 class SyncStatusOut(BaseModel):
     active_version: TariffVersionOut | None
     total_codes: int

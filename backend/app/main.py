@@ -19,6 +19,7 @@ from app.services.scheduler import (
     alert_digest_loop,
     collection_reminder_loop,
     sla_scheduler_loop,
+    tariff_sync_loop,
 )
 
 
@@ -36,6 +37,8 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         tasks.append(
             asyncio.create_task(collection_reminder_loop(settings.collection_reminder_interval_minutes))
         )
+    if settings.tariff_sync_interval_minutes > 0:
+        tasks.append(asyncio.create_task(tariff_sync_loop(settings.tariff_sync_interval_minutes)))
 
     yield
 

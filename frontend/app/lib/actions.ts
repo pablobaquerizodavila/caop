@@ -1101,6 +1101,17 @@ export async function deleteIceMeasure(id: string): Promise<{ ok: boolean; error
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Vigilante de fuentes (#9) ----------
+export async function runTariffSync(): Promise<{ ok: boolean; new?: number; sources?: number; status?: string; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/sync/run`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, new: j.new, sources: j.sources, status: j.status };
+}
+
 // ---------- Base legal y control previo (#5/#6) ----------
 async function _tpost(path: string, data: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`${API}/api/v1/tariff/${path}`, {

@@ -79,3 +79,26 @@ async def collection_reminder_loop(interval_minutes: int) -> None:
                 logger.info("Recordatorios de cobro enviados: %s", result)
         except Exception:  # noqa: BLE001
             logger.exception("Fallo en el envío de recordatorios de cobro")
+
+
+async def run_tariff_sync(sessionmaker=None) -> dict:
+    """Ejecuta el vigilante de fuentes arancelarias. `sessionmaker` inyectable para tests."""
+    from app.services.tariff_sync import run_sync
+
+    maker = sessionmaker or get_sessionmaker()
+    async with maker() as session:
+        result = await run_sync(session)
+        await session.commit()
+        return result
+
+
+async def tariff_sync_loop(interval_minutes: int) -> None:
+    logger.info("Vigilante arancelario activo: cada %s min", interval_minutes)
+    while True:
+        await asyncio.sleep(interval_minutes * 60)
+        try:
+            result = await run_tariff_sync()
+            if result.get("new"):
+                logger.info("Vigilante arancelario: %s resolución(es) nueva(s)", result["new"])
+        except Exception:  # noqa: BLE001
+            logger.exception("Fallo en el vigilante arancelario")

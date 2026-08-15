@@ -557,6 +557,37 @@ async def test_case_certificates(client, db_sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_tariff_sync_watcher(db_sessionmaker):
+    from sqlalchemy import select as _select
+
+    from app.models.tariff import LegalInstrument, OfficialSource, TariffSyncLog
+    from app.services.tariff_sync import run_sync
+    async with db_sessionmaker() as s:
+        s.add(OfficialSource(code="COMEX", kind="COMEX", name="COMEX", base_url="http://x", active=True))
+        s.add(LegalInstrument(kind="RESOLUCION_COMEX", number="002-2023"))  # ya conocida
+        await s.commit()
+
+    async def fake_fetch(url):  # noqa: ARG001
+        return "Resolución 002-2023 y Resolución 015-2026 publicadas en el Registro Oficial"
+
+    async with db_sessionmaker() as s:
+        res = await run_sync(s, fetcher=fake_fetch)
+        await s.commit()
+        assert res["new"] == 1  # 015-2026 es nueva; 002-2023 ya estaba
+        logs = list(await s.scalars(_select(TariffSyncLog)))
+        assert logs and logs[0].status == "OK"
+        assert "015-2026" in (logs[0].detected or [])
+
+
+@pytest.mark.asyncio
+async def test_tariff_sync_no_source(db_sessionmaker):
+    from app.services.tariff_sync import run_sync
+    async with db_sessionmaker() as s:
+        res = await run_sync(s)
+        assert res["status"] == "NO_SOURCE"
+
+
+@pytest.mark.asyncio
 async def test_reconciliation(db_sessionmaker):
     from app.models.customer import Customer
     from app.models.quote import Quote, QuoteItem

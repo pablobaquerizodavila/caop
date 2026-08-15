@@ -4,6 +4,7 @@ import { apiGet } from "@/app/lib/api";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 import { ControlAdmin } from "@/app/components/ControlAdmin";
 import { PriceBandAdmin } from "@/app/components/PriceBandAdmin";
+import { SyncAdmin } from "@/app/components/SyncAdmin";
 import { TariffAdmin } from "@/app/components/TariffAdmin";
 import { TariffTierAdmin } from "@/app/components/TariffTierAdmin";
 import { TradeRemedyAdmin } from "@/app/components/TradeRemedyAdmin";
@@ -38,6 +39,7 @@ export default async function TariffPage() {
   const authorities = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/control-authorities")) ?? [] : [];
   const documents = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/control-documents")) ?? [] : [];
   const restrictions = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/restrictions")) ?? [] : [];
+  const syncLogs = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/sync/log")) ?? [] : [];
 
   return (
     <>
@@ -94,6 +96,8 @@ export default async function TariffPage() {
           restrictions={restrictions as never[]}
         />
       ) : null}
+
+      {caps.canAdmin ? <SyncAdmin logs={syncLogs as never[]} /> : null}
 
       <TariffLookup />
     </>
