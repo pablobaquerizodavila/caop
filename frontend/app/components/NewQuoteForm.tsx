@@ -294,7 +294,7 @@ export function NewQuoteForm({
         <span>Descripción</span>
         <span>Subpartida</span>
         <span>Cantidad</span>
-        <span>Precio unitario</span>
+        <span>P. Unitario</span>
         <span></span>
       </div>
       {items.map((it, i) => (
