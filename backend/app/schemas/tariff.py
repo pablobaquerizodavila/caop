@@ -144,6 +144,48 @@ class TariffPreferenceCreate(BaseModel):
     legal_source: str | None = None
 
 
+class PriceBandMeasureOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    hs_prefix: str
+    product: str
+    is_marker: bool
+    status: str
+
+
+class PriceBandMeasureCreate(BaseModel):
+    hs_prefix: str
+    product: str
+    is_marker: bool = False
+
+
+class PriceBandPeriodOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    measure_id: uuid.UUID
+    period_start: date
+    period_end: date
+    reference_price: Decimal | None = None
+    floor_price: Decimal | None = None
+    ceiling_price: Decimal | None = None
+    variable_method: str
+    variable_value: Decimal
+    specific_unit: str | None = None
+    verification_status: str
+
+
+class PriceBandPeriodCreate(BaseModel):
+    period_start: date
+    period_end: date
+    reference_price: Decimal | None = None
+    floor_price: Decimal | None = None
+    ceiling_price: Decimal | None = None
+    variable_method: str = "AD_VALOREM"
+    variable_value: Decimal = Decimal(0)
+    specific_unit: str | None = None
+    legal_source: str | None = None
+
+
 class IceMeasureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

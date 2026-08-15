@@ -32,6 +32,8 @@ from app.models.trade import (
     CertificateOfOrigin,
     Country,
     IceMeasure,
+    PriceBandMeasure,
+    PriceBandPeriod,
     TariffPreference,
     TradeAgreement,
 )
@@ -66,6 +68,8 @@ __all__ = [
     "NotificationTemplate",
     "Organization",
     "Payment",
+    "PriceBandMeasure",
+    "PriceBandPeriod",
     "Quote",
     "QuoteItem",
     "QuoteStatusHistory",

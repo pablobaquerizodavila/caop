@@ -13,11 +13,22 @@ from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.tariff import TariffCode, TariffImport, TariffVersion
 from app.models.tax import TaxRule
-from app.models.trade import Country, IceMeasure, TariffPreference, TradeAgreement
+from app.models.trade import (
+    Country,
+    IceMeasure,
+    PriceBandMeasure,
+    PriceBandPeriod,
+    TariffPreference,
+    TradeAgreement,
+)
 from app.schemas.tariff import (
     IceMeasureCreate,
     IceMeasureOut,
     PreferenceScenarioOut,
+    PriceBandMeasureCreate,
+    PriceBandMeasureOut,
+    PriceBandPeriodCreate,
+    PriceBandPeriodOut,
     SyncStatusOut,
     TariffCalcComponent,
     TariffCalcItemOut,
@@ -444,4 +455,66 @@ async def delete_ice(measure_id: uuid.UUID, session: AsyncSession = Depends(get_
     m = await session.get(IceMeasure, measure_id)
     if m is not None:
         await session.delete(m)
+        await session.flush()
+
+
+# ---------- SAFP (Franja Andina de Precios) ----------
+@router.get("/price-bands", response_model=list[PriceBandMeasureOut])
+async def list_price_bands(session: AsyncSession = Depends(get_session)) -> list[PriceBandMeasure]:
+    return list(await session.scalars(
+        select(PriceBandMeasure).order_by(PriceBandMeasure.product).limit(300)
+    ))
+
+
+@router.post("/price-bands", response_model=PriceBandMeasureOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_price_band(
+    payload: PriceBandMeasureCreate, session: AsyncSession = Depends(get_session)
+) -> PriceBandMeasure:
+    data = payload.model_dump()
+    data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    m = PriceBandMeasure(**data)
+    session.add(m)
+    await session.flush()
+    await session.refresh(m)
+    return m
+
+
+@router.delete("/price-bands/{measure_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_price_band(measure_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    m = await session.get(PriceBandMeasure, measure_id)
+    if m is not None:
+        await session.delete(m)
+        await session.flush()
+
+
+@router.get("/price-bands/{measure_id}/periods", response_model=list[PriceBandPeriodOut])
+async def list_band_periods(
+    measure_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[PriceBandPeriod]:
+    return list(await session.scalars(
+        select(PriceBandPeriod).where(PriceBandPeriod.measure_id == measure_id)
+        .order_by(PriceBandPeriod.period_start.desc()).limit(200)
+    ))
+
+
+@router.post("/price-bands/{measure_id}/periods", response_model=PriceBandPeriodOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_band_period(
+    measure_id: uuid.UUID, payload: PriceBandPeriodCreate, session: AsyncSession = Depends(get_session)
+) -> PriceBandPeriod:
+    if await session.get(PriceBandMeasure, measure_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Franja no encontrada")
+    p = PriceBandPeriod(measure_id=measure_id, **payload.model_dump())
+    session.add(p)
+    await session.flush()
+    await session.refresh(p)
+    return p
+
+
+@router.delete("/price-band-periods/{period_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_band_period(period_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    p = await session.get(PriceBandPeriod, period_id)
+    if p is not None:
+        await session.delete(p)
         await session.flush()

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { apiGet } from "@/app/lib/api";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
+import { PriceBandAdmin } from "@/app/components/PriceBandAdmin";
 import { TariffAdmin } from "@/app/components/TariffAdmin";
 import { TariffLookup } from "@/app/components/TariffLookup";
 
@@ -27,6 +28,7 @@ export default async function TariffPage() {
   const agreements = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/agreements")) ?? [] : [];
   const preferences = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/preferences")) ?? [] : [];
   const iceMeasures = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/ice-measures")) ?? [] : [];
+  const priceBands = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/price-bands")) ?? [] : [];
 
   return (
     <>
@@ -68,6 +70,8 @@ export default async function TariffPage() {
           iceMeasures={iceMeasures as never[]}
         />
       ) : null}
+
+      {caps.canAdmin ? <PriceBandAdmin measures={priceBands as never[]} /> : null}
 
       <TariffLookup />
     </>

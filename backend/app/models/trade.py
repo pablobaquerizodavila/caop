@@ -91,6 +91,49 @@ class CertificateOfOrigin(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         return self.validation_status == "VALID" and (self.valid_until is None or self.valid_until >= on)
 
 
+class PriceBandMeasure(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Producto sujeto al Sistema Andino de Franja de Precios (SAFP, CAN Decisión 371).
+
+    Marca la subpartida (marcador o vinculado). El derecho variable/rebaja concreto vive
+    en PriceBandPeriod (dato quincenal publicado por la CAN). Si una subpartida no tiene
+    PriceBandMeasure => NO sujeta a SAFP.
+    """
+
+    __tablename__ = "price_band_measure"
+
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)  # normalizado
+    product: Mapped[str] = mapped_column(String(128), nullable=False)  # p. ej. "Aceite crudo de palma"
+    is_marker: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PriceBandPeriod(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Periodo (quincenal) del SAFP: franja publicada y derecho variable resultante.
+
+    Se almacena el derecho variable YA PUBLICADO por la CAN/SENAE (ad valorem o específico;
+    puede ser negativo = rebaja) para no reconstruir la fórmula. La franja (piso/techo/precio
+    de referencia) se guarda como contexto/trazabilidad.
+    """
+
+    __tablename__ = "price_band_period"
+
+    measure_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("price_band_measure.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    reference_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    floor_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)   # piso
+    ceiling_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)  # techo
+    variable_method: Mapped[str] = mapped_column(String(16), nullable=False, default="AD_VALOREM")  # AD_VALOREM/SPECIFIC
+    variable_value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False, default=0)  # % o por unidad (± )
+    specific_unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    legal_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
+
+
 class IceMeasure(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """ICE (Impuesto a los Consumos Especiales) por subpartida. 3 metodologías (LRTI):
     específico (tarifa por unidad), ad valorem (% sobre base ex-aduana) o mixto.

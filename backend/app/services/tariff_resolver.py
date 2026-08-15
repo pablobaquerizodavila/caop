@@ -19,7 +19,13 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from app.models.tariff import TariffCode
 from app.models.tax import TaxRule
-from app.models.trade import IceMeasure, TariffPreference, TradeAgreement
+from app.models.trade import (
+    IceMeasure,
+    PriceBandMeasure,
+    PriceBandPeriod,
+    TariffPreference,
+    TradeAgreement,
+)
 from app.services.tariff_ingest import active_version
 from app.services.tax_engine import TaxComponent, TaxItemInput, TaxItemResult, compute_item
 
@@ -169,17 +175,67 @@ def _best_ice(measures: list[IceMeasure], hs_norm: str, on: date) -> IceMeasure 
     return best
 
 
-def _compute_ice(measure: IceMeasure, item: TaxItemInput, adval_amt: Decimal, fodinfa_amt: Decimal):
+async def _price_bands(session: AsyncSession) -> tuple[list[PriceBandMeasure], list[PriceBandPeriod]]:
+    measures = list(await session.scalars(
+        select(PriceBandMeasure).where(PriceBandMeasure.status == "ACTIVE")
+    ))
+    periods = list(await session.scalars(select(PriceBandPeriod)))
+    return measures, periods
+
+
+def _best_band(measures: list[PriceBandMeasure], hs_norm: str) -> PriceBandMeasure | None:
+    best = None
+    best_len = -1
+    for m in measures:
+        pref = m.hs_prefix or ""
+        if pref and not hs_norm.startswith(pref):
+            continue
+        if len(pref) > best_len:
+            best_len, best = len(pref), m
+    return best
+
+
+def _band_period(periods: list[PriceBandPeriod], measure_id, on: date) -> PriceBandPeriod | None:
+    for p in periods:
+        if p.measure_id == measure_id and p.period_start <= on <= p.period_end:
+            return p
+    return None
+
+
+def _compute_safp(period: PriceBandPeriod, item: TaxItemInput, base_ex_aduana: Decimal):
+    """Derecho variable SAFP (ad valorem sobre ex-aduana o específico por unidad). Puede ser
+    negativo (rebaja). Devuelve (TaxComponent|None, warning|None)."""
+    method = (period.variable_method or "AD_VALOREM").upper()
+    val = Decimal(period.variable_value or 0)
+    if method == "SPECIFIC":
+        unit = (period.specific_unit or "").upper()
+        if unit not in ("UNIDAD", "U", ""):
+            return None, ("SAFP_INFO_INSUFICIENTE: derecho variable específico en unidad no "
+                          "soportada; cargar el valor publicado por la CAN.")
+        amount = _q2(val * Decimal(item.quantity or 0))
+        rate = None
+    else:
+        amount = _q2(base_ex_aduana * val / Decimal(100))
+        rate = val
+    comp = TaxComponent(
+        tax_type="SAFP", base_amount=_q2(base_ex_aduana), rate_applied=rate, amount=amount,
+        sequence=2, rule_id=f"safp:{period.id}", legal_source=period.legal_source,
+        verified=period.verification_status == "VERIFIED",
+    )
+    return comp, None
+
+
+def _compute_ice(measure: IceMeasure, item: TaxItemInput, base_ex_aduana: Decimal):
     """ICE por metodología (LRTI). Devuelve (TaxComponent|None, warning|None).
 
-    AD_VALOREM: base ex-aduana (CIF+Ad-Valorem+FODINFA). SPECIFIC (unidad): tarifa×cantidad.
-    Otras bases (PVP/referencia) o unidades especiales (alcohol/azúcar) → información insuficiente.
+    AD_VALOREM: sobre base ex-aduana (CIF+Ad-Valorem+FODINFA+SAFP). SPECIFIC (unidad):
+    tarifa×cantidad. Otras bases (PVP/referencia) o unidades especiales → info insuficiente.
     """
     method = (measure.method or "AD_VALOREM").upper()
     ad = sp = Decimal(0)
     insufficient = False
     rate = None
-    base = item.cif + adval_amt + fodinfa_amt
+    base = base_ex_aduana
     if method in ("AD_VALOREM", "MIXED"):
         if measure.ad_valorem_pct is not None and measure.base_type == "EX_ADUANA":
             ad = base * Decimal(measure.ad_valorem_pct) / Decimal(100)
@@ -217,6 +273,7 @@ async def resolve_item(
     injected: list[TaxComponent] | None = None,
     prefs_cache: tuple[list, dict] | None = None,
     ice_cache: list | None = None,
+    band_cache: tuple[list, list] | None = None,
 ) -> ResolvedItem:
     if rules is None:
         rules = await _active_rules(session)
@@ -226,26 +283,53 @@ async def resolve_item(
     tc = await _lookup_code(session, item.hs_code)
 
     base_injected = list(injected or [])
-    # Preliminar: obtiene Ad-Valorem/FODINFA (base ex-aduana para el ICE).
+    # Preliminar: obtiene Ad-Valorem/FODINFA (base ex-aduana para SAFP e ICE).
     prelim = compute_item(rules, item, on, injected=base_injected)
     adval_amt = next((c.amount for c in prelim.components if c.tax_type == "AD_VALOREM"), Decimal(0))
     fodinfa_amt = next((c.amount for c in prelim.components if c.tax_type == "FODINFA"), Decimal(0))
 
-    ice_warn = None
     full_injected = list(base_injected)
+    extra_warns: list[str] = []
+    hs_norm = _normalize(item.hs_code)
+    safp_amt = Decimal(0)
+
+    # SAFP (franja de precios): va antes que ICE porque es un arancel adicional.
     if item.hs_code:
-        measures = ice_cache if ice_cache is not None else await _ice_measures(session)
-        ice_msr = _best_ice(measures, _normalize(item.hs_code), on)
+        measures, periods = band_cache if band_cache is not None else await _price_bands(session)
+        band = _best_band(measures, hs_norm)
+        if band is not None:
+            period = _band_period(periods, band.id, on)
+            if period is None:
+                extra_warns.append(
+                    "SAFP_INFO_INSUFICIENTE: subpartida sujeta a franja de precios pero sin "
+                    "tabla quincenal vigente cargada (precio de referencia/derecho variable)."
+                )
+            else:
+                safp_comp, safp_warn = _compute_safp(period, item, item.cif + adval_amt + fodinfa_amt)
+                if safp_comp is not None:
+                    full_injected.append(safp_comp)
+                    safp_amt = safp_comp.amount
+                if safp_warn:
+                    extra_warns.append(safp_warn)
+
+    # ICE (base ex-aduana incluye SAFP).
+    if item.hs_code:
+        ice_measures = ice_cache if ice_cache is not None else await _ice_measures(session)
+        ice_msr = _best_ice(ice_measures, hs_norm, on)
         if ice_msr is not None:
-            ice_comp, ice_warn = _compute_ice(ice_msr, item, adval_amt, fodinfa_amt)
+            ice_comp, ice_warn = _compute_ice(
+                ice_msr, item, item.cif + adval_amt + fodinfa_amt + safp_amt
+            )
             if ice_comp is not None:
                 full_injected.append(ice_comp)
+            if ice_warn:
+                extra_warns.append(ice_warn)
 
     result = compute_item(rules, item, on, injected=full_injected) if full_injected else prelim
     injected_types = {c.tax_type for c in full_injected}
     hs_validation = _finalize(result, item, tc, version_number, injected_types)
-    if ice_warn:
-        result.warnings.append(ice_warn)
+    if extra_warns:
+        result.warnings.extend(extra_warns)
         result.complete = False
 
     resolved = ResolvedItem(
@@ -285,8 +369,10 @@ async def resolve_items(
     vn = ver.number if ver else None
     prefs_cache = await _preferences(session)
     ice_cache = await _ice_measures(session)
+    band_cache = await _price_bands(session)
     out: list[ResolvedItem] = []
     for it in items:
         out.append(await resolve_item(session, it, on, rules=rules, version_number=vn,
-                                      prefs_cache=prefs_cache, ice_cache=ice_cache))
+                                      prefs_cache=prefs_cache, ice_cache=ice_cache,
+                                      band_cache=band_cache))
     return out

@@ -36,8 +36,8 @@ async def _seed_general(session):
     ))
     session.add(TaxRule(
         tax_type="IVA", calculation_method="AD_VALOREM_PCT", percentage=Decimal("15"),
-        base_formula="CIF+AD_VALOREM+FODINFA+ICE+SAFEGUARD",
-        depends_on=["AD_VALOREM", "FODINFA", "ICE", "SAFEGUARD"],
+        base_formula="CIF+AD_VALOREM+FODINFA+ICE+SAFP+SAFEGUARD",
+        depends_on=["AD_VALOREM", "FODINFA", "ICE", "SAFP", "SAFEGUARD"],
         effective_from=date(2020, 1, 1), status="ACTIVE", version=1,
         verification_status="VERIFIED", verified_at=now, last_verified_at=now,
     ))
@@ -362,6 +362,50 @@ async def test_ice_insufficient_info(db_sessionmaker):
         )
         assert ri.result.complete is False
         assert any("ICE_INFO_INSUFICIENTE" in w for w in ri.result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_safp_variable_duty(db_sessionmaker):
+    from datetime import timedelta
+
+    from app.models.trade import PriceBandMeasure, PriceBandPeriod
+    async with db_sessionmaker() as s:
+        await _ingest(s)  # 8471.30 Ad-Valorem 5%
+        band = PriceBandMeasure(hs_prefix="8471", product="Prueba franja", is_marker=True)
+        s.add(band)
+        await s.flush()
+        today = date.today()
+        s.add(PriceBandPeriod(
+            measure_id=band.id, period_start=today - timedelta(days=7),
+            period_end=today + timedelta(days=7), reference_price=Decimal("100"),
+            floor_price=Decimal("120"), ceiling_price=Decimal("150"),
+            variable_method="AD_VALOREM", variable_value=Decimal("10"),
+            verification_status="VERIFIED",
+        ))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        assert comps.get("SAFP") == Decimal("105.50")   # 10% de ex-aduana (1000+50+5)
+        assert comps.get("IVA") == Decimal("174.08")     # IVA incluye SAFP en su base
+        assert ri.result.complete is True
+
+
+@pytest.mark.asyncio
+async def test_safp_missing_period_insufficient(db_sessionmaker):
+    from app.models.trade import PriceBandMeasure
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        s.add(PriceBandMeasure(hs_prefix="8471", product="Prueba franja", is_marker=True))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        assert ri.result.complete is False
+        assert any("SAFP_INFO_INSUFICIENTE" in w for w in ri.result.warnings)
 
 
 @pytest.mark.asyncio
