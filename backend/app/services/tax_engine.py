@@ -59,6 +59,13 @@ class TaxItemResult:
     hs_code: str | None
     cif_value: Decimal
     components: list[TaxComponent] = field(default_factory=list)
+    # --- S48: trazabilidad y señalización (aditivo, con defaults → retrocompatible) ---
+    rules_used: list[str] = field(default_factory=list)
+    legal_sources: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    missing_information: list[str] = field(default_factory=list)
+    data_version: str | None = None
+    complete: bool = True
 
     @property
     def total_taxes(self) -> Decimal:
@@ -123,13 +130,27 @@ def _amount_for(rule: TaxRule, base: Decimal, quantity: Decimal) -> tuple[Decima
     return base * pct / Decimal(100), pct
 
 
-def compute_item(rules: list[TaxRule], item: TaxItemInput, on: date) -> TaxItemResult:
+def compute_item(
+    rules: list[TaxRule],
+    item: TaxItemInput,
+    on: date,
+    injected: list[TaxComponent] | None = None,
+) -> TaxItemResult:
+    """Calcula los tributos de un ítem. `injected` permite aportar componentes de
+    medidas con metodología propia (ICE/SAFP/antidumping) para que participen en la
+    base compuesta (p. ej. IVA) sin vivir en TaxRule. Sin `injected`, comportamiento idéntico."""
     selected = select_rules(rules, item, on)
     result = TaxItemResult(description=item.description, hs_code=item.hs_code, cif_value=_q(item.cif))
 
     computed: dict[str, Decimal] = {}
-    pending = dict(selected)
     seq = 0
+    # Componentes inyectados (metodología propia): entran a la base antes de resolver.
+    for comp in injected or []:
+        computed[comp.tax_type] = comp.amount
+        seq += 1
+        result.components.append(comp)
+
+    pending = dict(selected)
     # Resolución por dependencias: se calcula una regla cuando todas sus
     # dependencias (que están seleccionadas) ya fueron computadas.
     progress = True
@@ -163,6 +184,8 @@ def compute_item(rules: list[TaxRule], item: TaxItemInput, on: date) -> TaxItemR
             f"Dependencia circular o no resoluble en tributos: {list(pending)}"
         )
     result.components.sort(key=lambda c: c.sequence)
+    result.rules_used = [c.rule_id for c in result.components if c.rule_id]
+    result.legal_sources = sorted({c.legal_source for c in result.components if c.legal_source})
     return result
 
 

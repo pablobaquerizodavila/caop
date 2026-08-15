@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createQuote, extractPreview, type PreviewField } from "@/app/lib/actions";
+import { SubpartidaInput } from "@/app/components/SubpartidaInput";
 import type { CustomerSummary } from "@/app/lib/format";
 
 interface Item {
@@ -201,7 +202,19 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
       {items.map((it, i) => (
         <div className="grid-items" key={i}>
           <input type="text" placeholder="Descripción" value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} />
-          <input type="text" placeholder="Subpartida (HS)" value={it.hs_code} onChange={(e) => setItem(i, "hs_code", e.target.value)} />
+          <SubpartidaInput
+            value={it.hs_code}
+            onChange={(v) => setItem(i, "hs_code", v)}
+            onPick={(s) => {
+              setItems((p) =>
+                p.map((row, idx) =>
+                  idx === i
+                    ? { ...row, hs_code: s.code, description: row.description || s.description }
+                    : row,
+                ),
+              );
+            }}
+          />
           <input type="text" placeholder="Cant." value={it.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} />
           <input type="text" placeholder="P. unit." value={it.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} />
           <button type="button" className="btn ghost" disabled={items.length === 1} onClick={() => setItems((p) => p.filter((_, idx) => idx !== i))}>

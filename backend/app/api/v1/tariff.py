@@ -1,0 +1,255 @@
+"""API del maestro arancelario: consulta, autocompletar, cálculo, ingesta y publicación."""
+
+import hashlib
+import tempfile
+import uuid
+from datetime import date
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import require_admin
+from app.db.session import get_session
+from app.models.tariff import TariffCode, TariffImport, TariffVersion
+from app.models.tax import TaxRule
+from app.schemas.tariff import (
+    SyncStatusOut,
+    TariffCalcComponent,
+    TariffCalcItemOut,
+    TariffCalcRequest,
+    TariffCalcResponse,
+    TariffCodeDetail,
+    TariffCodeOut,
+    TariffTaxOut,
+    TariffVersionOut,
+)
+from app.services.tariff_ingest import active_version, import_arancel, publish_version
+from app.services.tariff_resolver import resolve_item
+from app.services.tax_engine import TaxItemInput
+
+router = APIRouter(prefix="/tariff", tags=["tariff"])
+
+DISCLAIMER = (
+    "Los tributos presentados son una estimación basada en la versión arancelaria vigente "
+    "en el sistema. Si la estimación está marcada como incompleta, falta información "
+    "arancelaria verificada para una o más subpartidas. La liquidación definitiva la "
+    "determina la autoridad aduanera según las condiciones reales de la importación."
+)
+
+
+def _norm(hs: str) -> str:
+    return hs.replace(".", "").replace(" ", "").strip()
+
+
+@router.get("/codes", response_model=list[TariffCodeOut])
+async def search_codes(
+    session: AsyncSession = Depends(get_session),
+    q: str | None = Query(None, description="Texto de descripción o prefijo de código"),
+    only_national: bool = Query(True, description="Solo subpartidas de 10 dígitos"),
+    limit: int = Query(25, ge=1, le=100),
+) -> list[TariffCode]:
+    stmt = select(TariffCode).where(TariffCode.status == "ACTIVE")
+    if only_national:
+        stmt = stmt.where(TariffCode.level == 10)
+    if q:
+        digits = _norm(q)
+        if digits.isdigit() and len(digits) >= 2:
+            stmt = stmt.where(TariffCode.code_normalized.startswith(digits))
+        else:
+            like = f"%{q}%"
+            stmt = stmt.where(
+                or_(
+                    TariffCode.description.ilike(like),
+                    TariffCode.full_description.ilike(like),
+                )
+            )
+    stmt = stmt.order_by(TariffCode.code_normalized).limit(limit)
+    return list(await session.scalars(stmt))
+
+
+async def _general_rate(session: AsyncSession, tax_type: str, on: date) -> TaxRule | None:
+    rules = await session.scalars(
+        select(TaxRule).where(
+            TaxRule.tax_type == tax_type,
+            TaxRule.status == "ACTIVE",
+            TaxRule.hs_code.is_(None),
+        )
+    )
+    best = None
+    for r in rules:
+        if r.effective_from <= on and (r.effective_to is None or on <= r.effective_to):
+            if best is None or r.version > best.version:
+                best = r
+    return best
+
+
+@router.get("/codes/{hs_code}", response_model=TariffCodeDetail)
+async def code_detail(
+    hs_code: str,
+    session: AsyncSession = Depends(get_session),
+    on: date | None = Query(None, alias="date"),
+) -> TariffCodeDetail:
+    on = on or date.today()
+    norm = _norm(hs_code)
+    code = await session.scalar(
+        select(TariffCode).where(
+            TariffCode.code_normalized == norm, TariffCode.status == "ACTIVE"
+        )
+    )
+    if code is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Subpartida {hs_code} no está en el maestro vigente")
+
+    taxes: list[TariffTaxOut] = []
+    warnings: list[str] = []
+    # AD_VALOREM: de la regla ligada al código
+    adval = await session.scalar(
+        select(TaxRule).where(
+            TaxRule.tax_type == "AD_VALOREM",
+            TaxRule.status == "ACTIVE",
+            TaxRule.hs_code == code.code,
+        )
+    )
+    if adval is not None:
+        taxes.append(TariffTaxOut(
+            tax_type="AD_VALOREM", percentage=adval.percentage,
+            verified=adval.verification_status == "VERIFIED", legal_source=adval.legal_source,
+        ))
+    else:
+        warnings.append("TARIFF_DATA_NOT_FOUND: sin arancel Ad-Valorem vigente para esta subpartida")
+    for t in ("FODINFA", "IVA"):
+        r = await _general_rate(session, t, on)
+        if r is not None:
+            taxes.append(TariffTaxOut(
+                tax_type=t, percentage=r.percentage,
+                verified=r.verification_status == "VERIFIED", legal_source=r.legal_source,
+            ))
+        else:
+            warnings.append(f"Falta la regla general de {t}")
+
+    detail = TariffCodeDetail.model_validate(code)
+    detail.taxes = taxes
+    detail.warnings = warnings
+    return detail
+
+
+@router.post("/calculate", response_model=TariffCalcResponse)
+async def calculate(
+    payload: TariffCalcRequest, session: AsyncSession = Depends(get_session)
+) -> TariffCalcResponse:
+    on = payload.calculation_date or date.today()
+    items_out: list[TariffCalcItemOut] = []
+    total_cif = 0.0
+    total_taxes = 0.0
+    all_complete = True
+    data_version = None
+    for it in payload.items:
+        ri = await resolve_item(
+            session,
+            TaxItemInput(
+                invoice_value=it.invoice_value, freight=it.freight, insurance=it.insurance,
+                quantity=it.quantity, hs_code=it.hs_code, origin_country=it.origin_country,
+                commercial_agreement=it.commercial_agreement, description=it.description,
+            ),
+            on,
+        )
+        res = ri.result
+        data_version = res.data_version
+        comps = [
+            TariffCalcComponent(
+                tax_type=c.tax_type, base_amount=float(c.base_amount),
+                rate_applied=(float(c.rate_applied) if c.rate_applied is not None else None),
+                amount=float(c.amount), verified=c.verified,
+            )
+            for c in res.components
+        ]
+        items_out.append(TariffCalcItemOut(
+            description=res.description, hs_code=res.hs_code, hs_validation=ri.hs_validation,
+            cif_value=float(res.cif_value), components=comps, total_taxes=float(res.total_taxes),
+            complete=res.complete, warnings=res.warnings, missing_information=res.missing_information,
+        ))
+        total_cif += float(res.cif_value)
+        total_taxes += float(res.total_taxes)
+        all_complete = all_complete and res.complete
+
+    return TariffCalcResponse(
+        calculation_date=on, currency=payload.currency, data_version=data_version,
+        items=items_out, total_cif=round(total_cif, 2), total_taxes=round(total_taxes, 2),
+        complete=all_complete, disclaimer=DISCLAIMER,
+    )
+
+
+@router.get("/sync-status", response_model=SyncStatusOut)
+async def sync_status(session: AsyncSession = Depends(get_session)) -> SyncStatusOut:
+    ver = await active_version(session)
+    total_codes = await session.scalar(
+        select(func.count()).select_from(TariffCode).where(TariffCode.status == "ACTIVE")
+    )
+    total_rules = await session.scalar(
+        select(func.count()).select_from(TaxRule).where(
+            TaxRule.status == "ACTIVE", TaxRule.tax_type == "AD_VALOREM"
+        )
+    )
+    last_imp = await session.scalar(
+        select(TariffImport).order_by(TariffImport.created_at.desc()).limit(1)
+    )
+    return SyncStatusOut(
+        active_version=TariffVersionOut.model_validate(ver) if ver else None,
+        total_codes=total_codes or 0,
+        total_active_rules=total_rules or 0,
+        last_import_at=last_imp.created_at if last_imp else None,
+        last_import_status=last_imp.status if last_imp else None,
+    )
+
+
+@router.get("/versions", response_model=list[TariffVersionOut])
+async def list_versions(session: AsyncSession = Depends(get_session)) -> list[TariffVersion]:
+    return list(await session.scalars(
+        select(TariffVersion).order_by(TariffVersion.created_at.desc()).limit(50)
+    ))
+
+
+@router.post("/import", dependencies=[Depends(require_admin)])
+async def import_tariff(
+    version_number: str = Query(..., description="Identificador de la versión, p. ej. COMEX-002-2023"),
+    effective_from: date = Query(..., description="Fecha de vigencia del arancel"),
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Archivo vacío")
+    file_hash = hashlib.sha256(data).hexdigest()
+
+    # Evidencia (raw) en almacenamiento de objetos (best-effort).
+    raw_key = f"tariff/imports/{file_hash}.pdf"
+    try:
+        from app.services.storage import get_storage
+
+        get_storage().put_object(raw_key, data, "application/pdf")
+    except Exception:  # noqa: BLE001
+        raw_key = None
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+
+    result = await import_arancel(
+        session, version_number=version_number, effective_from=effective_from,
+        path=tmp_path, filename=file.filename, file_hash=file_hash,
+    )
+    return {
+        "import_id": str(result.import_id), "version_id": str(result.version_id),
+        "version_number": result.version_number, "status": result.status,
+        "codes": result.codes, "rules": result.rules, "errors": result.errors,
+        "raw_stored": bool(raw_key),
+        "note": "Versión en STAGED. Publícala con POST /tariff/versions/{id}/publish para activarla.",
+    }
+
+
+@router.post("/versions/{version_id}/publish", dependencies=[Depends(require_admin)])
+async def publish(version_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> dict:
+    try:
+        return await publish_version(session, version_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc

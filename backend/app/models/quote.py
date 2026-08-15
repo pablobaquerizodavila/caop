@@ -91,6 +91,11 @@ class QuoteItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     hs_code: Mapped[str | None] = mapped_column(String(12), nullable=True)
     hs_status: Mapped[str] = mapped_column(String(16), default="PRELIMINARY")  # VALIDATED/PRELIMINARY
+    # S48: validación contra el maestro arancelario (no rompe el campo de texto libre)
+    hs_validation: Mapped[str] = mapped_column(String(16), default="UNKNOWN")  # UNKNOWN/VALID/NOT_FOUND
+    tariff_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tariff_code.id"), nullable=True
+    )
     origin_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     commercial_agreement: Mapped[str | None] = mapped_column(String(64), nullable=True)
     quantity: Mapped[Decimal] = mapped_column(MONEY, default=1)
@@ -103,6 +108,10 @@ class QuoteItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     cif_value: Mapped[Decimal] = mapped_column(MONEY, default=0)
     taxes_total: Mapped[Decimal] = mapped_column(MONEY, default=0)
     tax_breakdown: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
+    # S48: señalización de estimación tributaria (faltante ≠ 0%) + versión arancelaria usada
+    tax_complete: Mapped[bool] = mapped_column(Boolean, default=True)
+    tax_warnings: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
+    tax_data_version: Mapped[str | None] = mapped_column(String(48), nullable=True)
 
     quote: Mapped[Quote] = relationship(back_populates="items")
 

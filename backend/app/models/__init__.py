@@ -19,6 +19,13 @@ from app.models.shipment import CaseEvent, Container, CustomsCase, Shipment
 from app.models.sla import SLAInstance
 from app.models.sla_config import BusinessCalendar, SLAPolicy
 from app.models.supplier import Supplier
+from app.models.tariff import (
+    LegalInstrument,
+    OfficialSource,
+    TariffCode,
+    TariffImport,
+    TariffVersion,
+)
 from app.models.tax import TaxRule
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
@@ -56,12 +63,17 @@ __all__ = [
     "RetentionVoucher",
     "Role",
     "RolePrivilege",
+    "LegalInstrument",
+    "OfficialSource",
     "Settlement",
     "SettlementLine",
     "Shipment",
     "SLAInstance",
     "SLAPolicy",
     "Supplier",
+    "TariffCode",
+    "TariffImport",
+    "TariffVersion",
     "TaxRule",
     "User",
     "VuePermit",
