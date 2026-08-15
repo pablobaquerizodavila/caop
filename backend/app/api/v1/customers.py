@@ -13,6 +13,7 @@ from app.models.document import Document
 from app.models.notification import Notification
 from app.models.quote import Quote
 from app.models.shipment import CustomsCase, Shipment
+from app.models.sla import SLAInstance
 from app.schemas.customer import (
     ConsentCreate,
     ConsentRead,
@@ -231,6 +232,15 @@ async def delete_customer(
         if case_ids:
             notif_cond.append(Notification.customs_case_id.in_(case_ids))
         await session.execute(delete(Notification).where(or_(*notif_cond)))
+        # 1b) instancias de SLA de esos expedientes (polimórficas: sin FK a customs_case,
+        #     por eso no caen en cascada). Evita SLA huérfanos en el panel de riesgos.
+        if case_ids:
+            await session.execute(
+                delete(SLAInstance).where(
+                    SLAInstance.entity_type == "CUSTOMS_CASE",
+                    SLAInstance.entity_id.in_(case_ids),
+                )
+            )
         # 2) expedientes vía shipment (cascada DB -> customs_case y sus hijos).
         await session.execute(delete(Shipment).where(Shipment.customer_id == customer_id))
         # 3) cotizaciones (cascada DB -> ítems, costos, historial, certificados).

@@ -145,16 +145,21 @@ async def test_delete_customer_with_history_blocks_then_cascades(client):
     await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "SENT"})
     await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "ACCEPTED"})
 
+    # Al aceptar se crea el expediente con un SLA (DOCUMENTS_COMPLETE).
+    case_id = (await client.get(f"/api/v1/quotes/{qid}/case")).json()["id"]
+    assert len((await client.get(f"/api/v1/sla?entity_id={case_id}")).json()) >= 1
+
     # Sin cascade: protegido (409).
     blocked = await client.delete(f"/api/v1/customers/{cid}")
     assert blocked.status_code == 409
     assert (await client.get(f"/api/v1/customers/{cid}")).status_code == 200
 
-    # Con cascade: elimina cliente + expediente + cotización.
+    # Con cascade: elimina cliente + expediente + cotización + SLA (sin huérfanos).
     ok = await client.delete(f"/api/v1/customers/{cid}?cascade=true")
     assert ok.status_code == 204, ok.text
     assert (await client.get(f"/api/v1/customers/{cid}")).status_code == 404
     assert (await client.get(f"/api/v1/quotes/{qid}")).status_code == 404
+    assert (await client.get(f"/api/v1/sla?entity_id={case_id}")).json() == []
 
 
 @pytest.mark.asyncio
