@@ -1,9 +1,11 @@
 """Tests de administración: privilegios editables, RBAC desde BD y usuarios (Keycloak fake)."""
 
+import httpx
 import pytest
 
 from app.core.security import Principal, get_current_principal
 from app.main import app
+from app.services import keycloak_admin as kc_mod
 from app.services.keycloak_admin import get_kc_admin
 
 RUC = "1712345675001"
@@ -101,6 +103,34 @@ async def test_admin_only_super(client):
         assert (await client.get("/api/v1/admin/users")).status_code == 403
     finally:
         app.dependency_overrides[get_current_principal] = SUPER
+
+
+@pytest.mark.asyncio
+async def test_real_keycloak_client_flow(monkeypatch):
+    """Ejercita el cliente httpx real (transporte simulado): valida que _auth + el
+    contexto `async with` no reabran el cliente (regresión de 'Cannot open a client
+    instance more than once')."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/protocol/openid-connect/token"):
+            return httpx.Response(200, json={"access_token": "tok"})
+        if request.url.path.endswith("/admin/realms/caop/roles"):
+            return httpx.Response(
+                200, json=[{"name": "SUPER_ADMIN"}, {"name": "offline_access"}]
+            )
+        return httpx.Response(404, json=[])
+
+    real_cls = httpx.AsyncClient
+
+    def factory(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_cls(*args, **kwargs)
+
+    monkeypatch.setattr(kc_mod.httpx, "AsyncClient", factory)
+
+    admin = kc_mod.RealKeycloakAdmin()
+    roles = await admin.list_realm_roles()
+    assert roles == ["SUPER_ADMIN"]  # offline_access queda oculto
 
 
 @pytest.mark.asyncio

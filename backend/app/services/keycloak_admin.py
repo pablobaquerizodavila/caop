@@ -50,14 +50,14 @@ class RealKeycloakAdmin:
     def _url(self, path: str) -> str:
         return f"{self.base}/admin/realms/{self.realm}{path}"
 
-    async def _client(self) -> httpx.AsyncClient:
-        c = httpx.AsyncClient(timeout=20)
-        tok = await self._token(c)
-        c.headers["Authorization"] = f"Bearer {tok}"
-        return c
+    async def _auth(self, client: httpx.AsyncClient) -> None:
+        """Obtiene el token de admin y lo fija como Bearer en un cliente ya abierto."""
+        tok = await self._token(client)
+        client.headers["Authorization"] = f"Bearer {tok}"
 
     async def list_users(self, search: str | None = None) -> list[dict]:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             params = {"max": 200, "briefRepresentation": "true"}
             if search:
                 params["search"] = search
@@ -79,7 +79,8 @@ class RealKeycloakAdmin:
             return out
 
     async def create_user(self, data: dict) -> str:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             body = {
                 "username": data["username"], "email": data.get("email"),
                 "firstName": data.get("first_name"), "lastName": data.get("last_name"),
@@ -98,7 +99,8 @@ class RealKeycloakAdmin:
             return user_id
 
     async def update_user(self, user_id: str, data: dict) -> None:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             body = {}
             if "email" in data and data["email"] is not None:
                 body["email"] = data["email"]
@@ -113,19 +115,22 @@ class RealKeycloakAdmin:
                 raise KeycloakError(f"No se pudo actualizar el usuario ({r.status_code})")
 
     async def delete_user(self, user_id: str) -> None:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             r = await c.delete(self._url(f"/users/{user_id}"))
             if r.status_code not in (204, 200):
                 raise KeycloakError(f"No se pudo eliminar el usuario ({r.status_code})")
 
     async def get_user_roles(self, user_id: str) -> list[str]:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             r = await c.get(self._url(f"/users/{user_id}/role-mappings/realm"))
             r.raise_for_status()
             return [x["name"] for x in r.json()]
 
     async def set_user_roles(self, user_id: str, roles: list[str]) -> None:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             current = {x["name"]: x for x in
                        (await c.get(self._url(f"/users/{user_id}/role-mappings/realm"))).json()}
             desired = set(roles)
@@ -148,11 +153,13 @@ class RealKeycloakAdmin:
                     json={"type": "password", "value": password, "temporary": temporary})
 
     async def reset_password(self, user_id: str, password: str, temporary: bool) -> None:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             await self._set_password(c, user_id, password, temporary)
 
     async def list_realm_roles(self) -> list[str]:
-        async with await self._client() as c:
+        async with httpx.AsyncClient(timeout=20) as c:
+            await self._auth(c)
             r = await c.get(self._url("/roles"))
             r.raise_for_status()
             hidden = {"offline_access", "uma_authorization", "default-roles-caop"}
