@@ -1101,6 +1101,45 @@ export async function deleteIceMeasure(id: string): Promise<{ ok: boolean; error
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+// ---------- Sección B: catálogos y carga masiva ----------
+export async function seedControlCatalog(): Promise<{ ok: boolean; authorities?: number; documents?: number; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/seed-control`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) return { ok: false, error: `Error ${res.status}` };
+  const j = await res.json();
+  return { ok: true, authorities: j.authorities_created, documents: j.documents_created };
+}
+
+export async function bulkImportCsv(
+  kind: string, formData: FormData,
+): Promise<{ ok: boolean; created?: number; errors?: string[]; error?: string }> {
+  const file = formData.get("file");
+  if (!file || typeof file === "string") return { ok: false, error: "Selecciona un archivo CSV" };
+  const fd = new FormData();
+  fd.append("file", file, (file as File).name);
+  const res = await fetch(`${API}/api/v1/tariff/bulk/${kind}`, {
+    method: "POST", headers: authHeader(), body: fd, cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  const j = await res.json();
+  return { ok: true, created: j.created, errors: j.errors };
+}
+
+export async function setSourceUrl(code: string, url: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/sources/${code}/url?url=${encodeURIComponent(url)}`, {
+    method: "PATCH", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Vigilante de fuentes (#9) ----------
 export async function runTariffSync(): Promise<{ ok: boolean; new?: number; sources?: number; status?: string; error?: string }> {
   const res = await fetch(`${API}/api/v1/tariff/sync/run`, {

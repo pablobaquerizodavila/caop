@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { runTariffSync } from "@/app/lib/actions";
+import { runTariffSync, setSourceUrl } from "@/app/lib/actions";
 
 interface SyncLog {
   id: string; source_code?: string | null; status: string; found: number; new_count: number;
@@ -14,6 +14,17 @@ export function SyncAdmin({ logs = [] }: { logs?: SyncLog[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [srcUrl, setSrcUrl] = useState("");
+
+  async function saveUrl() {
+    if (!srcUrl.trim()) return;
+    setBusy(true);
+    try {
+      const r = await setSourceUrl("COMEX", srcUrl.trim());
+      setMsg(r.ok ? "URL de la fuente COMEX configurada." : `Error: ${r.error}`);
+      router.refresh();
+    } finally { setBusy(false); }
+  }
 
   async function run() {
     setBusy(true);
@@ -39,6 +50,13 @@ export function SyncAdmin({ logs = [] }: { logs?: SyncLog[] }) {
         Detecta resoluciones nuevas en las fuentes configuradas (COMEX / Registro Oficial) y avisa.
         No modifica el arancel: la carga y aprobación siguen siendo manuales.
       </p>
+      <div className="form-row" style={{ alignItems: "flex-end", gap: 10, marginBottom: 8 }}>
+        <label className="field" style={{ flex: 1, minWidth: 260 }}>
+          <span>URL de la fuente COMEX / Registro Oficial</span>
+          <input value={srcUrl} placeholder="https://www.produccion.gob.ec/…" onChange={(e) => setSrcUrl(e.target.value)} />
+        </label>
+        <button className="btn ghost" disabled={busy || !srcUrl.trim()} onClick={saveUrl}>Guardar URL</button>
+      </div>
       {msg ? <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>{msg}</div> : null}
       {logs.length ? (
         <div style={{ overflowX: "auto" }}>

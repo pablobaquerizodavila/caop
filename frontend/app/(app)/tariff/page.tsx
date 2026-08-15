@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { apiGet } from "@/app/lib/api";
 import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
+import { BulkImportAdmin } from "@/app/components/BulkImportAdmin";
 import { ControlAdmin } from "@/app/components/ControlAdmin";
 import { PriceBandAdmin } from "@/app/components/PriceBandAdmin";
 import { SyncAdmin } from "@/app/components/SyncAdmin";
@@ -96,6 +97,8 @@ export default async function TariffPage() {
           restrictions={restrictions as never[]}
         />
       ) : null}
+
+      {caps.canAdmin ? <BulkImportAdmin /> : null}
 
       {caps.canAdmin ? <SyncAdmin logs={syncLogs as never[]} /> : null}
 

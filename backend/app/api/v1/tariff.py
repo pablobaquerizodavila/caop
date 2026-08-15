@@ -74,6 +74,8 @@ from app.services.tariff_ingest import (
     publish_version,
 )
 from app.services.tariff_resolver import resolve_item
+from app.services.control_seed import seed_control_catalog
+from app.services.tariff_bulk import PLANTILLAS, bulk_import
 from app.services.tariff_sync import recent_logs, run_sync
 from app.services.tax_engine import TaxItemInput
 from app.services.trade_agreement_seed import seed_agreements, seed_countries
@@ -761,3 +763,47 @@ async def sync_run(
 @router.get("/sync/log", response_model=list[SyncLogOut])
 async def sync_log(session: AsyncSession = Depends(get_session)):
     return await recent_logs(session)
+
+
+@router.patch("/sources/{code}/url", dependencies=[Depends(require_admin)])
+async def set_source_url(
+    code: str, url: str = Query(...), session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Configura la URL de una fuente oficial (p. ej. COMEX) para el vigilante (#5)."""
+    src = await session.scalar(select(OfficialSource).where(OfficialSource.code == code.upper()))
+    if src is None:
+        src = OfficialSource(code=code.upper(), kind=code.upper(), name=code.upper())
+        session.add(src)
+    src.base_url = url
+    src.active = True
+    await session.flush()
+    return {"code": src.code, "base_url": src.base_url}
+
+
+# ---------- Sección B: catálogos y carga masiva de datos ----------
+@router.post("/seed-control", dependencies=[Depends(require_admin)])
+async def seed_control(session: AsyncSession = Depends(get_session)) -> dict:
+    """Siembra entidades y documentos de control previo (catálogo de referencia)."""
+    return await seed_control_catalog(session)
+
+
+@router.get("/bulk/templates")
+async def bulk_templates() -> dict:
+    """Columnas esperadas por tipo para la carga masiva CSV."""
+    return PLANTILLAS
+
+
+@router.post("/bulk/{kind}", dependencies=[Depends(require_admin)])
+async def bulk_upload(
+    kind: str, file: UploadFile = File(...), session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Carga masiva por CSV (preferences/ice/remedies/restrictions)."""
+    data = await file.read()
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1")
+    try:
+        return await bulk_import(session, kind, text)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc

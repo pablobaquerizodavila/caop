@@ -580,6 +580,49 @@ async def test_tariff_sync_watcher(db_sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_seed_control_catalog(db_sessionmaker):
+    from sqlalchemy import select as _sel
+
+    from app.models.trade import ControlAuthority, ControlDocument
+    from app.services.control_seed import seed_control_catalog
+    async with db_sessionmaker() as s:
+        res = await seed_control_catalog(s)
+        await s.commit()
+        assert res["authorities_created"] > 0
+        auths = {a.code for a in await s.scalars(_sel(ControlAuthority))}
+        assert {"INEN", "ARCSA", "AGROCALIDAD"} <= auths
+        docs = list(await s.scalars(_sel(ControlDocument)))
+        assert any(d.code == "RS-ARCSA" for d in docs)
+
+
+@pytest.mark.asyncio
+async def test_bulk_import_preferences_and_restrictions(db_sessionmaker):
+    from sqlalchemy import select as _sel
+
+    from app.models.trade import TariffPreference, TariffRestriction
+    from app.services.control_seed import seed_control_catalog
+    from app.services.tariff_bulk import bulk_import
+    async with db_sessionmaker() as s:
+        await _seed_agreements(s)      # incluye acuerdos (CHINA, EU, ...)
+        await seed_control_catalog(s)
+        await s.commit()
+    async with db_sessionmaker() as s:
+        csv_pref = ("agreement_code,origin_country,hs_prefix,liberation_pct,preferential_rate,requires_certificate,effective_from\n"
+                    "CHINA,CN,8471,50,,true,2024-05-01\n")
+        r1 = await bulk_import(s, "preferences", csv_pref)
+        assert r1["created"] == 1
+        csv_restr = ("hs_prefix,kind,authority_code,document_code,requirement,effective_from\n"
+                     "3304,CONTROL_PREVIO,ARCSA,RS-ARCSA,Registro sanitario,2020-01-01\n")
+        r2 = await bulk_import(s, "restrictions", csv_restr)
+        assert r2["created"] == 1
+        await s.commit()
+        prefs = list(await s.scalars(_sel(TariffPreference)))
+        assert any(p.hs_prefix == "8471" for p in prefs)  # la cargada por CSV (además de la base CAN)
+        rr = list(await s.scalars(_sel(TariffRestriction)))
+        assert rr and rr[0].authority_id is not None and rr[0].control_document_id is not None
+
+
+@pytest.mark.asyncio
 async def test_tariff_diff_typed_changes(db_sessionmaker):
     from app.services.tariff_ingest import changes_for_version, import_arancel, publish_version
     v1 = [_rec("8471.30.00.00", "Portátil", "u", 5), _rec("8471.41.00.00", "Otra", "u", 10)]
