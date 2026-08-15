@@ -2,17 +2,26 @@
 
 import { useState } from "react";
 
-import { tariffCalculate, tariffDetail } from "@/app/lib/actions";
+import { tariffCalculate, tariffDetail, tariffHistory } from "@/app/lib/actions";
 import { SubpartidaInput } from "@/app/components/SubpartidaInput";
 
 interface Tax { tax_type: string; percentage: string | number | null; verified: boolean; legal_source?: string | null }
-interface Detail { code: string; full_description?: string | null; description: string; physical_unit?: string | null; taxes: Tax[]; warnings: string[] }
+interface CodeRef { code: string; description: string; ad_valorem?: string | number | null }
+interface Detail {
+  code: string; full_description?: string | null; description: string; physical_unit?: string | null;
+  taxes: Tax[]; warnings: string[]; ancestors?: CodeRef[]; children?: CodeRef[];
+}
+interface HistoryRow {
+  version: string | null; status: string; verification_status: string;
+  ad_valorem: string | number | null; effective_from: string; effective_to: string | null;
+}
 interface CalcComp { tax_type: string; amount: number; rate_applied: number | null; verified: boolean }
 interface Calc { total_cif: number; total_taxes: number; complete: boolean; data_version: string | null; items: { components: CalcComp[]; warnings: string[]; missing_information: string[]; hs_validation: string }[] }
 
 export function TariffLookup() {
   const [hs, setHs] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [fob, setFob] = useState("1000");
   const [calc, setCalc] = useState<Calc | null>(null);
@@ -21,10 +30,15 @@ export function TariffLookup() {
   async function loadDetail(code: string) {
     setBusy(true);
     setCalc(null);
+    setHistory([]);
     try {
       const d = (await tariffDetail(code)) as Detail | null;
       setDetail(d);
       setNotFound(d === null);
+      if (d) {
+        setHs(d.code);
+        setHistory((await tariffHistory(d.code)) as HistoryRow[]);
+      }
     } finally {
       setBusy(false);
     }
@@ -76,7 +90,16 @@ export function TariffLookup() {
             <h2><span className="mono">{detail.code}</span></h2>
             {detail.physical_unit ? <span className="count">UF: {detail.physical_unit}</span> : null}
           </div>
-          <p style={{ color: "var(--muted)" }}>{detail.full_description || detail.description}</p>
+          {detail.ancestors && detail.ancestors.length ? (
+            <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 4 }}>
+              {detail.ancestors.map((a) => (
+                <span key={a.code}>
+                  <span className="mono">{a.code}</span> {a.description}{" › "}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <p style={{ color: "var(--muted)" }}>{detail.description || detail.full_description}</p>
           <table className="tx-tbl" style={{ width: "100%", marginTop: 8 }}>
             <thead><tr><th>Tributo</th><th>Tarifa</th><th>Estado</th><th>Base legal</th></tr></thead>
             <tbody>
@@ -97,6 +120,46 @@ export function TariffLookup() {
           {detail.warnings?.length ? (
             <div style={{ marginTop: 10, color: "var(--warn, #b45309)", fontSize: 12.5 }}>
               {detail.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+            </div>
+          ) : null}
+
+          {detail.children && detail.children.length ? (
+            <div style={{ marginTop: 14 }}>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Subpartidas hijas</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {detail.children.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    className="btn ghost"
+                    style={{ fontSize: 11.5 }}
+                    onClick={() => loadDetail(c.code)}
+                  >
+                    <span className="mono">{c.code}</span> {c.description.slice(0, 26)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {history.length ? (
+            <div style={{ marginTop: 16 }}>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Historial de Ad-Valorem</div>
+              <table className="tx-tbl" style={{ width: "100%" }}>
+                <thead><tr><th>Versión</th><th>Tarifa</th><th>Vigencia</th><th>Estado</th></tr></thead>
+                <tbody>
+                  {history.map((h, i) => (
+                    <tr key={i}>
+                      <td className="mono">{h.version || "—"}</td>
+                      <td>{h.ad_valorem != null ? `${h.ad_valorem}%` : "—"}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {h.effective_from}{h.effective_to ? ` → ${h.effective_to}` : " → vigente"}
+                      </td>
+                      <td><span className={`pill ${h.status === "ACTIVE" ? "ok" : ""}`}>{h.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : null}
 

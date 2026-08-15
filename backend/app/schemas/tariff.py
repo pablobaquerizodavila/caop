@@ -33,6 +33,18 @@ class TariffTaxOut(BaseModel):
 class TariffCodeDetail(TariffCodeOut):
     taxes: list[TariffTaxOut] = []
     warnings: list[str] = []
+    ancestors: list[TariffCodeOut] = []
+    children: list[TariffCodeOut] = []
+
+
+class TariffHistoryEntry(BaseModel):
+    version: str | None
+    status: str
+    verification_status: str
+    ad_valorem: Decimal | None
+    effective_from: date
+    effective_to: date | None
+    legal_source: str | None
 
 
 class TariffCalcItem(BaseModel):

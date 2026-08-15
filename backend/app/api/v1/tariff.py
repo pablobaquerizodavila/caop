@@ -21,6 +21,7 @@ from app.schemas.tariff import (
     TariffCalcResponse,
     TariffCodeDetail,
     TariffCodeOut,
+    TariffHistoryEntry,
     TariffTaxOut,
     TariffVersionOut,
 )
@@ -127,10 +128,66 @@ async def code_detail(
         else:
             warnings.append(f"Falta la regla general de {t}")
 
+    # Jerarquía: cadena de ancestros (por parent_code) e hijos directos.
+    ancestors: list[TariffCode] = []
+    parent_norm = code.parent_code
+    seen: set[str] = set()
+    while parent_norm and parent_norm not in seen:
+        seen.add(parent_norm)
+        p = await session.scalar(
+            select(TariffCode).where(
+                TariffCode.code_normalized == parent_norm, TariffCode.status == "ACTIVE"
+            )
+        )
+        if p is None:
+            break
+        ancestors.append(p)
+        parent_norm = p.parent_code
+    ancestors.reverse()
+    children = list(await session.scalars(
+        select(TariffCode).where(
+            TariffCode.parent_code == code.code_normalized, TariffCode.status == "ACTIVE"
+        ).order_by(TariffCode.code_normalized).limit(60)
+    ))
+
     detail = TariffCodeDetail.model_validate(code)
     detail.taxes = taxes
     detail.warnings = warnings
+    detail.ancestors = [TariffCodeOut.model_validate(a) for a in ancestors]
+    detail.children = [TariffCodeOut.model_validate(c) for c in children]
     return detail
+
+
+@router.get("/codes/{hs_code}/history", response_model=list[TariffHistoryEntry])
+async def code_history(
+    hs_code: str, session: AsyncSession = Depends(get_session)
+) -> list[TariffHistoryEntry]:
+    """Historial de Ad-Valorem de la subpartida a través de versiones (todas las vigencias)."""
+    # Buscar el code (dotted) desde cualquier versión para conocer su forma con puntos.
+    norm = _norm(hs_code)
+    any_code = await session.scalar(
+        select(TariffCode).where(TariffCode.code_normalized == norm).limit(1)
+    )
+    dotted = any_code.code if any_code else hs_code
+    rules = list(await session.scalars(
+        select(TaxRule).where(
+            TaxRule.tax_type == "AD_VALOREM", TaxRule.hs_code == dotted
+        ).order_by(TaxRule.effective_from.desc())
+    ))
+    ver_ids = {r.tariff_version_id for r in rules if r.tariff_version_id}
+    versions = {}
+    if ver_ids:
+        for v in await session.scalars(select(TariffVersion).where(TariffVersion.id.in_(ver_ids))):
+            versions[v.id] = v.number
+    return [
+        TariffHistoryEntry(
+            version=versions.get(r.tariff_version_id),
+            status=r.status, verification_status=r.verification_status,
+            ad_valorem=r.percentage, effective_from=r.effective_from,
+            effective_to=r.effective_to, legal_source=r.legal_source,
+        )
+        for r in rules
+    ]
 
 
 @router.post("/calculate", response_model=TariffCalcResponse)
