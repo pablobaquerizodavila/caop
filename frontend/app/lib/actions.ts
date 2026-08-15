@@ -113,6 +113,26 @@ export async function deleteCustomer(
   return { ok: false, status: res.status, error };
 }
 
+/** Reemplaza un documento subiendo una nueva versión (conserva el historial). */
+export async function replaceDocumentVersion(
+  documentId: string,
+  customerId: string,
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
+  const file = formData.get("file");
+  if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
+  const fd = new FormData();
+  fd.append("file", file, (file as File).name);
+  const res = await fetch(`${API}/api/v1/documents/${documentId}/versions`, {
+    method: "POST",
+    headers: authHeader(),
+    body: fd,
+    cache: "no-store",
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 /** Sube un documento (PDF/imagen) ligado a un cliente (p. ej. RUC, Nombramiento). */
 export async function uploadCustomerDocument(
   customerId: string,

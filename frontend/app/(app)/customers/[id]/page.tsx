@@ -100,7 +100,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           ) : null}
         </div>
         <div className="head" style={{ marginTop: 14 }}><h3>Documentos legales</h3></div>
-        <CustomerDocuments docs={legalDocs} />
+        <CustomerDocuments docs={legalDocs} customerId={params.id} canEdit={caps.canAdmin} />
 
         {caps.canAdmin ? (
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
