@@ -241,6 +241,7 @@ input[type="file"] { padding: 6px 8px; }
 @media (max-width: 720px) {
   .grid-2 { grid-template-columns: 1fr; }
   .grid-items, .grid-costs { grid-template-columns: 1fr; }
+  .items-head { display: none; }
 }
 
 @media (max-width: 900px) {

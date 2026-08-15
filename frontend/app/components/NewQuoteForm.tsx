@@ -251,6 +251,13 @@ export function NewQuoteForm({
           + Ítem
         </button>
       </div>
+      <div className="grid-items items-head" style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }} aria-hidden>
+        <span>Descripción</span>
+        <span>Subpartida</span>
+        <span>Cantidad</span>
+        <span>Precio unitario</span>
+        <span></span>
+      </div>
       {items.map((it, i) => (
         <div className="grid-items" key={i}>
           <input type="text" placeholder="Descripción" value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} />
