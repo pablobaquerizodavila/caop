@@ -90,6 +90,58 @@ export async function createCustomer(payload: unknown): Promise<Result> {
   return r;
 }
 
+// ---------- CRM: contactos, consentimiento, proveedores ----------
+export async function addContact(customerId: string, data: unknown): Promise<Result> {
+  const r = await postJson(`/customers/${customerId}/contacts`, data);
+  revalidatePath(`/customers/${customerId}`);
+  return r;
+}
+
+export async function deleteContact(customerId: string, contactId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/customers/${customerId}/contacts/${contactId}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function addConsent(customerId: string, data: unknown): Promise<Result> {
+  const r = await postJson(`/customers/${customerId}/consents`, data);
+  revalidatePath(`/customers/${customerId}`);
+  return r;
+}
+
+export async function revokeConsent(customerId: string, consentId: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/customers/${customerId}/consents/${consentId}/revoke`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function createSupplier(data: unknown): Promise<Result> {
+  const r = await postJson("/suppliers", data);
+  revalidatePath("/suppliers");
+  return r;
+}
+
+export async function updateSupplier(id: string, data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/suppliers/${id}`, {
+    method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/suppliers");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteSupplier(id: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/suppliers/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/suppliers");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 export async function createQuote(payload: unknown): Promise<Result> {
   const r = await postJson("/quotes", payload);
   revalidatePath("/quotes");

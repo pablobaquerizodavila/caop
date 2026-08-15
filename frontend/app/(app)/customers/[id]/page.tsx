@@ -1,6 +1,14 @@
 import Link from "next/link";
 
-import { apiGet, type CustomerHistory, money, stateLabel } from "@/app/lib/api";
+import {
+  apiGet,
+  type Consent,
+  type CustomerHistory,
+  type CustomerRecord,
+  money,
+  stateLabel,
+} from "@/app/lib/api";
+import { CustomerCrmPanels } from "@/app/components/CustomerCrmPanels";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +22,8 @@ const STATE_CLASS: Record<string, string> = {
 
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
   const h = await apiGet<CustomerHistory>(`/customers/${params.id}/history`);
+  const record = await apiGet<CustomerRecord>(`/customers/${params.id}`);
+  const consents = await apiGet<Consent[]>(`/customers/${params.id}/consents`);
 
   if (!h) {
     return (
@@ -46,6 +56,14 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         <div className="kpi accent"><div className="k-label">Importaciones</div><div className="k-value">{h.stats.total_cases}</div></div>
         <div className="kpi ok"><div className="k-label">Listas para aduana</div><div className="k-value">{h.stats.ready_for_customs}</div></div>
         <div className="kpi"><div className="k-label">Cotizaciones</div><div className="k-value">{h.stats.total_quotes}</div></div>
+      </div>
+
+      <div className="section-gap">
+        <CustomerCrmPanels
+          customerId={params.id}
+          contacts={record?.contacts ?? []}
+          consents={consents ?? []}
+        />
       </div>
 
       <div className="card section-gap rise">
