@@ -453,6 +453,52 @@ async def test_trade_remedy_safeguard_all_origins(db_sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_conditional_adval_tier_by_cc(db_sessionmaker):
+    from app.models.trade import TariffTier
+    async with db_sessionmaker() as s:
+        await _ingest(s)  # 8471.30 base Ad-Valorem 5%
+        s.add(TariffTier(
+            hs_prefix="8471", applies_to="AD_VALOREM", attribute="CC",
+            tiers=[{"max": 1500, "adval_pct": 35}, {"min": 1500, "adval_pct": 40}],
+            effective_from=date(2020, 1, 1), verification_status="VERIFIED",
+        ))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00",
+                            attributes={"CC": 2000}), date.today(),
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        assert comps.get("AD_VALOREM") == Decimal("400.00")  # tramo >1500cc = 40%, reemplaza el 5% base
+        # sin el atributo CC → información insuficiente
+        ri2 = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        assert ri2.result.complete is False
+        assert any("TARIFA_CONDICIONAL_INFO_INSUFICIENTE" in w for w in ri2.result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_conditional_ice_tier_by_value(db_sessionmaker):
+    from app.models.trade import TariffTier
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        s.add(TariffTier(
+            hs_prefix="8471", applies_to="ICE", attribute="UNIT_VALUE",
+            tiers=[{"max": 20000, "adval_pct": 5}, {"min": 20000, "adval_pct": 10}],
+            effective_from=date(2020, 1, 1), verification_status="VERIFIED",
+        ))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        # valor unitario 1000 < 20000 → ICE 5% sobre ex-aduana (1000+50+5)=1055
+        assert comps.get("ICE") == Decimal("52.75")
+
+
+@pytest.mark.asyncio
 async def test_reconciliation(db_sessionmaker):
     from app.models.customer import Customer
     from app.models.quote import Quote, QuoteItem

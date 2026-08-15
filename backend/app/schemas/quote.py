@@ -21,6 +21,7 @@ class QuoteItemCreate(BaseModel):
     weight: Decimal | None = None
     freight_alloc: Decimal | None = None
     insurance_alloc: Decimal | None = None
+    attributes: dict | None = None  # tarifas condicionales, p. ej. {"CC": 2000}
 
 
 class CostLineCreate(BaseModel):

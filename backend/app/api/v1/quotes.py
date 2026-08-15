@@ -127,6 +127,7 @@ async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get
             weight=it.weight,
             freight_alloc=it.freight_alloc,
             insurance_alloc=it.insurance_alloc,
+            attributes=it.attributes or None,
         )
         tmp_items.append(qi)
     _allocate(tmp_items, payload.total_freight, payload.total_insurance)

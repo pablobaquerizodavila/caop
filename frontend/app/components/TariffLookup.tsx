@@ -33,6 +33,7 @@ export function TariffLookup() {
   const [notFound, setNotFound] = useState(false);
   const [fob, setFob] = useState("1000");
   const [origin, setOrigin] = useState("");
+  const [cc, setCc] = useState("");
   const [calc, setCalc] = useState<Calc | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,7 +59,11 @@ export function TariffLookup() {
     setBusy(true);
     try {
       const c = (await tariffCalculate({
-        items: [{ hs_code: hs, invoice_value: Number(fob) || 0, origin_country: origin.trim().toUpperCase() || null }],
+        items: [{
+          hs_code: hs, invoice_value: Number(fob) || 0,
+          origin_country: origin.trim().toUpperCase() || null,
+          attributes: cc.trim() ? { CC: Number(cc) } : {},
+        }],
       })) as Calc | null;
       setCalc(c);
     } finally {
@@ -179,6 +184,9 @@ export function TariffLookup() {
             <label className="field"><span>País de origen (ISO2)</span>
               <input value={origin} placeholder="p. ej. CO, CN, PE" maxLength={2}
                 onChange={(e) => setOrigin(e.target.value)} style={{ width: 110 }} />
+            </label>
+            <label className="field"><span>Cilindraje cc (opc.)</span>
+              <input value={cc} placeholder="vehículos" onChange={(e) => setCc(e.target.value)} style={{ width: 100 }} />
             </label>
             <button className="btn" disabled={busy} onClick={runCalc}>Calcular tributos</button>
           </div>

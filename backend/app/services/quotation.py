@@ -36,6 +36,7 @@ async def recompute_quote(session: AsyncSession, quote: Quote) -> Quote:
             origin_country=it.origin_country,
             commercial_agreement=it.commercial_agreement,
             description=it.description,
+            attributes=it.attributes or {},
         )
         for it in quote.items
     ]

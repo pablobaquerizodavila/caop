@@ -134,6 +134,33 @@ class PriceBandPeriod(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
 
 
+class TariffTier(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Tarifa condicional / por tramos (p. ej. vehículos: Ad-Valorem por cilindraje, ICE por
+    rango de precio). El tramo se elige según un atributo del ítem (CC, valor unitario, peso).
+
+    `tiers` es una lista ordenada de {min, max, adval_pct, specific_rate}. Se elige el primer
+    tramo donde min <= valor < max (min/max nulos = sin límite). applies_to indica qué tributo
+    determina: AD_VALOREM (reemplaza el arancel base) o ICE.
+    """
+
+    __tablename__ = "tariff_tier"
+
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)  # normalizado
+    applies_to: Mapped[str] = mapped_column(String(16), nullable=False, default="AD_VALOREM")  # AD_VALOREM/ICE
+    attribute: Mapped[str] = mapped_column(String(24), nullable=False, default="CC")  # CC/UNIT_VALUE/WEIGHT/QUANTITY
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tiers: Mapped[list] = mapped_column(JSONVariant, nullable=False, default=list)
+    specific_unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    base_type: Mapped[str] = mapped_column(String(16), nullable=False, default="EX_ADUANA")  # para ICE
+
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE", index=True)
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
+    legal_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class TradeRemedy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Medida de defensa comercial: antidumping, salvaguardia o derecho compensatorio.
 

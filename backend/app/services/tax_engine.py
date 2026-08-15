@@ -35,10 +35,16 @@ class TaxItemInput:
     origin_country: str | None = None
     commercial_agreement: str | None = None
     description: str | None = None
+    # Atributos para tarifas condicionales/por tramos (p. ej. {"CC": 2000} para vehículos).
+    attributes: dict = field(default_factory=dict)
 
     @property
     def cif(self) -> Decimal:
         return self.invoice_value + self.freight + self.insurance
+
+    @property
+    def unit_value(self) -> Decimal:
+        return self.invoice_value / self.quantity if self.quantity else self.invoice_value
 
 
 @dataclass

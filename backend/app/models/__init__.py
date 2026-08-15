@@ -35,6 +35,7 @@ from app.models.trade import (
     PriceBandMeasure,
     PriceBandPeriod,
     TariffPreference,
+    TariffTier,
     TradeAgreement,
     TradeRemedy,
 )
@@ -90,6 +91,7 @@ __all__ = [
     "TariffCode",
     "TariffImport",
     "TariffPreference",
+    "TariffTier",
     "TariffVersion",
     "TaxReconciliation",
     "TaxRule",

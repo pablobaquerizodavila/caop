@@ -296,6 +296,53 @@ def _compute_remedy(remedy: TradeRemedy, item: TaxItemInput) -> TaxComponent:
     )
 
 
+async def _tariff_tiers(session: AsyncSession) -> list:
+    from app.models.trade import TariffTier
+    return list(await session.scalars(select(TariffTier).where(TariffTier.status == "ACTIVE")))
+
+
+def _best_tier(tiers: list, hs_norm: str, applies_to: str, on: date):
+    best = None
+    best_len = -1
+    for t in tiers:
+        if t.applies_to != applies_to:
+            continue
+        if t.hs_prefix and not hs_norm.startswith(t.hs_prefix):
+            continue
+        if not (t.effective_from <= on and (t.effective_to is None or on <= t.effective_to)):
+            continue
+        if len(t.hs_prefix) > best_len:
+            best_len, best = len(t.hs_prefix), t
+    return best
+
+
+def _attr_value(item: TaxItemInput, attribute: str) -> Decimal | None:
+    a = (attribute or "").upper()
+    attrs = item.attributes or {}
+    if a in attrs and attrs[a] not in (None, ""):
+        try:
+            return Decimal(str(attrs[a]))
+        except Exception:  # noqa: BLE001
+            return None
+    if a == "UNIT_VALUE":
+        return item.unit_value
+    if a == "QUANTITY":
+        return Decimal(item.quantity or 0)
+    return None
+
+
+def _pick_tier_row(tier, value: Decimal) -> dict | None:
+    for row in (tier.tiers or []):
+        mn = row.get("min")
+        mx = row.get("max")
+        if mn is not None and value < Decimal(str(mn)):
+            continue
+        if mx is not None and value >= Decimal(str(mx)):
+            continue
+        return row
+    return None
+
+
 async def resolve_item(
     session: AsyncSession,
     item: TaxItemInput,
@@ -308,6 +355,7 @@ async def resolve_item(
     ice_cache: list | None = None,
     band_cache: tuple[list, list] | None = None,
     remedy_cache: list | None = None,
+    tier_cache: list | None = None,
 ) -> ResolvedItem:
     if rules is None:
         rules = await _active_rules(session)
@@ -317,14 +365,47 @@ async def resolve_item(
     tc = await _lookup_code(session, item.hs_code)
 
     base_injected = list(injected or [])
-    # Preliminar: obtiene Ad-Valorem/FODINFA (base ex-aduana para SAFP e ICE).
-    prelim = compute_item(rules, item, on, injected=base_injected)
+    extra_warns: list[str] = []
+    hs_norm = _normalize(item.hs_code)
+    overrides: dict[str, Decimal] = {}
+    tiers = tier_cache if tier_cache is not None else (await _tariff_tiers(session) if item.hs_code else [])
+
+    # Ad-Valorem condicional por tramos (vehículos cap.87: % según cilindraje, etc.).
+    if item.hs_code:
+        adv_tier = _best_tier(tiers, hs_norm, "AD_VALOREM", on)
+        if adv_tier is not None:
+            v = _attr_value(item, adv_tier.attribute)
+            if v is None:
+                extra_warns.append(
+                    f"TARIFA_CONDICIONAL_INFO_INSUFICIENTE: falta el atributo "
+                    f"'{adv_tier.attribute}' para determinar el Ad-Valorem de {item.hs_code}."
+                )
+            else:
+                row = _pick_tier_row(adv_tier, v)
+                if row and row.get("adval_pct") is not None:
+                    rate = Decimal(str(row["adval_pct"]))
+                    probe = compute_item(rules, item, on)
+                    if any(c.tax_type == "AD_VALOREM" for c in probe.components):
+                        overrides["AD_VALOREM"] = rate  # reemplaza el arancel base
+                    else:
+                        base_injected.append(TaxComponent(
+                            tax_type="AD_VALOREM", base_amount=_q2(item.cif), rate_applied=rate,
+                            amount=_q2(item.cif * rate / Decimal(100)), sequence=1,
+                            rule_id=f"tier:{adv_tier.id}", legal_source=adv_tier.legal_source,
+                            verified=adv_tier.verification_status == "VERIFIED",
+                        ))
+                else:
+                    extra_warns.append(
+                        f"TARIFA_CONDICIONAL: {item.hs_code} sin tramo definido para "
+                        f"{adv_tier.attribute}={v}."
+                    )
+
+    # Preliminar: Ad-Valorem/FODINFA efectivos (base ex-aduana para SAFP e ICE).
+    prelim = compute_item(rules, item, on, injected=base_injected, overrides=overrides)
     adval_amt = next((c.amount for c in prelim.components if c.tax_type == "AD_VALOREM"), Decimal(0))
     fodinfa_amt = next((c.amount for c in prelim.components if c.tax_type == "FODINFA"), Decimal(0))
 
     full_injected = list(base_injected)
-    extra_warns: list[str] = []
-    hs_norm = _normalize(item.hs_code)
     safp_amt = Decimal(0)
 
     # SAFP (franja de precios): va antes que ICE porque es un arancel adicional.
@@ -346,14 +427,45 @@ async def resolve_item(
                 if safp_warn:
                     extra_warns.append(safp_warn)
 
-    # ICE (base ex-aduana incluye SAFP).
+    # ICE por tramos (p. ej. vehículos: tarifa según rango de valor). Tiene prioridad
+    # sobre IceMeasure para el mismo código.
+    base_ex = item.cif + adval_amt + fodinfa_amt + safp_amt
+    ice_done = False
     if item.hs_code:
+        ice_tier = _best_tier(tiers, hs_norm, "ICE", on)
+        if ice_tier is not None:
+            ice_done = True
+            v = _attr_value(item, ice_tier.attribute)
+            if v is None:
+                extra_warns.append(
+                    f"TARIFA_CONDICIONAL_INFO_INSUFICIENTE: falta '{ice_tier.attribute}' para el ICE de {item.hs_code}."
+                )
+            else:
+                row = _pick_tier_row(ice_tier, v)
+                if row and row.get("adval_pct") is not None:
+                    r = Decimal(str(row["adval_pct"]))
+                    full_injected.append(TaxComponent(
+                        tax_type="ICE", base_amount=_q2(base_ex), rate_applied=r,
+                        amount=_q2(base_ex * r / Decimal(100)), sequence=3,
+                        rule_id=f"tier:{ice_tier.id}", legal_source=ice_tier.legal_source,
+                        verified=ice_tier.verification_status == "VERIFIED",
+                    ))
+                elif row and row.get("specific_rate") is not None:
+                    full_injected.append(TaxComponent(
+                        tax_type="ICE", base_amount=_q2(base_ex), rate_applied=None,
+                        amount=_q2(Decimal(str(row["specific_rate"])) * Decimal(item.quantity or 0)),
+                        sequence=3, rule_id=f"tier:{ice_tier.id}", legal_source=ice_tier.legal_source,
+                        verified=ice_tier.verification_status == "VERIFIED",
+                    ))
+                else:
+                    extra_warns.append(f"TARIFA_CONDICIONAL: {item.hs_code} sin tramo ICE para {ice_tier.attribute}={v}.")
+
+    # ICE por IceMeasure (si no lo resolvió un tramo).
+    if item.hs_code and not ice_done:
         ice_measures = ice_cache if ice_cache is not None else await _ice_measures(session)
         ice_msr = _best_ice(ice_measures, hs_norm, on)
         if ice_msr is not None:
-            ice_comp, ice_warn = _compute_ice(
-                ice_msr, item, item.cif + adval_amt + fodinfa_amt + safp_amt
-            )
+            ice_comp, ice_warn = _compute_ice(ice_msr, item, base_ex)
             if ice_comp is not None:
                 full_injected.append(ice_comp)
             if ice_warn:
@@ -366,7 +478,8 @@ async def resolve_item(
         for r in _applicable_remedies(remedies, hs_norm, item.origin_country, on):
             full_injected.append(_compute_remedy(r, item))
 
-    result = compute_item(rules, item, on, injected=full_injected) if full_injected else prelim
+    result = (compute_item(rules, item, on, injected=full_injected, overrides=overrides)
+              if (full_injected or overrides) else prelim)
     injected_types = {c.tax_type for c in full_injected}
     hs_validation = _finalize(result, item, tc, version_number, injected_types)
     if extra_warns:
@@ -389,7 +502,7 @@ async def resolve_item(
             else:
                 pref_pct = base_pct * (Decimal(100) - Decimal(pref.liberation_pct)) / Decimal(100)
             pref_result = compute_item(rules, item, on, injected=full_injected,
-                                       overrides={"AD_VALOREM": pref_pct})
+                                       overrides={**overrides, "AD_VALOREM": pref_pct})
             pref_result.data_version = version_number
             resolved.preference = PreferenceScenario(
                 agreement_code=ag.code, agreement_name=ag.name,
@@ -412,9 +525,11 @@ async def resolve_items(
     ice_cache = await _ice_measures(session)
     band_cache = await _price_bands(session)
     remedy_cache = await _trade_remedies(session)
+    tier_cache = await _tariff_tiers(session)
     out: list[ResolvedItem] = []
     for it in items:
         out.append(await resolve_item(session, it, on, rules=rules, version_number=vn,
                                       prefs_cache=prefs_cache, ice_cache=ice_cache,
-                                      band_cache=band_cache, remedy_cache=remedy_cache))
+                                      band_cache=band_cache, remedy_cache=remedy_cache,
+                                      tier_cache=tier_cache))
     return out

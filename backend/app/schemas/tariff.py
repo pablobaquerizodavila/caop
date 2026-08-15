@@ -56,6 +56,7 @@ class TariffCalcItem(BaseModel):
     freight: Decimal = Decimal(0)
     insurance: Decimal = Decimal(0)
     description: str | None = None
+    attributes: dict = {}  # tarifas condicionales, p. ej. {"CC": 2000}
 
 
 class TariffCalcRequest(BaseModel):
@@ -139,6 +140,35 @@ class TariffPreferenceCreate(BaseModel):
     liberation_pct: Decimal = Decimal(100)
     preferential_rate: Decimal | None = None
     requires_certificate: bool = True
+    effective_from: date
+    effective_to: date | None = None
+    legal_source: str | None = None
+
+
+class TariffTierOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    hs_prefix: str
+    applies_to: str
+    attribute: str
+    description: str | None = None
+    tiers: list
+    specific_unit: str | None = None
+    effective_from: date
+    effective_to: date | None = None
+    status: str
+    verification_status: str
+    legal_source: str | None = None
+
+
+class TariffTierCreate(BaseModel):
+    hs_prefix: str
+    applies_to: str = "AD_VALOREM"
+    attribute: str = "CC"
+    description: str | None = None
+    tiers: list = []
+    specific_unit: str | None = None
+    base_type: str = "EX_ADUANA"
     effective_from: date
     effective_to: date | None = None
     legal_source: str | None = None

@@ -19,6 +19,7 @@ from app.models.trade import (
     PriceBandMeasure,
     PriceBandPeriod,
     TariffPreference,
+    TariffTier,
     TradeAgreement,
     TradeRemedy,
 )
@@ -31,6 +32,8 @@ from app.schemas.tariff import (
     PriceBandPeriodCreate,
     PriceBandPeriodOut,
     SyncStatusOut,
+    TariffTierCreate,
+    TariffTierOut,
     TradeRemedyCreate,
     TradeRemedyOut,
     TariffCalcComponent,
@@ -231,6 +234,7 @@ async def calculate(
                 invoice_value=it.invoice_value, freight=it.freight, insurance=it.insurance,
                 quantity=it.quantity, hs_code=it.hs_code, origin_country=it.origin_country,
                 commercial_agreement=it.commercial_agreement, description=it.description,
+                attributes=it.attributes or {},
             ),
             on,
         )
@@ -552,4 +556,34 @@ async def delete_trade_remedy(remedy_id: uuid.UUID, session: AsyncSession = Depe
     r = await session.get(TradeRemedy, remedy_id)
     if r is not None:
         await session.delete(r)
+        await session.flush()
+
+
+# ---------- Tarifas condicionales / por tramos (vehículos y variables) ----------
+@router.get("/tiers", response_model=list[TariffTierOut])
+async def list_tiers(session: AsyncSession = Depends(get_session)) -> list[TariffTier]:
+    return list(await session.scalars(
+        select(TariffTier).order_by(TariffTier.hs_prefix).limit(300)
+    ))
+
+
+@router.post("/tiers", response_model=TariffTierOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_tier(
+    payload: TariffTierCreate, session: AsyncSession = Depends(get_session)
+) -> TariffTier:
+    data = payload.model_dump()
+    data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    t = TariffTier(**data)
+    session.add(t)
+    await session.flush()
+    await session.refresh(t)
+    return t
+
+
+@router.delete("/tiers/{tier_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_tier(tier_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    t = await session.get(TariffTier, tier_id)
+    if t is not None:
+        await session.delete(t)
         await session.flush()
