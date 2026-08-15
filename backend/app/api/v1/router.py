@@ -23,6 +23,7 @@ from app.api.v1 import (
     settlements,
     sla,
     suppliers,
+    tariff,
     tax,
     tracking,
     vue,
@@ -55,6 +56,7 @@ api_router.include_router(customers.router, dependencies=protected)
 api_router.include_router(suppliers.router, dependencies=protected)
 api_router.include_router(documents.router, dependencies=protected)
 api_router.include_router(tax.router, dependencies=protected)
+api_router.include_router(tariff.router, dependencies=protected)
 api_router.include_router(quotes.router, dependencies=protected)
 api_router.include_router(cases.router, dependencies=protected)
 api_router.include_router(dai.router, dependencies=protected)

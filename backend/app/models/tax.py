@@ -9,7 +9,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,3 +44,21 @@ class TaxRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     approved_by: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- S48: vínculo al maestro arancelario y estado de verificación (aditivo) ---
+    # UNVERIFIED: sembrada sin respaldo comprobado | VERIFIED: contra fuente oficial
+    # SUPERSEDED: reemplazada por versión nueva | REJECTED: descartada en validación
+    verification_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="UNVERIFIED", index=True
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    tariff_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tariff_code.id"), nullable=True, index=True
+    )
+    official_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("official_source.id"), nullable=True
+    )
+    tariff_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tariff_version.id"), nullable=True, index=True
+    )
