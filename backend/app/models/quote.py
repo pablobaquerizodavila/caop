@@ -89,7 +89,7 @@ class QuoteItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     line_no: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    hs_code: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    hs_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
     hs_status: Mapped[str] = mapped_column(String(16), default="PRELIMINARY")  # VALIDATED/PRELIMINARY
     # S48: validación contra el maestro arancelario (no rompe el campo de texto libre)
     hs_validation: Mapped[str] = mapped_column(String(16), default="UNKNOWN")  # UNKNOWN/VALID/NOT_FOUND

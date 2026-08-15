@@ -21,7 +21,7 @@ class TaxRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     tax_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     # AD_VALOREM, FODINFA, ICE, IVA, SAFEGUARD, ANTIDUMPING, COMPENSATORY
-    hs_code: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    hs_code: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     origin_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     commercial_agreement: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
