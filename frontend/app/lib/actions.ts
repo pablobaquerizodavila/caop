@@ -604,6 +604,43 @@ export async function getDebitNoteXml(dnId: string): Promise<string | null> {
   return await res.text();
 }
 
+// ---------- Guías de remisión ----------
+export async function createWaybill(data: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/waybills`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  revalidatePath("/waybills");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function authorizeWaybill(id: string, scenario: string): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/waybills/${id}/authorize`, {
+    method: "POST",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario }),
+    cache: "no-store",
+  });
+  revalidatePath("/waybills");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function getWaybillXml(id: string): Promise<string | null> {
+  const res = await fetch(`${API}/api/v1/waybills/${id}/xml`, {
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
 // ---------- Retenciones ----------
 export async function createRetention(data: unknown): Promise<Result> {
   const res = await fetch(`${API}/api/v1/retentions`, {

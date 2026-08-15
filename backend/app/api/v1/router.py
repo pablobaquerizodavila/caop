@@ -25,6 +25,7 @@ from app.api.v1 import (
     tracking,
     vue,
     warehouse,
+    waybill,
 )
 from app.core.security import (
     Principal,
@@ -66,6 +67,7 @@ api_router.include_router(warehouse.router, dependencies=protected)
 api_router.include_router(settlements.router, dependencies=protected)
 api_router.include_router(einvoice.router, dependencies=protected)
 api_router.include_router(retention.router, dependencies=protected)
+api_router.include_router(waybill.router, dependencies=protected)
 api_router.include_router(alerts.router, dependencies=protected)
 api_router.include_router(audit.router, dependencies=protected)
 
