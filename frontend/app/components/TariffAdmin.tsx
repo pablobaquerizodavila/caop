@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -9,8 +9,10 @@ import {
   deleteIceMeasure,
   deleteTariffPreference,
   importTariff,
+  importTariffUrl,
   publishTariffVersion,
   seedAgreements,
+  versionChanges,
 } from "@/app/lib/actions";
 
 interface Version {
@@ -62,6 +64,34 @@ export function TariffAdmin({
   });
 
   const agName = (id: string) => agreements.find((a) => a.id === id)?.code ?? id.slice(0, 8);
+
+  const [urlForm, setUrlForm] = useState({ url: "", version: "", eff: "" });
+  const [changes, setChanges] = useState<Record<string, { change_type: string; hs_code?: string | null; old_value?: string | null; new_value?: string | null }[]>>({});
+
+  async function doImportUrl() {
+    if (!urlForm.url.trim() || !urlForm.version.trim() || !urlForm.eff) {
+      setMsg("Indica URL, versión y fecha de vigencia."); return;
+    }
+    setBusy(true);
+    setMsg("Descargando e ingiriendo desde la URL… puede tardar.");
+    try {
+      const r = await importTariffUrl(urlForm.url.trim(), urlForm.version.trim(), urlForm.eff);
+      if (!r.ok) setMsg(`Error: ${r.error}`);
+      else {
+        const c = r.changes || {};
+        setMsg(`Importado en STAGED: ${r.codes} códigos, ${r.rules} reglas` +
+          (c.total ? ` · cambios vs. activa: ${c.total}` : "") + ". Revisa y publica.");
+        setUrlForm({ url: "", version: "", eff: "" });
+        router.refresh();
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function loadChanges(vid: string) {
+    if (changes[vid]) { setChanges((p) => { const n = { ...p }; delete n[vid]; return n; }); return; }
+    const rows = await versionChanges(vid);
+    setChanges((p) => ({ ...p, [vid]: rows as never[] }));
+  }
 
   async function doSeedAgreements() {
     setBusy(true);
@@ -216,6 +246,20 @@ export function TariffAdmin({
         </label>
         <button className="btn" disabled={busy} onClick={doImport}>Importar</button>
       </div>
+
+      <div className="form-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12, marginTop: 8 }}>
+        <label className="field" style={{ flex: 1, minWidth: 240 }}>
+          <span>…o importar automáticamente desde URL (PDF oficial)</span>
+          <input value={urlForm.url} placeholder="https://…/arancel.pdf" onChange={(e) => setUrlForm((p) => ({ ...p, url: e.target.value }))} />
+        </label>
+        <label className="field"><span>Versión</span>
+          <input value={urlForm.version} onChange={(e) => setUrlForm((p) => ({ ...p, version: e.target.value }))} style={{ width: 150 }} />
+        </label>
+        <label className="field"><span>Vigente desde</span>
+          <input type="date" value={urlForm.eff} onChange={(e) => setUrlForm((p) => ({ ...p, eff: e.target.value }))} />
+        </label>
+        <button className="btn ghost" disabled={busy} onClick={doImportUrl}>Importar de URL</button>
+      </div>
       {msg ? <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--muted)" }}>{msg}</div> : null}
 
       <div style={{ marginTop: 16, overflowX: "auto" }}>
@@ -231,7 +275,8 @@ export function TariffAdmin({
               <tr><td colSpan={6} className="empty">Sin versiones. Importa el Arancel del Ecuador.</td></tr>
             ) : null}
             {versions.map((v) => (
-              <tr key={v.id}>
+              <Fragment key={v.id}>
+              <tr>
                 <td className="mono">{v.number}</td>
                 <td><span className={`pill ${statusPill(v.status)}`}>{v.status}</span></td>
                 <td className="num">{v.codes_count}</td>
@@ -240,13 +285,39 @@ export function TariffAdmin({
                   {v.published_at ? new Date(v.published_at).toLocaleString() : "—"}
                 </td>
                 <td>
-                  {v.status !== "ACTIVE" ? (
-                    <button className="btn ghost" disabled={busy} onClick={() => doPublish(v)}>
-                      {v.status === "SUPERSEDED" ? "Revertir" : "Publicar"}
-                    </button>
-                  ) : <span style={{ color: "var(--muted-2)", fontSize: 11 }}>activa</span>}
+                  <div className="actions">
+                    <button className="btn ghost" onClick={() => loadChanges(v.id)}>Cambios</button>
+                    {v.status !== "ACTIVE" ? (
+                      <button className="btn ghost" disabled={busy} onClick={() => doPublish(v)}>
+                        {v.status === "SUPERSEDED" ? "Revertir" : "Publicar"}
+                      </button>
+                    ) : <span style={{ color: "var(--muted-2)", fontSize: 11 }}>activa</span>}
+                  </div>
                 </td>
               </tr>
+              {changes[v.id] ? (
+                <tr key={v.id + "-ch"}>
+                  <td colSpan={6} style={{ background: "var(--surface-2)" }}>
+                    {changes[v.id].length === 0 ? (
+                      <div className="empty">Sin cambios registrados (primera versión o sin diferencias).</div>
+                    ) : (
+                      <div style={{ maxHeight: 240, overflowY: "auto", padding: "8px 4px" }}>
+                        {changes[v.id].slice(0, 200).map((c, i) => (
+                          <div key={i} style={{ fontSize: 12, padding: "2px 0" }}>
+                            <span className={`pill ${c.change_type === "RATE_CHANGED" ? "warn" : c.change_type === "REMOVED_CODE" ? "crit" : ""}`} style={{ marginRight: 6 }}>{c.change_type}</span>
+                            <span className="mono">{c.hs_code}</span>
+                            {c.old_value != null || c.new_value != null ? (
+                              <span style={{ color: "var(--muted)" }}> {c.old_value ?? "—"} → {c.new_value ?? "—"}</span>
+                            ) : null}
+                          </div>
+                        ))}
+                        {changes[v.id].length > 200 ? <div style={{ fontSize: 11, color: "var(--muted-2)" }}>… {changes[v.id].length - 200} más</div> : null}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>

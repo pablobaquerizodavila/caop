@@ -23,6 +23,7 @@ from app.models.supplier import Supplier
 from app.models.tariff import (
     LegalInstrument,
     OfficialSource,
+    TariffChange,
     TariffCode,
     TariffImport,
     TariffSyncLog,
@@ -94,6 +95,7 @@ __all__ = [
     "SLAInstance",
     "SLAPolicy",
     "Supplier",
+    "TariffChange",
     "TariffCode",
     "TariffImport",
     "TariffPreference",

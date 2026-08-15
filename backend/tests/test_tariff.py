@@ -580,6 +580,29 @@ async def test_tariff_sync_watcher(db_sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_tariff_diff_typed_changes(db_sessionmaker):
+    from app.services.tariff_ingest import changes_for_version, import_arancel, publish_version
+    v1 = [_rec("8471.30.00.00", "Portátil", "u", 5), _rec("8471.41.00.00", "Otra", "u", 10)]
+    async with db_sessionmaker() as s:
+        await _seed_general(s)
+        r1 = await import_arancel(s, records=v1, version_number="V1", effective_from=date(2023, 1, 1))
+        await publish_version(s, r1.version_id)
+        await s.commit()
+    v2 = [_rec("8471.30.00.00", "Portátil", "u", 15),  # tarifa 5→15
+          _rec("8471.50.00.00", "Nueva", "u", 0)]       # nueva; 8471.41 eliminada
+    async with db_sessionmaker() as s:
+        r2 = await import_arancel(s, records=v2, version_number="V2", effective_from=date(2024, 1, 1))
+        await s.commit()
+        assert r2.changes.get("RATE_CHANGED") == 1
+        assert r2.changes.get("NEW_CODE") == 1
+        assert r2.changes.get("REMOVED_CODE") == 1
+        ch = await changes_for_version(s, r2.version_id)
+        assert {"RATE_CHANGED", "NEW_CODE", "REMOVED_CODE"} <= {c.change_type for c in ch}
+        rate = next(c for c in ch if c.change_type == "RATE_CHANGED")
+        assert float(rate.old_value) == 5 and float(rate.new_value) == 15
+
+
+@pytest.mark.asyncio
 async def test_tariff_sync_no_source(db_sessionmaker):
     from app.services.tariff_sync import run_sync
     async with db_sessionmaker() as s:

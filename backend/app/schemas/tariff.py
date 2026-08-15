@@ -414,6 +414,15 @@ class TariffVersionOut(BaseModel):
     created_at: datetime
 
 
+class TariffChangeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    change_type: str
+    hs_code: str | None = None
+    old_value: str | None = None
+    new_value: str | None = None
+
+
 class SyncLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

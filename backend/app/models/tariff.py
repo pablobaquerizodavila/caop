@@ -116,6 +116,26 @@ class TariffCode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     extra: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
 
+class TariffChange(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Cambio detectado al comparar una versión nueva (staged) contra la activa (#10).
+
+    Tipos: NEW_CODE, REMOVED_CODE, RATE_CHANGED, DESCRIPTION_CHANGED. Se genera al ingerir
+    una versión nueva para revisión ANTES de publicar (nunca cambia producción por sí solo).
+    """
+
+    __tablename__ = "tariff_change"
+
+    tariff_version_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tariff_version.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    change_type: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    hs_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    code_normalized: Mapped[str | None] = mapped_column(String(12), nullable=True, index=True)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class TariffSyncLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Bitácora de sincronización con fuentes oficiales (vigilante de resoluciones).
 

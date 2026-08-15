@@ -1266,6 +1266,31 @@ export async function importTariff(
   return { ok: true, codes: j.codes, rules: j.rules, version_id: j.version_id, status: j.status, errors: j.errors };
 }
 
+export async function importTariffUrl(
+  url: string, version_number: string, effective_from: string,
+): Promise<{ ok: boolean; codes?: number; rules?: number; changes?: Record<string, number>; error?: string }> {
+  const q = `url=${encodeURIComponent(url)}&version_number=${encodeURIComponent(version_number)}&effective_from=${encodeURIComponent(effective_from)}`;
+  const res = await fetch(`${API}/api/v1/tariff/import-url?${q}`, {
+    method: "POST", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  const j = await res.json();
+  return { ok: true, codes: j.codes, rules: j.rules, changes: j.changes };
+}
+
+export async function versionChanges(versionId: string): Promise<unknown[]> {
+  const res = await fetch(`${API}/api/v1/tariff/versions/${versionId}/changes`, {
+    headers: authHeader(), cache: "no-store",
+  });
+  if (!res.ok) return [];
+  return (await res.json()) as unknown[];
+}
+
 export async function publishTariffVersion(
   versionId: string,
 ): Promise<{ ok: boolean; codes?: number; rules?: number; error?: string }> {

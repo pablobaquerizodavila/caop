@@ -44,6 +44,7 @@ from app.schemas.tariff import (
     RestrictionOut,
     SyncLogOut,
     SyncStatusOut,
+    TariffChangeOut,
     TariffRestrictionCreate,
     TariffRestrictionOut,
     TariffTierCreate,
@@ -65,7 +66,13 @@ from app.schemas.tariff import (
     TradeAgreementCreate,
     TradeAgreementOut,
 )
-from app.services.tariff_ingest import active_version, import_arancel, publish_version
+from app.services.tariff_ingest import (
+    active_version,
+    changes_for_version,
+    import_arancel,
+    import_arancel_from_url,
+    publish_version,
+)
 from app.services.tariff_resolver import resolve_item
 from app.services.tariff_sync import recent_logs, run_sync
 from app.services.tax_engine import TaxItemInput
@@ -374,9 +381,35 @@ async def import_tariff(
         "import_id": str(result.import_id), "version_id": str(result.version_id),
         "version_number": result.version_number, "status": result.status,
         "codes": result.codes, "rules": result.rules, "errors": result.errors,
-        "raw_stored": bool(raw_key),
-        "note": "Versión en STAGED. Publícala con POST /tariff/versions/{id}/publish para activarla.",
+        "changes": result.changes, "raw_stored": bool(raw_key),
+        "note": "Versión en STAGED. Revisa los cambios y publícala con POST /tariff/versions/{id}/publish.",
     }
+
+
+@router.post("/import-url", dependencies=[Depends(require_admin)])
+async def import_tariff_url(
+    url: str = Query(..., description="URL del PDF oficial del arancel"),
+    version_number: str = Query(...),
+    effective_from: date = Query(...),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """#8: descarga automática del arancel desde una URL y lo ingiere a versión STAGED."""
+    try:
+        result = await import_arancel_from_url(
+            session, url=url, version_number=version_number, effective_from=effective_from
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"No se pudo descargar/parsear: {exc}") from exc
+    return {
+        "version_id": str(result.version_id), "version_number": result.version_number,
+        "status": result.status, "codes": result.codes, "rules": result.rules,
+        "errors": result.errors, "changes": result.changes,
+    }
+
+
+@router.get("/versions/{version_id}/changes", response_model=list[TariffChangeOut])
+async def version_changes(version_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    return await changes_for_version(session, version_id)
 
 
 @router.post("/versions/{version_id}/publish", dependencies=[Depends(require_admin)])
