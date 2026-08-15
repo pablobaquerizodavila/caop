@@ -24,6 +24,8 @@ export default async function TariffPage() {
   const status = await apiGet<SyncStatus>("/tariff/sync-status");
   const ver = status?.active_version ?? null;
   const versions = caps.canAdmin ? (await apiGet<Version[]>("/tariff/versions")) ?? [] : [];
+  const agreements = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/agreements")) ?? [] : [];
+  const preferences = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/preferences")) ?? [] : [];
 
   return (
     <>
@@ -57,7 +59,13 @@ export default async function TariffPage() {
         </div>
       ) : null}
 
-      {caps.canAdmin ? <TariffAdmin versions={versions} /> : null}
+      {caps.canAdmin ? (
+        <TariffAdmin
+          versions={versions}
+          agreements={agreements as never[]}
+          preferences={preferences as never[]}
+        />
+      ) : null}
 
       <TariffLookup />
     </>

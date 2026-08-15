@@ -13,7 +13,9 @@ from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.tariff import TariffCode, TariffImport, TariffVersion
 from app.models.tax import TaxRule
+from app.models.trade import Country, TariffPreference, TradeAgreement
 from app.schemas.tariff import (
+    PreferenceScenarioOut,
     SyncStatusOut,
     TariffCalcComponent,
     TariffCalcItemOut,
@@ -22,12 +24,18 @@ from app.schemas.tariff import (
     TariffCodeDetail,
     TariffCodeOut,
     TariffHistoryEntry,
+    TariffPreferenceCreate,
+    TariffPreferenceOut,
+    TariffPreferenceUpdate,
     TariffTaxOut,
     TariffVersionOut,
+    TradeAgreementCreate,
+    TradeAgreementOut,
 )
 from app.services.tariff_ingest import active_version, import_arancel, publish_version
 from app.services.tariff_resolver import resolve_item
 from app.services.tax_engine import TaxItemInput
+from app.services.trade_agreement_seed import seed_agreements, seed_countries
 
 router = APIRouter(prefix="/tariff", tags=["tariff"])
 
@@ -220,10 +228,21 @@ async def calculate(
             )
             for c in res.components
         ]
+        pref_out = None
+        if ri.preference is not None:
+            p = ri.preference
+            pref_out = PreferenceScenarioOut(
+                agreement_code=p.agreement_code, agreement_name=p.agreement_name,
+                liberation_pct=float(p.liberation_pct),
+                preferential_adval_pct=float(p.preferential_adval_pct),
+                requires_certificate=p.requires_certificate, verified=p.verified,
+                total_taxes=float(p.result.total_taxes), savings=float(p.savings),
+            )
         items_out.append(TariffCalcItemOut(
             description=res.description, hs_code=res.hs_code, hs_validation=ri.hs_validation,
             cif_value=float(res.cif_value), components=comps, total_taxes=float(res.total_taxes),
             complete=res.complete, warnings=res.warnings, missing_information=res.missing_information,
+            preference=pref_out,
         ))
         total_cif += float(res.cif_value)
         total_taxes += float(res.total_taxes)
@@ -310,3 +329,87 @@ async def publish(version_id: uuid.UUID, session: AsyncSession = Depends(get_ses
         return await publish_version(session, version_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+# ---------- Acuerdos comerciales y preferencias ----------
+@router.get("/agreements", response_model=list[TradeAgreementOut])
+async def list_agreements(session: AsyncSession = Depends(get_session)) -> list[TradeAgreement]:
+    return list(await session.scalars(
+        select(TradeAgreement).order_by(TradeAgreement.code)
+    ))
+
+
+@router.post("/seed-agreements", dependencies=[Depends(require_admin)])
+async def seed_ag(session: AsyncSession = Depends(get_session)) -> dict:
+    countries = await seed_countries(session)
+    created = await seed_agreements(session)
+    return {"countries_created": countries, "agreements_created": created,
+            "note": "Preferencias por subpartida deben cargarse/verificarse desde los anexos de cada acuerdo."}
+
+
+@router.post("/agreements", response_model=TradeAgreementOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_agreement(
+    payload: TradeAgreementCreate, session: AsyncSession = Depends(get_session)
+) -> TradeAgreement:
+    ag = TradeAgreement(**payload.model_dump())
+    session.add(ag)
+    await session.flush()
+    await session.refresh(ag)
+    return ag
+
+
+@router.get("/preferences", response_model=list[TariffPreferenceOut])
+async def list_preferences(
+    session: AsyncSession = Depends(get_session),
+    agreement_id: uuid.UUID | None = Query(None),
+) -> list[TariffPreference]:
+    stmt = select(TariffPreference).order_by(TariffPreference.created_at.desc()).limit(200)
+    if agreement_id:
+        stmt = stmt.where(TariffPreference.agreement_id == agreement_id)
+    return list(await session.scalars(stmt))
+
+
+@router.post("/preferences", response_model=TariffPreferenceOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_preference(
+    payload: TariffPreferenceCreate, session: AsyncSession = Depends(get_session)
+) -> TariffPreference:
+    data = payload.model_dump()
+    if data.get("hs_prefix"):
+        data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    pref = TariffPreference(**data)
+    session.add(pref)
+    await session.flush()
+    await session.refresh(pref)
+    return pref
+
+
+@router.patch("/preferences/{pref_id}", response_model=TariffPreferenceOut,
+              dependencies=[Depends(require_admin)])
+async def update_preference(
+    pref_id: uuid.UUID, payload: TariffPreferenceUpdate, session: AsyncSession = Depends(get_session)
+) -> TariffPreference:
+    pref = await session.get(TariffPreference, pref_id)
+    if pref is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Preferencia no encontrada")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        if k == "hs_prefix" and v:
+            v = v.replace(".", "").strip()
+        setattr(pref, k, v)
+    await session.flush()
+    return pref
+
+
+@router.delete("/preferences/{pref_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_preference(pref_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    pref = await session.get(TariffPreference, pref_id)
+    if pref is not None:
+        await session.delete(pref)
+        await session.flush()
+
+
+@router.get("/countries", response_model=list[dict])
+async def list_countries(session: AsyncSession = Depends(get_session)) -> list[dict]:
+    rows = await session.scalars(select(Country).where(Country.active).order_by(Country.name))
+    return [{"iso2": c.iso2, "name": c.name} for c in rows]

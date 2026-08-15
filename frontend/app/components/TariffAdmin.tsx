@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { importTariff, publishTariffVersion } from "@/app/lib/actions";
+import {
+  createTariffPreference,
+  deleteTariffPreference,
+  importTariff,
+  publishTariffVersion,
+  seedAgreements,
+} from "@/app/lib/actions";
 
 interface Version {
   id: string;
@@ -14,6 +20,11 @@ interface Version {
   published_at?: string | null;
   created_at: string;
 }
+interface Agreement { id: string; code: string; name: string; members?: string[] | null }
+interface Preference {
+  id: string; agreement_id: string; origin_country?: string | null; hs_prefix?: string | null;
+  liberation_pct: string | number; requires_certificate: boolean; verification_status: string;
+}
 
 function statusPill(s: string): string {
   if (s === "ACTIVE") return "ok";
@@ -21,13 +32,71 @@ function statusPill(s: string): string {
   return "";
 }
 
-export function TariffAdmin({ versions }: { versions: Version[] }) {
+export function TariffAdmin({
+  versions,
+  agreements = [],
+  preferences = [],
+}: {
+  versions: Version[];
+  agreements?: Agreement[];
+  preferences?: Preference[];
+}) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [version, setVersion] = useState("");
   const [eff, setEff] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [np, setNp] = useState({
+    agreement_id: "", origin_country: "", hs_prefix: "", liberation_pct: "100",
+    effective_from: "", requires_certificate: true,
+  });
+
+  const agName = (id: string) => agreements.find((a) => a.id === id)?.code ?? id.slice(0, 8);
+
+  async function doSeedAgreements() {
+    setBusy(true);
+    try {
+      const r = await seedAgreements();
+      setMsg(r.ok ? `Acuerdos sembrados: ${r.agreements}. Carga las preferencias por subpartida desde los anexos.` : `Error: ${r.error}`);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addPref() {
+    if (!np.agreement_id || !np.effective_from) {
+      setMsg("Elige acuerdo y fecha de vigencia para la preferencia.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await createTariffPreference({
+        agreement_id: np.agreement_id,
+        origin_country: np.origin_country.trim().toUpperCase() || null,
+        hs_prefix: np.hs_prefix.trim() || null,
+        liberation_pct: Number(np.liberation_pct) || 0,
+        requires_certificate: np.requires_certificate,
+        effective_from: np.effective_from,
+      });
+      if (!r.ok) setMsg(`Error: ${r.error}`);
+      else { setNp({ ...np, origin_country: "", hs_prefix: "", liberation_pct: "100" }); router.refresh(); }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removePref(id: string) {
+    if (!confirm("¿Eliminar esta preferencia?")) return;
+    setBusy(true);
+    try {
+      await deleteTariffPreference(id);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function doImport() {
     const file = fileRef.current?.files?.[0];
@@ -78,6 +147,7 @@ export function TariffAdmin({ versions }: { versions: Version[] }) {
   }
 
   return (
+    <>
     <div className="card rise section-gap">
       <div className="head"><h2>Administración del arancel</h2></div>
 
@@ -132,5 +202,77 @@ export function TariffAdmin({ versions }: { versions: Version[] }) {
         </table>
       </div>
     </div>
+
+    <div className="card rise section-gap">
+      <div className="head" style={{ justifyContent: "space-between" }}>
+        <h2>Preferencias arancelarias</h2>
+        {agreements.length === 0 ? (
+          <button className="btn" disabled={busy} onClick={doSeedAgreements}>Sembrar acuerdos</button>
+        ) : <span className="count">{agreements.length} acuerdos</span>}
+      </div>
+
+      {agreements.length > 0 ? (
+        <>
+          <div className="form-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
+            <label className="field" style={{ minWidth: 180 }}>
+              <span>Acuerdo</span>
+              <select value={np.agreement_id} onChange={(e) => setNp((p) => ({ ...p, agreement_id: e.target.value }))}>
+                <option value="">—</option>
+                {agreements.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name.slice(0, 30)}</option>)}
+              </select>
+            </label>
+            <label className="field"><span>Origen (ISO2, opc.)</span>
+              <input value={np.origin_country} maxLength={2} placeholder="todos"
+                onChange={(e) => setNp((p) => ({ ...p, origin_country: e.target.value }))} style={{ width: 90 }} />
+            </label>
+            <label className="field"><span>Prefijo HS (opc.)</span>
+              <input value={np.hs_prefix} placeholder="todos"
+                onChange={(e) => setNp((p) => ({ ...p, hs_prefix: e.target.value }))} style={{ width: 110 }} />
+            </label>
+            <label className="field"><span>% Liberación</span>
+              <input value={np.liberation_pct}
+                onChange={(e) => setNp((p) => ({ ...p, liberation_pct: e.target.value }))} style={{ width: 80 }} />
+            </label>
+            <label className="field"><span>Vigente desde</span>
+              <input type="date" value={np.effective_from}
+                onChange={(e) => setNp((p) => ({ ...p, effective_from: e.target.value }))} />
+            </label>
+            <label className="field" style={{ alignItems: "center" }}><span>Cert.</span>
+              <input type="checkbox" checked={np.requires_certificate}
+                onChange={(e) => setNp((p) => ({ ...p, requires_certificate: e.target.checked }))} />
+            </label>
+            <button className="btn" disabled={busy || !np.agreement_id} onClick={addPref}>Agregar</button>
+          </div>
+
+          <div style={{ marginTop: 14, overflowX: "auto" }}>
+            <table className="tbl" style={{ width: "100%" }}>
+              <thead>
+                <tr><th>Acuerdo</th><th>Origen</th><th>Prefijo HS</th><th className="num">Liberación</th>
+                  <th>Cert.</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody>
+                {preferences.length === 0 ? (
+                  <tr><td colSpan={7} className="empty">Sin preferencias cargadas. La CAN se siembra por defecto.</td></tr>
+                ) : null}
+                {preferences.map((p) => (
+                  <tr key={p.id}>
+                    <td className="mono">{agName(p.agreement_id)}</td>
+                    <td>{p.origin_country || "todos"}</td>
+                    <td className="mono">{p.hs_prefix || "todos"}</td>
+                    <td className="num">{String(p.liberation_pct)}%</td>
+                    <td>{p.requires_certificate ? "sí" : "no"}</td>
+                    <td><span className={`pill ${p.verification_status === "VERIFIED" ? "ok" : "warn"}`}>{p.verification_status}</span></td>
+                    <td><button className="btn ghost" disabled={busy} onClick={() => removePref(p.id)}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="empty">Siembra los acuerdos comerciales vigentes para empezar a cargar preferencias.</div>
+      )}
+    </div>
+    </>
   );
 }

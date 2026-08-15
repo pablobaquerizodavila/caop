@@ -15,8 +15,11 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decimal import Decimal
+
 from app.models.tariff import TariffCode
 from app.models.tax import TaxRule
+from app.models.trade import TariffPreference, TradeAgreement
 from app.services.tariff_ingest import active_version
 from app.services.tax_engine import TaxComponent, TaxItemInput, TaxItemResult, compute_item
 
@@ -25,10 +28,23 @@ EXPECTED_MANDATORY = ("AD_VALOREM", "FODINFA", "IVA")
 
 
 @dataclass
+class PreferenceScenario:
+    agreement_code: str
+    agreement_name: str
+    liberation_pct: Decimal
+    preferential_adval_pct: Decimal
+    requires_certificate: bool
+    verified: bool
+    result: TaxItemResult
+    savings: Decimal
+
+
+@dataclass
 class ResolvedItem:
     result: TaxItemResult
     tariff_code_id: uuid.UUID | None
     hs_validation: str  # VALID / NOT_FOUND / UNKNOWN
+    preference: PreferenceScenario | None = None
 
 
 def _normalize(hs_code: str | None) -> str:
@@ -94,6 +110,41 @@ def _finalize(
     return hs_validation
 
 
+async def _preferences(session: AsyncSession) -> tuple[list[TariffPreference], dict]:
+    prefs = list(await session.scalars(
+        select(TariffPreference).where(TariffPreference.status == "ACTIVE")
+    ))
+    ags = {a.id: a for a in await session.scalars(
+        select(TradeAgreement).where(TradeAgreement.status == "ACTIVE")
+    )}
+    return prefs, ags
+
+
+def _best_preference(prefs, ags, origin: str, hs_norm: str, on: date):
+    """Preferencia más específica aplicable a (origen, subpartida, fecha)."""
+    best = None
+    best_ag = None
+    best_spec = -1
+    for p in prefs:
+        ag = ags.get(p.agreement_id)
+        if ag is None:
+            continue
+        members = ag.members or []
+        if p.origin_country:
+            if p.origin_country != origin:
+                continue
+        elif origin not in members:
+            continue
+        if p.hs_prefix and not hs_norm.startswith(p.hs_prefix):
+            continue
+        if not (p.effective_from <= on and (p.effective_to is None or on <= p.effective_to)):
+            continue
+        spec = (2 if p.origin_country else 0) + (len(p.hs_prefix) if p.hs_prefix else 0)
+        if spec > best_spec:
+            best_spec, best, best_ag = spec, p, ag
+    return best, best_ag
+
+
 async def resolve_item(
     session: AsyncSession,
     item: TaxItemInput,
@@ -102,6 +153,7 @@ async def resolve_item(
     rules: list[TaxRule] | None = None,
     version_number: str | None = None,
     injected: list[TaxComponent] | None = None,
+    prefs_cache: tuple[list, dict] | None = None,
 ) -> ResolvedItem:
     if rules is None:
         rules = await _active_rules(session)
@@ -112,7 +164,33 @@ async def resolve_item(
     result = compute_item(rules, item, on, injected=injected)
     injected_types = {c.tax_type for c in (injected or [])}
     hs_validation = _finalize(result, item, tc, version_number, injected_types)
-    return ResolvedItem(result=result, tariff_code_id=(tc.id if tc else None), hs_validation=hs_validation)
+
+    resolved = ResolvedItem(
+        result=result, tariff_code_id=(tc.id if tc else None), hs_validation=hs_validation
+    )
+
+    # Escenario 'con preferencia potencial': requiere país de origen y arancel general conocido.
+    adval = next((c for c in result.components if c.tax_type == "AD_VALOREM"), None)
+    if item.origin_country and adval is not None and adval.rate_applied is not None:
+        prefs, ags = prefs_cache if prefs_cache is not None else await _preferences(session)
+        pref, ag = _best_preference(prefs, ags, item.origin_country, _normalize(item.hs_code), on)
+        if pref is not None:
+            base_pct = Decimal(adval.rate_applied)
+            if pref.preferential_rate is not None:
+                pref_pct = Decimal(pref.preferential_rate)
+            else:
+                pref_pct = base_pct * (Decimal(100) - Decimal(pref.liberation_pct)) / Decimal(100)
+            pref_result = compute_item(rules, item, on, injected=injected,
+                                       overrides={"AD_VALOREM": pref_pct})
+            pref_result.data_version = version_number
+            resolved.preference = PreferenceScenario(
+                agreement_code=ag.code, agreement_name=ag.name,
+                liberation_pct=Decimal(pref.liberation_pct), preferential_adval_pct=pref_pct,
+                requires_certificate=pref.requires_certificate,
+                verified=pref.verification_status == "VERIFIED",
+                result=pref_result, savings=result.total_taxes - pref_result.total_taxes,
+            )
+    return resolved
 
 
 async def resolve_items(
@@ -122,7 +200,9 @@ async def resolve_items(
     rules = await _active_rules(session)
     ver = await active_version(session)
     vn = ver.number if ver else None
+    prefs_cache = await _preferences(session)
     out: list[ResolvedItem] = []
     for it in items:
-        out.append(await resolve_item(session, it, on, rules=rules, version_number=vn))
+        out.append(await resolve_item(session, it, on, rules=rules, version_number=vn,
+                                      prefs_cache=prefs_cache))
     return out

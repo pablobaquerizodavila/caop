@@ -135,10 +135,12 @@ def compute_item(
     item: TaxItemInput,
     on: date,
     injected: list[TaxComponent] | None = None,
+    overrides: dict[str, Decimal] | None = None,
 ) -> TaxItemResult:
     """Calcula los tributos de un ítem. `injected` permite aportar componentes de
     medidas con metodología propia (ICE/SAFP/antidumping) para que participen en la
-    base compuesta (p. ej. IVA) sin vivir en TaxRule. Sin `injected`, comportamiento idéntico."""
+    base compuesta (p. ej. IVA) sin vivir en TaxRule. `overrides` reemplaza el % de un
+    tributo (p. ej. AD_VALOREM preferencial) recalculando la cadena. Sin ambos, idéntico."""
     selected = select_rules(rules, item, on)
     result = TaxItemResult(description=item.description, hs_code=item.hs_code, cif_value=_q(item.cif))
 
@@ -161,7 +163,11 @@ def compute_item(
             deps = [d.upper() for d in (rule.depends_on or []) if d.upper() in selected]
             if all(d in computed for d in deps):
                 base = _eval_base(rule.base_formula, item.cif, computed)
-                amount, rate = _amount_for(rule, base, item.quantity)
+                if overrides and tax_type in overrides:
+                    rate = overrides[tax_type]
+                    amount = base * rate / Decimal(100)
+                else:
+                    amount, rate = _amount_for(rule, base, item.quantity)
                 amount = _q(amount)
                 computed[tax_type] = amount
                 seq += 1

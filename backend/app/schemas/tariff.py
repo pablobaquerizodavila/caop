@@ -72,6 +72,17 @@ class TariffCalcComponent(BaseModel):
     verified: bool
 
 
+class PreferenceScenarioOut(BaseModel):
+    agreement_code: str
+    agreement_name: str
+    liberation_pct: float
+    preferential_adval_pct: float
+    requires_certificate: bool
+    verified: bool
+    total_taxes: float
+    savings: float
+
+
 class TariffCalcItemOut(BaseModel):
     description: str | None
     hs_code: str | None
@@ -82,6 +93,67 @@ class TariffCalcItemOut(BaseModel):
     complete: bool
     warnings: list[str]
     missing_information: list[str]
+    preference: PreferenceScenarioOut | None = None
+
+
+# --- Acuerdos y preferencias (administración) ---
+class TradeAgreementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    kind: str
+    members: list[str] | None = None
+    effective_from: date | None = None
+    status: str
+
+
+class TradeAgreementCreate(BaseModel):
+    code: str
+    name: str
+    kind: str = "FTA"
+    members: list[str] = []
+    effective_from: date | None = None
+
+
+class TariffPreferenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    agreement_id: uuid.UUID
+    origin_country: str | None = None
+    hs_prefix: str | None = None
+    liberation_pct: Decimal
+    preferential_rate: Decimal | None = None
+    requires_certificate: bool
+    effective_from: date
+    effective_to: date | None = None
+    status: str
+    verification_status: str
+    legal_source: str | None = None
+
+
+class TariffPreferenceCreate(BaseModel):
+    agreement_id: uuid.UUID
+    origin_country: str | None = None
+    hs_prefix: str | None = None
+    liberation_pct: Decimal = Decimal(100)
+    preferential_rate: Decimal | None = None
+    requires_certificate: bool = True
+    effective_from: date
+    effective_to: date | None = None
+    legal_source: str | None = None
+
+
+class TariffPreferenceUpdate(BaseModel):
+    liberation_pct: Decimal | None = None
+    preferential_rate: Decimal | None = None
+    requires_certificate: bool | None = None
+    hs_prefix: str | None = None
+    origin_country: str | None = None
+    effective_to: date | None = None
+    status: str | None = None
+    verification_status: str | None = None
+    legal_source: str | None = None
 
 
 class TariffCalcResponse(BaseModel):
