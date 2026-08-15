@@ -26,9 +26,11 @@ _UF_WINDOW = 70       # la UF está a lo sumo ~70pt a la izquierda de la tarifa
 
 _NUM = re.compile(r"^\d+([.,]\d+)?$")
 _CODE10 = re.compile(r"^\d{4}\.\d{2}\.\d{2}\.\d{2}$")
-# Formatos reales del Arancel del Ecuador: capítulo (2 díg.), partida/subpartida/
-# nacional (4 díg. + pares con punto): 01 | 0105 | 0105.11 | 0105.11.00 | 0105.11.00.10
-_CODE_ANY = re.compile(r"^(\d{2}|\d{4}(\.\d{2}){0,3})$")
+# Formatos reales del Arancel del Ecuador:
+#   capítulo (2 díg.): 01, 84
+#   partida (4 díg., escrita dd.dd): 01.05, 84.71
+#   subpartida/nacional (dddd + pares con punto): 0105.11 | 0105.11.00 | 8471.30.00.00
+_CODE_ANY = re.compile(r"^(\d{2}|\d{2}\.\d{2}|\d{4}(\.\d{2}){0,3})$")
 _LEADING_DASHES = re.compile(r"^(\s*-\s*)+")
 
 
