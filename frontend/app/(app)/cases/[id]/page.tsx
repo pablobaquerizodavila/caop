@@ -7,6 +7,7 @@ import {
   type CaseExtractionDoc,
   type Declaration,
   type CreditNote,
+  type DebitNote,
   type DemurrageSummary,
   type Einvoice,
   type PaymentsView,
@@ -70,6 +71,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     : null;
   const creditNotes = invoice
     ? await apiGet<CreditNote[]>(`/invoices/${invoice.id}/credit-notes`)
+    : null;
+  const debitNotes = invoice
+    ? await apiGet<DebitNote[]>(`/invoices/${invoice.id}/debit-notes`)
     : null;
 
   if (!c) {
@@ -197,6 +201,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             settlementIssued={settlement?.status === "ISSUED"}
             invoice={invoice}
             creditNotes={creditNotes ?? []}
+            debitNotes={debitNotes ?? []}
           />
 
           <TrackingPanel caseId={c.id} link={tracking} />

@@ -10,16 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.models.credit_note import CreditNote
 from app.models.customer import Customer
+from app.models.debit_note import DebitNote
 from app.models.einvoice import ElectronicInvoice
 from app.models.settlement import Settlement
 from app.models.shipment import CustomsCase, Shipment
 from app.schemas.einvoice import (
     CreditNoteCreate,
     CreditNoteRead,
+    DebitNoteCreate,
+    DebitNoteRead,
     EinvoiceAuthorizeRequest,
     EinvoiceRead,
 )
-from app.services import credit_note_service, sri_service
+from app.services import credit_note_service, debit_note_service, sri_service
 from app.services.einvoice_pdf import build_ride
 from app.services.sri_service import SriError
 
@@ -157,4 +160,58 @@ async def get_credit_note_xml(
     return Response(
         content=cn.xml or "", media_type="application/xml",
         headers={"Content-Disposition": f'attachment; filename="{cn.access_key}.xml"'},
+    )
+
+
+# ---------- Notas de débito ----------
+async def _dn(session: AsyncSession, dn_id: uuid.UUID) -> DebitNote:
+    dn = await session.get(DebitNote, dn_id)
+    if dn is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nota de débito no encontrada")
+    return dn
+
+
+@router.get("/invoices/{invoice_id}/debit-notes", response_model=list[DebitNoteRead])
+async def list_debit_notes(
+    invoice_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[DebitNote]:
+    return await debit_note_service.list_for_invoice(session, invoice_id)
+
+
+@router.post("/invoices/{invoice_id}/debit-notes", response_model=DebitNoteRead, status_code=201)
+async def create_debit_note(
+    invoice_id: uuid.UUID, payload: DebitNoteCreate, session: AsyncSession = Depends(get_session)
+) -> DebitNote:
+    inv = await _invoice(session, invoice_id)
+    try:
+        return await debit_note_service.create_from_invoice(
+            session, inv, Decimal(str(payload.amount)), payload.motivo
+        )
+    except SriError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+@router.post("/debit-notes/{dn_id}/authorize", response_model=DebitNoteRead)
+async def authorize_debit_note(
+    dn_id: uuid.UUID, payload: EinvoiceAuthorizeRequest,
+    session: AsyncSession = Depends(get_session),
+) -> DebitNote:
+    return await debit_note_service.authorize(session, await _dn(session, dn_id), payload.scenario)
+
+
+@router.get("/debit-notes/{dn_id}", response_model=DebitNoteRead)
+async def get_debit_note(
+    dn_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> DebitNote:
+    return await _dn(session, dn_id)
+
+
+@router.get("/debit-notes/{dn_id}/xml")
+async def get_debit_note_xml(
+    dn_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> Response:
+    dn = await _dn(session, dn_id)
+    return Response(
+        content=dn.xml or "", media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{dn.access_key}.xml"'},
     )

@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 
 import {
   authorizeCreditNote,
+  authorizeDebitNote,
   authorizeInvoice,
   createCreditNote,
+  createDebitNote,
   createInvoice,
   getCreditNoteXml,
+  getDebitNoteXml,
   getInvoiceRide,
   getInvoiceXml,
 } from "@/app/lib/actions";
 import {
   type CreditNote,
+  type DebitNote,
   type Einvoice,
   einvoiceStatusClass,
   money,
@@ -26,12 +30,14 @@ export function EinvoicePanel({
   settlementIssued,
   invoice,
   creditNotes = [],
+  debitNotes = [],
 }: {
   caseId: string;
   settlementId: string | null;
   settlementIssued: boolean;
   invoice: Einvoice | null;
   creditNotes?: CreditNote[];
+  debitNotes?: DebitNote[];
 }) {
   const router = useRouter();
   const { canWrite } = useCaps();
@@ -39,6 +45,28 @@ export function EinvoicePanel({
   const [scenario, setScenario] = useState("AUTHORIZE");
   const [cnMotivo, setCnMotivo] = useState("");
   const [cnAmount, setCnAmount] = useState("");
+  const [dnMotivo, setDnMotivo] = useState("");
+  const [dnAmount, setDnAmount] = useState("");
+
+  async function addDebitNote() {
+    if (!dnMotivo || !dnAmount) return alert("Indica monto y motivo de la nota de débito");
+    await act(() => createDebitNote(caseId, invoice!.id, {
+      motivo: dnMotivo, amount: Number(dnAmount),
+    }));
+    setDnMotivo("");
+    setDnAmount("");
+  }
+
+  async function downloadDnXml(dn: DebitNote) {
+    setBusy(true);
+    try {
+      const xml = await getDebitNoteXml(dn.id);
+      if (!xml) return alert("No se pudo obtener el XML");
+      saveBlob(new Blob([xml], { type: "application/xml" }), `${dn.access_key}.xml`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function addCreditNote() {
     if (!cnMotivo) return alert("Indica el motivo de la nota de crédito");
@@ -204,6 +232,43 @@ export function EinvoicePanel({
                     <input type="text" placeholder="Monto (vacío = total)" value={cnAmount}
                       onChange={(e) => setCnAmount(e.target.value)} style={{ width: 150 }} />
                     <button className="btn" disabled={busy} onClick={addCreditNote}>+ Nota de crédito</button>
+                  </div>
+                ) : null}
+
+                <div className="subhead" style={{ marginTop: 12 }}><h3>Notas de débito</h3></div>
+                {debitNotes.length === 0 ? (
+                  <div className="tag" style={{ color: "var(--muted)" }}>Sin notas de débito.</div>
+                ) : (
+                  debitNotes.map((dn) => (
+                    <div className="chk" key={dn.id}>
+                      <div className="left">
+                        <span className={`pill ${einvoiceStatusClass(dn.status)}`}>{dn.status}</span>
+                        <div>
+                          <div className="doc mono" style={{ fontSize: 12 }}>
+                            {dn.estab}-{dn.pto_emi}-{dn.secuencial} · {money(dn.total)}
+                          </div>
+                          <div className="tag">{dn.motivo}</div>
+                        </div>
+                      </div>
+                      <div className="actions">
+                        {dn.status !== "AUTHORIZED" && canWrite ? (
+                          <button className="btn" disabled={busy}
+                            onClick={() => act(() => authorizeDebitNote(caseId, dn.id, "AUTHORIZE"))}>
+                            Autorizar
+                          </button>
+                        ) : null}
+                        <button className="btn ghost" disabled={busy} onClick={() => downloadDnXml(dn)}>XML</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {canWrite ? (
+                  <div className="form-row" style={{ flexWrap: "wrap", paddingLeft: 0 }}>
+                    <input type="text" placeholder="Motivo (ej. interés por mora)" value={dnMotivo}
+                      onChange={(e) => setDnMotivo(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                    <input type="text" placeholder="Monto" value={dnAmount}
+                      onChange={(e) => setDnAmount(e.target.value)} style={{ width: 150 }} />
+                    <button className="btn" disabled={busy} onClick={addDebitNote}>+ Nota de débito</button>
                   </div>
                 ) : null}
               </div>
