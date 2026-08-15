@@ -314,8 +314,8 @@ export function NewQuoteForm({
               );
             }}
           />
-          <input type="text" placeholder="Cant." value={it.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} />
-          <input type="text" placeholder="P. unit." value={it.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} />
+          <input type="text" inputMode="numeric" maxLength={8} placeholder="Cant." value={it.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} />
+          <input type="text" inputMode="decimal" maxLength={8} placeholder="P. unit." value={it.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} />
           <button type="button" className="btn ghost" disabled={items.length === 1} onClick={() => setItems((p) => p.filter((_, idx) => idx !== i))}>
             ✕
           </button>
