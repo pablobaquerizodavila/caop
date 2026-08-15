@@ -22,6 +22,7 @@ from app.models.tax import TaxRule
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
 from app.models.warehouse import WarehouseStorage
+from app.models.waybill import WaybillGuide, WaybillItem
 from app.models.warehouse_tariff import WarehouseTariff
 
 __all__ = [
@@ -65,5 +66,7 @@ __all__ = [
     "VueRule",
     "WarehouseStorage",
     "WarehouseTariff",
+    "WaybillGuide",
+    "WaybillItem",
     "user_roles",
 ]

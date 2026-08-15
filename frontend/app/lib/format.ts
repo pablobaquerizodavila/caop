@@ -663,6 +663,35 @@ export interface Retention {
   lines: RetentionLine[];
 }
 
+export interface WaybillItem {
+  id: string;
+  description: string;
+  quantity: number;
+}
+
+export interface Waybill {
+  id: string;
+  transporter_name: string;
+  transporter_id: string;
+  placa: string;
+  fecha_ini_transporte: string;
+  fecha_fin_transporte: string;
+  dest_name: string;
+  dest_id: string;
+  motivo_traslado: string;
+  estab: string;
+  pto_emi: string;
+  secuencial: string;
+  access_key: string;
+  issue_date: string;
+  status: string;
+  signed: boolean;
+  authorization_number: string | null;
+  is_simulated: boolean;
+  error: string | null;
+  items: WaybillItem[];
+}
+
 export function einvoiceStatusClass(s: string): Sem | "" {
   const map: Record<string, Sem> = {
     AUTHORIZED: "ok", SIGNED: "warn", DRAFT: "warn", REJECTED: "crit",
