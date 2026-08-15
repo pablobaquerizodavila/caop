@@ -632,6 +632,37 @@ export interface DebitNote {
   error: string | null;
 }
 
+export interface RetentionLine {
+  id: string;
+  tax_type: string;
+  codigo_retencion: string;
+  base_imponible: number;
+  percentage: number;
+  value: number;
+}
+
+export interface Retention {
+  id: string;
+  subject_name: string;
+  subject_id: string;
+  subject_id_type: string;
+  period: string;
+  doc_sustento_number: string;
+  doc_sustento_date: string;
+  estab: string;
+  pto_emi: string;
+  secuencial: string;
+  access_key: string;
+  issue_date: string;
+  status: string;
+  signed: boolean;
+  authorization_number: string | null;
+  is_simulated: boolean;
+  total_retained: number;
+  error: string | null;
+  lines: RetentionLine[];
+}
+
 export function einvoiceStatusClass(s: string): Sem | "" {
   const map: Record<string, Sem> = {
     AUTHORIZED: "ok", SIGNED: "warn", DRAFT: "warn", REJECTED: "crit",
