@@ -25,10 +25,19 @@ export function NewCustomerForm() {
     legal_name: "",
     trade_name: "",
     entity_type: "NATURAL" as "NATURAL" | "COMPANY",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    second_last_name: "",
     country: "Ecuador",
     province: "",
     city: "",
     address: "",
+    dispatch_same: true,
+    dispatch_country: "Ecuador",
+    dispatch_province: "",
+    dispatch_city: "",
+    dispatch_address: "",
     legal_rep_name: "",
     legal_rep_id: "",
     email: "",
@@ -61,23 +70,51 @@ export function NewCustomerForm() {
       return;
     }
 
+    // Persona natural: compone el nombre completo (apellidos + nombres) a partir de los 4 campos.
+    let legalName = f.legal_name.trim();
+    if (!isCompany) {
+      if (!f.first_name.trim() || !f.last_name.trim()) {
+        setError("Ingresa al menos el primer nombre y el primer apellido.");
+        setBusy(false);
+        return;
+      }
+      legalName = [f.last_name, f.second_last_name, f.first_name, f.middle_name]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(" ");
+    }
+
     const payload: Record<string, unknown> = {
       ruc: f.ruc.trim(),
-      legal_name: f.legal_name.trim(),
+      legal_name: legalName,
       trade_name: f.trade_name.trim() || null,
       entity_type: f.entity_type,
       country: f.country.trim() || "Ecuador",
       province: f.province.trim() || null,
       city: f.city.trim() || null,
       address: f.address.trim() || null,
+      dispatch_same_as_address: f.dispatch_same,
       email: f.email.trim() || null,
     };
+    if (!isCompany) {
+      payload.first_name = f.first_name.trim();
+      payload.middle_name = f.middle_name.trim() || null;
+      payload.last_name = f.last_name.trim();
+      payload.second_last_name = f.second_last_name.trim() || null;
+    }
+    // Dirección de despacho: si no es la misma, se envían sus campos (si lo es, el backend copia la física).
+    if (!f.dispatch_same) {
+      payload.dispatch_country = f.dispatch_country.trim() || "Ecuador";
+      payload.dispatch_province = f.dispatch_province.trim() || null;
+      payload.dispatch_city = f.dispatch_city.trim() || null;
+      payload.dispatch_address = f.dispatch_address.trim() || null;
+    }
     if (isCompany) {
       payload.legal_rep_name = f.legal_rep_name.trim();
       payload.legal_rep_id = f.legal_rep_id.trim() || null;
     }
     if (f.phone.trim()) {
-      payload.contacts = [{ name: f.legal_name.trim(), phone: f.phone.trim(), is_primary: true }];
+      payload.contacts = [{ name: legalName, phone: f.phone.trim(), is_primary: true }];
     }
 
     const res = await createCustomer(payload);
@@ -145,15 +182,31 @@ export function NewCustomerForm() {
         </select>
       </label>
 
-      <label className="field">
-        <span>{isCompany ? "Razón social" : "Nombres y apellidos"}</span>
-        <input
-          type="text"
-          value={f.legal_name}
-          onChange={(e) => set("legal_name", e.target.value)}
-          required
-        />
-      </label>
+      {isCompany ? (
+        <label className="field">
+          <span>Razón social</span>
+          <input type="text" value={f.legal_name} onChange={(e) => set("legal_name", e.target.value)} required />
+        </label>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+          <label className="field">
+            <span>1er Nombre</span>
+            <input type="text" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} required />
+          </label>
+          <label className="field">
+            <span>2do Nombre</span>
+            <input type="text" value={f.middle_name} onChange={(e) => set("middle_name", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>1er Apellido</span>
+            <input type="text" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} required />
+          </label>
+          <label className="field">
+            <span>2do Apellido</span>
+            <input type="text" value={f.second_last_name} onChange={(e) => set("second_last_name", e.target.value)} />
+          </label>
+        </div>
+      )}
 
       <label className="field">
         <span>Nombre comercial (opcional)</span>
@@ -203,6 +256,62 @@ export function NewCustomerForm() {
             placeholder="Av. Amazonas N34-45 y Pereira, edificio…, oficina…"
           />
         </label>
+      </fieldset>
+
+      <fieldset className="stack" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
+        <legend style={{ padding: "0 6px", color: "var(--muted)", fontSize: 12.5 }}>Dirección física de despacho</legend>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={f.dispatch_same}
+            onChange={(e) => setF((p) => ({ ...p, dispatch_same: e.target.checked }))}
+          />
+          <span>Misma que la dirección física</span>
+        </label>
+        {!f.dispatch_same ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+              <label className="field">
+                <span>País</span>
+                <input type="text" value={f.dispatch_country} onChange={(e) => set("dispatch_country", e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Provincia</span>
+                <select
+                  value={f.dispatch_province}
+                  onChange={(e) => {
+                    const prov = e.target.value;
+                    setF((p) => ({ ...p, dispatch_province: prov, dispatch_city: capitalOf(prov) }));
+                  }}
+                >
+                  <option value="">— Selecciona —</option>
+                  {EC_PROVINCES.map((p) => (
+                    <option key={p.province} value={p.province}>{p.province}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Ciudad</span>
+                <select value={f.dispatch_city} onChange={(e) => set("dispatch_city", e.target.value)} disabled={!f.dispatch_province}>
+                  {f.dispatch_province ? (
+                    citiesOf(f.dispatch_province).map((ci) => <option key={ci} value={ci}>{ci}</option>)
+                  ) : (
+                    <option value="">— Elige provincia primero —</option>
+                  )}
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              <span>Calle, número y referencia</span>
+              <textarea
+                value={f.dispatch_address}
+                onChange={(e) => set("dispatch_address", e.target.value)}
+                rows={2}
+                placeholder="Dirección donde se recibe/despacha la mercadería"
+              />
+            </label>
+          </>
+        ) : null}
       </fieldset>
 
       <label className="field">

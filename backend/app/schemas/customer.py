@@ -33,10 +33,19 @@ class CustomerBase(BaseModel):
     legal_name: str
     trade_name: str | None = None
     entity_type: str = "NATURAL"
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
+    second_last_name: str | None = None
     country: str = "Ecuador"
     province: str | None = None
     city: str | None = None
     address: str | None = None
+    dispatch_same_as_address: bool = True
+    dispatch_country: str | None = None
+    dispatch_province: str | None = None
+    dispatch_city: str | None = None
+    dispatch_address: str | None = None
     legal_rep_name: str | None = None
     legal_rep_id: str | None = None
     email: EmailStr | None = None
@@ -65,6 +74,16 @@ class CustomerBase(BaseModel):
             raise ValueError("Una empresa requiere el nombre del representante legal")
         return self
 
+    @model_validator(mode="after")
+    def _sync_dispatch_address(self) -> "CustomerBase":
+        # Si la dirección de despacho es la misma que la física, se copia.
+        if self.dispatch_same_as_address:
+            self.dispatch_country = self.country
+            self.dispatch_province = self.province
+            self.dispatch_city = self.city
+            self.dispatch_address = self.address
+        return self
+
 
 class CustomerCreate(CustomerBase):
     status: str = "LEAD"
@@ -75,10 +94,19 @@ class CustomerUpdate(BaseModel):
     legal_name: str | None = None
     trade_name: str | None = None
     entity_type: str | None = None
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
+    second_last_name: str | None = None
     country: str | None = None
     province: str | None = None
     city: str | None = None
     address: str | None = None
+    dispatch_same_as_address: bool | None = None
+    dispatch_country: str | None = None
+    dispatch_province: str | None = None
+    dispatch_city: str | None = None
+    dispatch_address: str | None = None
     legal_rep_name: str | None = None
     legal_rep_id: str | None = None
     email: EmailStr | None = None

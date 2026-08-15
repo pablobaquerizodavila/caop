@@ -74,6 +74,55 @@ async def test_create_customer_structured_address(client):
 
 
 @pytest.mark.asyncio
+async def test_customer_name_parts_and_dispatch_same(client):
+    payload = {
+        "ruc": VALID_RUC,
+        "legal_name": "PEREZ GARCIA JUAN CARLOS",
+        "first_name": "Juan",
+        "middle_name": "Carlos",
+        "last_name": "Pérez",
+        "second_last_name": "García",
+        "province": "Pichincha",
+        "city": "Quito",
+        "address": "Av. Amazonas N34-45",
+        "dispatch_same_as_address": True,
+    }
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["first_name"] == "Juan"
+    assert body["second_last_name"] == "García"
+    # Despacho = misma dirección: se copió la física.
+    assert body["dispatch_same_as_address"] is True
+    assert body["dispatch_city"] == "Quito"
+    assert body["dispatch_address"] == "Av. Amazonas N34-45"
+
+
+@pytest.mark.asyncio
+async def test_customer_dispatch_distinct_address(client):
+    payload = {
+        "ruc": VALID_RUC,
+        "legal_name": "Empresa X S.A.",
+        "entity_type": "COMPANY",
+        "legal_rep_name": "Ana Ruiz",
+        "province": "Pichincha",
+        "city": "Quito",
+        "address": "Oficina matriz Quito",
+        "dispatch_same_as_address": False,
+        "dispatch_province": "Guayas",
+        "dispatch_city": "Guayaquil",
+        "dispatch_address": "Bodega puerto Guayaquil",
+    }
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["dispatch_same_as_address"] is False
+    assert body["dispatch_city"] == "Guayaquil"
+    assert body["dispatch_address"] == "Bodega puerto Guayaquil"
+    assert body["city"] == "Quito"  # la física no cambió
+
+
+@pytest.mark.asyncio
 async def test_delete_customer_without_history(client):
     cid = (await client.post(
         "/api/v1/customers", json={"ruc": VALID_RUC, "legal_name": "Borrable"}

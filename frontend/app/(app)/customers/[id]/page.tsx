@@ -81,6 +81,13 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             <div>{record?.city || <span style={{ color: "var(--muted-2)" }}>—</span>}</div></div>
           <div className="field" style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--muted)", fontSize: 12 }}>Dirección (calle, número, referencia)</span>
             <div>{record?.address || <span style={{ color: "var(--muted-2)" }}>— no registrada —</span>}</div></div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--muted)", fontSize: 12 }}>Dirección de despacho</span>
+            <div>
+              {record?.dispatch_same_as_address
+                ? <span style={{ color: "var(--muted-2)" }}>Misma que la dirección física</span>
+                : ([record?.dispatch_address, record?.dispatch_city, record?.dispatch_province, record?.dispatch_country]
+                    .filter(Boolean).join(", ") || <span style={{ color: "var(--muted-2)" }}>— no registrada —</span>)}
+            </div></div>
           {record?.entity_type === "COMPANY" ? (
             <>
               <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Representante legal</span>

@@ -21,11 +21,22 @@ class Customer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     trade_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # NATURAL (persona natural) | COMPANY (sociedad/empresa)
     entity_type: Mapped[str] = mapped_column(String(16), default="NATURAL", nullable=False)
+    # Nombre desglosado (persona natural).
+    first_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    middle_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    second_last_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     # Dirección física estructurada.
     country: Mapped[str] = mapped_column(String(64), default="Ecuador", nullable=False)
     province: Mapped[str | None] = mapped_column(String(64), nullable=True)
     city: Mapped[str | None] = mapped_column(String(80), nullable=True)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)  # calle, número, referencia
+    # Dirección física de despacho (puede coincidir con la fiscal).
+    dispatch_same_as_address: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    dispatch_country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dispatch_province: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dispatch_city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    dispatch_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # Representante legal (solo aplica a empresas).
     legal_rep_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     legal_rep_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
