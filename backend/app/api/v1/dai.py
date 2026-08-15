@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import Principal, require_roles
+from app.core.security import Principal, require_sign
 from app.db.session import get_session
 from app.models.shipment import CustomsCase
 from app.schemas.dai import AdvanceRequest, DeclarationRead, TransmitRequest
@@ -40,7 +40,7 @@ async def prepare_dai(case_id: uuid.UUID, session: AsyncSession = Depends(get_se
 async def sign_dai(
     case_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    principal: Principal = Depends(require_roles("CUSTOMS_AGENT", "SUPER_ADMIN")),
+    principal: Principal = Depends(require_sign),
 ):
     dec = await dai_service.sign(
         session, await _case(session, case_id), principal.username or principal.subject

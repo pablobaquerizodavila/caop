@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api import health
 from app.api.v1 import (
+    admin,
     alerts,
     analytics,
     audit,
@@ -31,8 +32,8 @@ from app.api.v1 import (
 from app.core.security import (
     Principal,
     get_current_principal,
-    require_staff,
-    require_write,
+    rbac_guard,
+    require_super_admin,
 )
 
 api_router = APIRouter()
@@ -47,9 +48,9 @@ api_router.include_router(tracking.public_router)
 # el cliente vinculado a la identidad (no expone datos de otros).
 api_router.include_router(portal.router, dependencies=[Depends(get_current_principal)])
 
-# Resto de la API: token Keycloak + RBAC. Sólo personal (require_staff);
-# la escritura exige además un rol de escritura (require_write).
-protected = [Depends(get_current_principal), Depends(require_staff), Depends(require_write)]
+# Resto de la API: token Keycloak + RBAC transversal (personal + escritura),
+# con capacidades editables desde role_privilege.
+protected = [Depends(get_current_principal), Depends(rbac_guard)]
 api_router.include_router(customers.router, dependencies=protected)
 api_router.include_router(suppliers.router, dependencies=protected)
 api_router.include_router(documents.router, dependencies=protected)
@@ -72,6 +73,10 @@ api_router.include_router(retention.router, dependencies=protected)
 api_router.include_router(waybill.router, dependencies=protected)
 api_router.include_router(alerts.router, dependencies=protected)
 api_router.include_router(audit.router, dependencies=protected)
+# Administración: token + solo SUPER_ADMIN (gestión de usuarios y privilegios).
+api_router.include_router(
+    admin.router, dependencies=[Depends(get_current_principal), Depends(require_super_admin)]
+)
 
 
 @api_router.get("/me", tags=["identity"])

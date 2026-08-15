@@ -13,8 +13,11 @@ import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.db.session import get_session
 
 bearer_scheme = HTTPBearer(auto_error=True)
 
@@ -33,6 +36,59 @@ SIGN_ROLES = ("CUSTOMS_AGENT", "SUPER_ADMIN")
 STAFF_ROLES = WRITER_ROLES | {"AUDITOR"}
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+# Capacidades del sistema.
+ALL_CAPS = {"staff", "write", "admin", "sign", "audit"}
+_AUDIT_ROLES = {"SUPER_ADMIN", "OPERATIONS_MANAGER", "AUDITOR"}
+
+
+def _fallback_caps(role: str) -> set[str]:
+    """Capacidades por defecto (en código) cuando el rol no tiene fila editable."""
+    caps: set[str] = set()
+    if role in STAFF_ROLES:
+        caps.add("staff")
+    if role in WRITER_ROLES:
+        caps.add("write")
+    if role in ADMIN_ROLES:
+        caps.add("admin")
+    if role in SIGN_ROLES:
+        caps.add("sign")
+    if role in _AUDIT_ROLES:
+        caps.add("audit")
+    return caps
+
+
+async def capabilities_for(session: AsyncSession, roles: list[str]) -> set[str]:
+    """Capacidades efectivas de un conjunto de roles.
+
+    SUPER_ADMIN siempre tiene poder total. Para el resto: si el rol tiene fila en
+    role_privilege se usa esa configuración editable; si no, el fallback en código.
+    """
+    if "SUPER_ADMIN" in roles:
+        return set(ALL_CAPS)
+    from app.models.role_privilege import RolePrivilege  # import local: evita ciclos
+
+    rows = await session.scalars(
+        select(RolePrivilege).where(RolePrivilege.role_name.in_(list(roles) or [""]))
+    )
+    by_name = {r.role_name: r for r in rows}
+    caps: set[str] = set()
+    for role in roles:
+        r = by_name.get(role)
+        if r is not None:
+            if r.is_staff:
+                caps.add("staff")
+            if r.can_write:
+                caps.add("write")
+            if r.can_admin:
+                caps.add("admin")
+            if r.can_sign:
+                caps.add("sign")
+            if r.can_audit:
+                caps.add("audit")
+        else:
+            caps |= _fallback_caps(role)
+    return caps
 
 
 class Principal(BaseModel):
@@ -103,25 +159,21 @@ def require_roles(*required: str):
     return _checker
 
 
-async def require_staff(principal: Principal = Depends(get_current_principal)) -> Principal:
-    """La API operativa es sólo para personal interno (no para el rol CUSTOMER)."""
-    if not (STAFF_ROLES & set(principal.roles)):
+async def rbac_guard(
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_session),
+) -> Principal:
+    """RBAC transversal de la API operativa: exige rol de personal ('staff') y,
+    en métodos de escritura, la capacidad 'write'. Las capacidades son editables
+    (tabla role_privilege) con fallback en código y SUPER_ADMIN con poder total."""
+    caps = await capabilities_for(session, principal.roles)
+    if "staff" not in caps:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso restringido al personal. Use el portal del cliente.",
         )
-    return principal
-
-
-async def require_write(
-    request: Request, principal: Principal = Depends(get_current_principal)
-) -> Principal:
-    """RBAC transversal: los métodos de escritura exigen un rol con permiso de escritura.
-
-    La lectura (GET/HEAD) queda disponible para cualquier usuario autenticado
-    (p. ej. AUDITOR / CUSTOMER en modo consulta).
-    """
-    if request.method in WRITE_METHODS and not (WRITER_ROLES & set(principal.roles)):
+    if request.method in WRITE_METHODS and "write" not in caps:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requiere un rol con permisos de escritura para esta acción.",
@@ -129,4 +181,33 @@ async def require_write(
     return principal
 
 
-require_admin = require_roles(*ADMIN_ROLES)
+def require_capability(cap: str, detail: str):
+    """Dependencia que exige una capacidad específica (admin/sign/audit)."""
+
+    async def _checker(
+        principal: Principal = Depends(get_current_principal),
+        session: AsyncSession = Depends(get_session),
+    ) -> Principal:
+        caps = await capabilities_for(session, principal.roles)
+        if cap not in caps:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+        return principal
+
+    return _checker
+
+
+require_admin = require_capability("admin", "Requiere rol de administración.")
+require_sign = require_capability("sign", "La firma de la DAI requiere rol de agente afianzado.")
+require_audit = require_capability("audit", "Requiere rol de auditoría.")
+
+
+async def require_super_admin(
+    principal: Principal = Depends(get_current_principal),
+) -> Principal:
+    """Solo el super administrador (gestión de usuarios y privilegios)."""
+    if "SUPER_ADMIN" not in principal.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el super administrador puede gestionar usuarios y privilegios.",
+        )
+    return principal

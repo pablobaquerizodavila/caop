@@ -8,13 +8,11 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_roles
+from app.core.security import require_audit
 from app.db.session import get_session
 from app.models.audit import AuditEvent
 
 router = APIRouter(prefix="/audit", tags=["audit"])
-
-_AUDIT_READERS = ("SUPER_ADMIN", "OPERATIONS_MANAGER", "AUDITOR")
 
 
 class AuditEventRead(BaseModel):
@@ -31,7 +29,7 @@ class AuditEventRead(BaseModel):
     new_value: dict | None
 
 
-@router.get("", response_model=list[AuditEventRead], dependencies=[Depends(require_roles(*_AUDIT_READERS))])
+@router.get("", response_model=list[AuditEventRead], dependencies=[Depends(require_audit)])
 async def list_audit(
     session: AsyncSession = Depends(get_session),
     entity: str | None = Query(None),

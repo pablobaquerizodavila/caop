@@ -13,6 +13,7 @@ from app.models.organization import Organization
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
 from app.models.retention import RetentionLine, RetentionVoucher
 from app.models.role import Role, user_roles
+from app.models.role_privilege import RolePrivilege
 from app.models.settlement import Payment, Settlement, SettlementLine
 from app.models.shipment import CaseEvent, Container, CustomsCase, Shipment
 from app.models.sla import SLAInstance
@@ -54,6 +55,7 @@ __all__ = [
     "RetentionLine",
     "RetentionVoucher",
     "Role",
+    "RolePrivilege",
     "Settlement",
     "SettlementLine",
     "Shipment",
