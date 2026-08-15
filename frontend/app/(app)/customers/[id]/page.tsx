@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import {
@@ -9,8 +10,10 @@ import {
   money,
   stateLabel,
 } from "@/app/lib/api";
+import { capsFromRoles, parseRolesCookie } from "@/app/lib/rbac";
 import { CustomerCrmPanels } from "@/app/components/CustomerCrmPanels";
 import { CustomerDocuments } from "@/app/components/CustomerDocuments";
+import { DeleteCustomerButton } from "@/app/components/DeleteCustomerButton";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const consents = await apiGet<Consent[]>(`/customers/${params.id}/consents`);
   const docs = (await apiGet<CustomerDoc[]>(`/documents?customer_id=${params.id}`)) ?? [];
   const legalDocs = docs.filter((d) => d.doc_type === "RUC" || d.doc_type === "APPOINTMENT");
+  const caps = capsFromRoles(parseRolesCookie(cookies().get("caop_roles")?.value));
 
   if (!h) {
     return (
@@ -82,6 +86,13 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         </div>
         <div className="head" style={{ marginTop: 14 }}><h3>Documentos legales</h3></div>
         <CustomerDocuments docs={legalDocs} />
+
+        {caps.canAdmin ? (
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+            <div className="eyebrow" style={{ color: "var(--muted-2)", marginBottom: 8 }}>Zona de riesgo</div>
+            <DeleteCustomerButton customerId={params.id} />
+          </div>
+        ) : null}
       </div>
 
       <div className="section-gap">

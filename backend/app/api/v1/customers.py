@@ -4,11 +4,13 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.customer import ConsentRecord, Contact, Customer
+from app.models.document import Document
+from app.models.notification import Notification
 from app.models.quote import Quote
 from app.models.shipment import CustomsCase, Shipment
 from app.schemas.customer import (
@@ -167,6 +169,67 @@ async def update_customer(
     await session.flush()
     await session.refresh(customer)
     return customer
+
+
+@router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_customer(
+    customer_id: uuid.UUID,
+    cascade: bool = Query(
+        False,
+        description="Si es true, borra también expedientes, cotizaciones, documentos y "
+        "notificaciones del cliente. Si es false y hay historial, responde 409.",
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Elimina un cliente. Por defecto protege el historial: si el cliente tiene
+    expedientes, cotizaciones o documentos, responde 409 con el detalle; el borrado
+    en cascada solo ocurre con `?cascade=true` (confirmación explícita)."""
+    customer = await _get_customer_or_404(session, customer_id)
+
+    n_ship = await session.scalar(
+        select(func.count()).select_from(Shipment).where(Shipment.customer_id == customer_id)
+    )
+    n_quotes = await session.scalar(
+        select(func.count()).select_from(Quote).where(Quote.customer_id == customer_id)
+    )
+    n_docs = await session.scalar(
+        select(func.count()).select_from(Document).where(Document.customer_id == customer_id)
+    )
+
+    if (n_ship or n_quotes or n_docs) and not cascade:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=(
+                f"El cliente tiene {n_ship} expediente(s), {n_quotes} cotización(es) y "
+                f"{n_docs} documento(s). Confirma para borrarlos en cascada."
+            ),
+        )
+
+    if cascade:
+        # Orden seguro respecto a las FKs sin ON DELETE CASCADE.
+        case_ids = list(
+            await session.scalars(
+                select(CustomsCase.id)
+                .join(Shipment, CustomsCase.shipment_id == Shipment.id)
+                .where(Shipment.customer_id == customer_id)
+            )
+        )
+        # 1) notificaciones (del cliente o de sus expedientes) — bloquean cases y cliente.
+        notif_cond = [Notification.customer_id == customer_id]
+        if case_ids:
+            notif_cond.append(Notification.customs_case_id.in_(case_ids))
+        await session.execute(delete(Notification).where(or_(*notif_cond)))
+        # 2) expedientes vía shipment (cascada DB -> customs_case y sus hijos).
+        await session.execute(delete(Shipment).where(Shipment.customer_id == customer_id))
+        # 3) cotizaciones (cascada DB -> ítems, costos, historial, certificados).
+        await session.execute(delete(Quote).where(Quote.customer_id == customer_id))
+        # 4) documentos (cascada DB -> versiones y extracciones). Los checklist_item
+        #    que los referencian ya se fueron con los expedientes.
+        await session.execute(delete(Document).where(Document.customer_id == customer_id))
+
+    # 5) el cliente (cascada DB -> contactos y consentimientos).
+    await session.delete(customer)
+    await session.flush()
 
 
 @router.post(

@@ -57,6 +57,48 @@ async def test_natural_person_defaults(client):
 
 
 @pytest.mark.asyncio
+async def test_delete_customer_without_history(client):
+    cid = (await client.post(
+        "/api/v1/customers", json={"ruc": VALID_RUC, "legal_name": "Borrable"}
+    )).json()["id"]
+    r = await client.delete(f"/api/v1/customers/{cid}")
+    assert r.status_code == 204, r.text
+    assert (await client.get(f"/api/v1/customers/{cid}")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_customer_with_history_blocks_then_cascades(client):
+    cid = (await client.post(
+        "/api/v1/customers", json={"ruc": VALID_RUC, "legal_name": "Con Historial"}
+    )).json()["id"]
+    # Cotización aceptada -> crea expediente asociado.
+    q = {"customer_id": cid, "transport_mode": "OCEAN", "calculation_date": "2026-01-01",
+         "items": [{"quantity": "1", "unit_price": "100"}],
+         "cost_lines": [{"category": "FEE", "estimated_amount": "50"}]}
+    qid = (await client.post("/api/v1/quotes", json=q)).json()["id"]
+    await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "SENT"})
+    await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "ACCEPTED"})
+
+    # Sin cascade: protegido (409).
+    blocked = await client.delete(f"/api/v1/customers/{cid}")
+    assert blocked.status_code == 409
+    assert (await client.get(f"/api/v1/customers/{cid}")).status_code == 200
+
+    # Con cascade: elimina cliente + expediente + cotización.
+    ok = await client.delete(f"/api/v1/customers/{cid}?cascade=true")
+    assert ok.status_code == 204, ok.text
+    assert (await client.get(f"/api/v1/customers/{cid}")).status_code == 404
+    assert (await client.get(f"/api/v1/quotes/{qid}")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_unknown_customer_404(client):
+    import uuid
+    r = await client.delete(f"/api/v1/customers/{uuid.uuid4()}")
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_reject_invalid_ruc(client):
     resp = await client.post(
         "/api/v1/customers", json={"ruc": "1712345670001", "legal_name": "X"}

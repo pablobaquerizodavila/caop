@@ -90,6 +90,29 @@ export async function createCustomer(payload: unknown): Promise<Result> {
   return r;
 }
 
+/** Elimina un cliente. Sin cascade, el backend responde 409 si hay historial. */
+export async function deleteCustomer(
+  customerId: string,
+  cascade = false,
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  const qs = cascade ? "?cascade=true" : "";
+  const res = await fetch(`${API}/api/v1/customers/${customerId}${qs}`, {
+    method: "DELETE",
+    headers: authHeader(),
+    cache: "no-store",
+  });
+  revalidatePath("/customers");
+  if (res.ok) return { ok: true };
+  let error = `Error ${res.status}`;
+  try {
+    const body = await res.json();
+    if (typeof body.detail === "string") error = body.detail;
+  } catch {
+    /* ignore */
+  }
+  return { ok: false, status: res.status, error };
+}
+
 /** Sube un documento (PDF/imagen) ligado a un cliente (p. ej. RUC, Nombramiento). */
 export async function uploadCustomerDocument(
   customerId: string,
