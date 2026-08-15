@@ -59,3 +59,33 @@ class TariffPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
     legal_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CertificateOfOrigin(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Certificado/prueba de origen. Habilita el escenario preferencial 'aplicable'
+    (frente a 'potencial') cuando está VALIDADO y vigente."""
+
+    __tablename__ = "certificate_of_origin"
+
+    quote_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("quote.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    customs_case_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("customs_case.id", ondelete="CASCADE"), nullable=True
+    )
+    agreement_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("trade_agreement.id"), nullable=True
+    )
+    cert_type: Mapped[str] = mapped_column(String(32), nullable=False, default="ORIGEN")
+    number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    issuing_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    organism: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    issue_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    evidence_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # PENDING / VALID / REJECTED
+    validation_status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def is_valid_on(self, on: date) -> bool:
+        return self.validation_status == "VALID" and (self.valid_until is None or self.valid_until >= on)

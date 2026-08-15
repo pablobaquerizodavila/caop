@@ -63,7 +63,7 @@ export default async function QuotesPage() {
                 {quotes.map((q) => (
                   <tr key={q.id}>
                     <td className="code">
-                      {q.quote_number}
+                      <Link href={`/quotes/${q.id}`} className="code">{q.quote_number}</Link>
                       <span style={{ color: "var(--muted-2)" }}> v{q.version}</span>
                     </td>
                     <td>

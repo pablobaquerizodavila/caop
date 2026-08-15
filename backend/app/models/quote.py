@@ -112,6 +112,8 @@ class QuoteItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tax_complete: Mapped[bool] = mapped_column(Boolean, default=True)
     tax_warnings: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
     tax_data_version: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    # S50 2B-2: escenario preferencial por ítem (acuerdo, %pref, tributos, ahorro, certificado)
+    preference: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
     quote: Mapped[Quote] = relationship(back_populates="items")
 

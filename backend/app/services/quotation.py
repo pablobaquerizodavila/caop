@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.quote import Quote
+from app.models.trade import CertificateOfOrigin
 from app.services.tariff_resolver import resolve_items
 from app.services.tax_engine import TaxItemInput
 
@@ -38,6 +40,20 @@ async def recompute_quote(session: AsyncSession, quote: Quote) -> Quote:
         for it in quote.items
     ]
     resolved = await resolve_items(session, inputs, quote.calculation_date)
+
+    # Certificados de origen VÁLIDOS y vigentes de esta cotización → habilitan la
+    # preferencia como 'aplicable' (frente a 'potencial'). Se cruza por país emisor.
+    valid_origins: set[str] = set()
+    if quote.id is not None:
+        certs = await session.scalars(
+            select(CertificateOfOrigin).where(
+                CertificateOfOrigin.quote_id == quote.id,
+                CertificateOfOrigin.validation_status == "VALID",
+            )
+        )
+        for c in certs:
+            if c.issuing_country and (c.valid_until is None or c.valid_until >= quote.calculation_date):
+                valid_origins.add(c.issuing_country)
 
     total_units = Decimal(0)
     total_cif = Decimal(0)
@@ -78,6 +94,21 @@ async def recompute_quote(session: AsyncSession, quote: Quote) -> Quote:
             any_preliminary = True
         if not res.complete:
             any_incomplete = True
+
+        if ri.preference is not None:
+            pf = ri.preference
+            it.preference = {
+                "agreement_code": pf.agreement_code,
+                "agreement_name": pf.agreement_name,
+                "preferential_adval_pct": float(pf.preferential_adval_pct),
+                "preferential_taxes": float(pf.result.total_taxes),
+                "savings": float(pf.savings),
+                "requires_certificate": pf.requires_certificate,
+                "certificate_present": (it.origin_country in valid_origins) if it.origin_country else False,
+                "verified": pf.verified,
+            }
+        else:
+            it.preference = None
 
     included = [cl for cl in quote.cost_lines if cl.is_included]
     customer_price = sum((Decimal(cl.quoted_amount or 0) for cl in included), Decimal(0))

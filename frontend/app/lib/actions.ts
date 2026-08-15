@@ -958,6 +958,40 @@ export async function tariffHistory(hsCode: string): Promise<unknown[]> {
   return (await res.json()) as unknown[];
 }
 
+// ---------- Certificados de origen (por cotización) ----------
+export async function addCertificate(quoteId: string, data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/quotes/${quoteId}/certificates`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath(`/quotes/${quoteId}`);
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function validateCertificate(
+  quoteId: string, certId: string, validation_status: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/quotes/${quoteId}/certificates/${certId}`, {
+    method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ validation_status }), cache: "no-store",
+  });
+  revalidatePath(`/quotes/${quoteId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
+export async function deleteCertificate(quoteId: string, certId: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/quotes/${quoteId}/certificates/${certId}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath(`/quotes/${quoteId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Arancel: preferencias / acuerdos ----------
 export async function seedAgreements(): Promise<{ ok: boolean; agreements?: number; error?: string }> {
   const res = await fetch(`${API}/api/v1/tariff/seed-agreements`, {

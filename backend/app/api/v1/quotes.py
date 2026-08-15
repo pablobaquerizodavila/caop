@@ -13,7 +13,9 @@ from app.db.session import get_session
 from app.models.customer import Customer
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
 from app.models.shipment import CustomsCase, Shipment
+from app.models.trade import CertificateOfOrigin
 from app.schemas.case import CustomsCaseRead
+from app.schemas.trade import CertificateCreate, CertificateRead, CertificateValidate
 from app.schemas.quote import (
     LinkCustomer,
     LinkResult,
@@ -362,3 +364,64 @@ async def revise_quote(quote_id: uuid.UUID, session: AsyncSession = Depends(get_
     await session.flush()
     await session.refresh(new, attribute_names=["items", "cost_lines", "status_history"])
     return new
+
+
+# ---------- Certificados de origen ----------
+async def _recompute_quote(session: AsyncSession, quote_id: uuid.UUID) -> None:
+    quote = await _load(session, quote_id)
+    await recompute_quote(session, quote)
+    await session.flush()
+
+
+@router.get("/{quote_id}/certificates", response_model=list[CertificateRead])
+async def list_certificates(
+    quote_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> list[CertificateOfOrigin]:
+    return list(await session.scalars(
+        select(CertificateOfOrigin).where(CertificateOfOrigin.quote_id == quote_id)
+        .order_by(CertificateOfOrigin.created_at.desc())
+    ))
+
+
+@router.post("/{quote_id}/certificates", response_model=CertificateRead, status_code=201)
+async def add_certificate(
+    quote_id: uuid.UUID, payload: CertificateCreate, session: AsyncSession = Depends(get_session)
+) -> CertificateOfOrigin:
+    await _load(session, quote_id)
+    data = payload.model_dump()
+    if data.get("issuing_country"):
+        data["issuing_country"] = data["issuing_country"].upper()
+    cert = CertificateOfOrigin(quote_id=quote_id, **data)
+    session.add(cert)
+    await session.flush()
+    await _recompute_quote(session, quote_id)  # por si nace VALID en el futuro (hoy PENDING)
+    await session.refresh(cert)
+    return cert
+
+
+@router.patch("/{quote_id}/certificates/{cert_id}", response_model=CertificateRead)
+async def validate_certificate(
+    quote_id: uuid.UUID, cert_id: uuid.UUID, payload: CertificateValidate,
+    session: AsyncSession = Depends(get_session),
+) -> CertificateOfOrigin:
+    cert = await session.get(CertificateOfOrigin, cert_id)
+    if cert is None or cert.quote_id != quote_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificado no encontrado")
+    cert.validation_status = payload.validation_status
+    if payload.notes is not None:
+        cert.notes = payload.notes
+    await session.flush()
+    await _recompute_quote(session, quote_id)  # actualiza 'certificate_present' de la preferencia
+    await session.refresh(cert)
+    return cert
+
+
+@router.delete("/{quote_id}/certificates/{cert_id}", status_code=204)
+async def delete_certificate(
+    quote_id: uuid.UUID, cert_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> None:
+    cert = await session.get(CertificateOfOrigin, cert_id)
+    if cert is not None and cert.quote_id == quote_id:
+        await session.delete(cert)
+        await session.flush()
+        await _recompute_quote(session, quote_id)

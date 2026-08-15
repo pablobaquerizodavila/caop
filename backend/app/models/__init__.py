@@ -27,7 +27,12 @@ from app.models.tariff import (
     TariffVersion,
 )
 from app.models.tax import TaxRule
-from app.models.trade import Country, TariffPreference, TradeAgreement
+from app.models.trade import (
+    CertificateOfOrigin,
+    Country,
+    TariffPreference,
+    TradeAgreement,
+)
 from app.models.user import User
 from app.models.vue import VuePermit, VueRule
 from app.models.warehouse import WarehouseStorage
@@ -38,6 +43,7 @@ __all__ = [
     "AuditEvent",
     "BusinessCalendar",
     "CaseEvent",
+    "CertificateOfOrigin",
     "ChecklistItem",
     "ConsentRecord",
     "Container",

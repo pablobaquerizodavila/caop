@@ -84,6 +84,12 @@ class QuoteItemRead(BaseModel):
     cif_value: Decimal
     taxes_total: Decimal
     tax_breakdown: list | None
+    hs_validation: str = "UNKNOWN"
+    tax_complete: bool = True
+    tax_warnings: list | None = None
+    tax_data_version: str | None = None
+    preference: dict | None = None
+    origin_country: str | None = None
 
 
 class CostLineReadInternal(BaseModel):

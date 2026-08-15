@@ -279,3 +279,38 @@ async def test_api_calculate_with_preference(client, db_sessionmaker):
     assert pref is not None
     assert pref["agreement_code"] == "CAN"
     assert pref["savings"] > 0
+
+
+@pytest.mark.asyncio
+async def test_quote_preference_and_certificate(db_sessionmaker):
+    from app.models.quote import Quote, QuoteItem
+    from app.models.trade import CertificateOfOrigin
+    from app.services.quotation import recompute_quote
+
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        await _seed_agreements(s)
+        await s.commit()
+    async with db_sessionmaker() as s:
+        q = Quote(quote_number="Q-1", currency="USD", calculation_date=date.today(),
+                  origin_country="CO")
+        q.items = [QuoteItem(
+            line_no=1, description="Laptop", hs_code="8471.30.00.00", origin_country="CO",
+            quantity=Decimal(1), unit_price=Decimal(1000), line_value=Decimal(1000),
+        )]
+        q.cost_lines = []
+        q.status_history = []
+        s.add(q)
+        await s.flush()
+        await recompute_quote(s, q)
+        await s.flush()
+        it = q.items[0]
+        assert it.preference is not None
+        assert it.preference["agreement_code"] == "CAN"
+        assert it.preference["certificate_present"] is False  # aún sin certificado → potencial
+
+        s.add(CertificateOfOrigin(quote_id=q.id, issuing_country="CO", validation_status="VALID"))
+        await s.flush()
+        await recompute_quote(s, q)
+        await s.flush()
+        assert q.items[0].preference["certificate_present"] is True  # certificado válido → aplicable

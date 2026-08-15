@@ -140,6 +140,40 @@ def build_quote_pdf(quote: Quote) -> bytes:
     elems.append(stbl)
     elems.append(Spacer(1, 8))
 
+    # Escenario con preferencia arancelaria (si aplica a algún ítem)
+    prefs = [it for it in quote.items if getattr(it, "preference", None)]
+    if prefs:
+        total_pref = sum(float(it.preference.get("preferential_taxes", 0)) for it in prefs)
+        total_normal_pref_items = sum(float(it.taxes_total or 0) for it in prefs)
+        savings = total_normal_pref_items - total_pref
+        agreements = sorted({it.preference.get("agreement_code", "") for it in prefs})
+        applied = all(it.preference.get("certificate_present") for it in prefs)
+        estado = "APLICABLE (certificado presentado)" if applied else "POTENCIAL (requiere certificado de origen)"
+        prows = [
+            ["ESCENARIO CON PREFERENCIA", ""],
+            [f"Acuerdo(s): {', '.join(a for a in agreements if a)}", ""],
+            ["Tributos con preferencia", _money(cur, total_pref)],
+            ["Ahorro estimado", _money(cur, savings)],
+            ["Estado", estado],
+        ]
+        ptbl = Table(prows, colWidths=[95 * mm, 60 * mm])
+        ptbl.setStyle(TableStyle([
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 2), (1, 3), "RIGHT"),
+            ("SPAN", (0, 0), (1, 0)),
+            ("SPAN", (0, 1), (1, 1)),
+            ("SPAN", (0, 4), (1, 4)),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, 0), (-1, 0), ACCENT),
+        ]))
+        elems.append(ptbl)
+        elems.append(Paragraph(
+            "El escenario con preferencia es una estimación sujeta al cumplimiento de las "
+            "reglas de origen del acuerdo y a la presentación de un certificado de origen válido.",
+            small,
+        ))
+        elems.append(Spacer(1, 8))
+
     # Exclusiones
     excluded = [c for c in quote.cost_lines if not c.is_included]
     if excluded:
