@@ -183,9 +183,27 @@ export interface CustomerRecord {
   ruc: string;
   legal_name: string;
   trade_name: string | null;
+  entity_type?: string;
+  address?: string | null;
+  legal_rep_name?: string | null;
+  legal_rep_id?: string | null;
   email: string | null;
   status: string;
   contacts: Contact[];
+}
+
+export interface CustomerDocVersion {
+  id: string;
+  version: number;
+  filename: string;
+  content_type: string | null;
+  created_at: string;
+}
+
+export interface CustomerDoc {
+  id: string;
+  doc_type: string;
+  versions: CustomerDocVersion[];
 }
 
 export interface Consent {

@@ -19,7 +19,12 @@ class Customer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ruc: Mapped[str] = mapped_column(String(13), nullable=False, index=True)
     legal_name: Mapped[str] = mapped_column(String(255), nullable=False)
     trade_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # NATURAL (persona natural) | COMPANY (sociedad/empresa)
+    entity_type: Mapped[str] = mapped_column(String(16), default="NATURAL", nullable=False)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Representante legal (solo aplica a empresas).
+    legal_rep_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    legal_rep_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     billing_data: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="LEAD", nullable=False)

@@ -3,9 +3,11 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from app.services.ruc import RUCValidationError, validate_ruc
+
+ENTITY_TYPES = {"NATURAL", "COMPANY"}
 
 
 class ContactBase(BaseModel):
@@ -30,7 +32,10 @@ class CustomerBase(BaseModel):
     ruc: str
     legal_name: str
     trade_name: str | None = None
+    entity_type: str = "NATURAL"
     address: str | None = None
+    legal_rep_name: str | None = None
+    legal_rep_id: str | None = None
     email: EmailStr | None = None
     billing_data: dict | None = None
     notification_prefs: dict | None = None
@@ -43,6 +48,20 @@ class CustomerBase(BaseModel):
         except RUCValidationError as exc:
             raise ValueError(str(exc)) from exc
 
+    @field_validator("entity_type")
+    @classmethod
+    def _validate_entity_type(cls, v: str) -> str:
+        v = (v or "NATURAL").upper()
+        if v not in ENTITY_TYPES:
+            raise ValueError(f"entity_type inválido: {v}. Use uno de {sorted(ENTITY_TYPES)}")
+        return v
+
+    @model_validator(mode="after")
+    def _require_legal_rep_for_company(self) -> "CustomerBase":
+        if self.entity_type == "COMPANY" and not (self.legal_rep_name or "").strip():
+            raise ValueError("Una empresa requiere el nombre del representante legal")
+        return self
+
 
 class CustomerCreate(CustomerBase):
     status: str = "LEAD"
@@ -52,11 +71,24 @@ class CustomerCreate(CustomerBase):
 class CustomerUpdate(BaseModel):
     legal_name: str | None = None
     trade_name: str | None = None
+    entity_type: str | None = None
     address: str | None = None
+    legal_rep_name: str | None = None
+    legal_rep_id: str | None = None
     email: EmailStr | None = None
     billing_data: dict | None = None
     notification_prefs: dict | None = None
     status: str | None = None
+
+    @field_validator("entity_type")
+    @classmethod
+    def _validate_entity_type(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.upper()
+        if v not in ENTITY_TYPES:
+            raise ValueError(f"entity_type inválido: {v}")
+        return v
 
 
 class CustomerRead(CustomerBase):

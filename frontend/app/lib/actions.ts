@@ -90,6 +90,28 @@ export async function createCustomer(payload: unknown): Promise<Result> {
   return r;
 }
 
+/** Sube un documento (PDF/imagen) ligado a un cliente (p. ej. RUC, Nombramiento). */
+export async function uploadCustomerDocument(
+  customerId: string,
+  docType: string,
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
+  const file = formData.get("file");
+  if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
+  const fd = new FormData();
+  fd.append("file", file, (file as File).name);
+  fd.append("customer_id", customerId);
+  fd.append("doc_type", docType);
+  const res = await fetch(`${API}/api/v1/documents`, {
+    method: "POST",
+    headers: authHeader(),
+    body: fd,
+    cache: "no-store",
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- CRM: contactos, consentimiento, proveedores ----------
 export async function addContact(customerId: string, data: unknown): Promise<Result> {
   const r = await postJson(`/customers/${customerId}/contacts`, data);

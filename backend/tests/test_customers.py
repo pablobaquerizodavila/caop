@@ -22,6 +22,41 @@ async def test_create_customer_with_contact(client):
 
 
 @pytest.mark.asyncio
+async def test_create_company_with_legal_rep_and_address(client):
+    payload = {
+        "ruc": VALID_RUC,
+        "legal_name": "Importadora Andina S.A.",
+        "entity_type": "COMPANY",
+        "address": "Av. Amazonas N34-45 y Pereira, Quito, Pichincha",
+        "legal_rep_name": "Juan Pérez",
+        "legal_rep_id": "1710000009",
+    }
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["entity_type"] == "COMPANY"
+    assert body["address"].startswith("Av. Amazonas")
+    assert body["legal_rep_name"] == "Juan Pérez"
+    assert body["legal_rep_id"] == "1710000009"
+
+
+@pytest.mark.asyncio
+async def test_company_requires_legal_rep(client):
+    payload = {"ruc": VALID_RUC, "legal_name": "Empresa Sin Rep", "entity_type": "COMPANY"}
+    resp = await client.post("/api/v1/customers", json=payload)
+    assert resp.status_code == 422  # empresa sin representante legal
+
+
+@pytest.mark.asyncio
+async def test_natural_person_defaults(client):
+    resp = await client.post(
+        "/api/v1/customers", json={"ruc": VALID_RUC, "legal_name": "Persona Natural"}
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["entity_type"] == "NATURAL"
+
+
+@pytest.mark.asyncio
 async def test_reject_invalid_ruc(client):
     resp = await client.post(
         "/api/v1/customers", json={"ruc": "1712345670001", "legal_name": "X"}

@@ -3,12 +3,14 @@ import Link from "next/link";
 import {
   apiGet,
   type Consent,
+  type CustomerDoc,
   type CustomerHistory,
   type CustomerRecord,
   money,
   stateLabel,
 } from "@/app/lib/api";
 import { CustomerCrmPanels } from "@/app/components/CustomerCrmPanels";
+import { CustomerDocuments } from "@/app/components/CustomerDocuments";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,8 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const h = await apiGet<CustomerHistory>(`/customers/${params.id}/history`);
   const record = await apiGet<CustomerRecord>(`/customers/${params.id}`);
   const consents = await apiGet<Consent[]>(`/customers/${params.id}/consents`);
+  const docs = (await apiGet<CustomerDoc[]>(`/documents?customer_id=${params.id}`)) ?? [];
+  const legalDocs = docs.filter((d) => d.doc_type === "RUC" || d.doc_type === "APPOINTMENT");
 
   if (!h) {
     return (
@@ -56,6 +60,28 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         <div className="kpi accent"><div className="k-label">Importaciones</div><div className="k-value">{h.stats.total_cases}</div></div>
         <div className="kpi ok"><div className="k-label">Listas para aduana</div><div className="k-value">{h.stats.ready_for_customs}</div></div>
         <div className="kpi"><div className="k-label">Cotizaciones</div><div className="k-value">{h.stats.total_quotes}</div></div>
+      </div>
+
+      <div className="card section-gap rise">
+        <div className="head"><h2>Datos generales</h2></div>
+        <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+          <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Tipo</span>
+            <div>{record?.entity_type === "COMPANY" ? "Empresa / sociedad" : "Persona natural"}</div></div>
+          <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>RUC</span>
+            <div className="mono">{c.ruc}</div></div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--muted)", fontSize: 12 }}>Dirección física</span>
+            <div>{record?.address || <span style={{ color: "var(--muted-2)" }}>— no registrada —</span>}</div></div>
+          {record?.entity_type === "COMPANY" ? (
+            <>
+              <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Representante legal</span>
+                <div>{record?.legal_rep_name || <span style={{ color: "var(--muted-2)" }}>— no registrado —</span>}</div></div>
+              <div className="field"><span style={{ color: "var(--muted)", fontSize: 12 }}>Cédula/RUC del representante</span>
+                <div className="mono">{record?.legal_rep_id || "—"}</div></div>
+            </>
+          ) : null}
+        </div>
+        <div className="head" style={{ marginTop: 14 }}><h3>Documentos legales</h3></div>
+        <CustomerDocuments docs={legalDocs} />
       </div>
 
       <div className="section-gap">
