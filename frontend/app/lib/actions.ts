@@ -1045,6 +1045,28 @@ export async function deleteTariffPreference(id: string): Promise<{ ok: boolean;
   return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
 }
 
+export async function createIceMeasure(data: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/ice-measures`, {
+    method: "POST", headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(data), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try { error = (await res.json()).detail ?? error; } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+export async function deleteIceMeasure(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/tariff/ice-measures/${id}`, {
+    method: "DELETE", headers: authHeader(), cache: "no-store",
+  });
+  revalidatePath("/tariff");
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 // ---------- Arancel: administración (import / publicar) ----------
 export async function importTariff(
   formData: FormData,

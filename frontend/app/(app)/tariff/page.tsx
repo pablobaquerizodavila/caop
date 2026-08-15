@@ -26,6 +26,7 @@ export default async function TariffPage() {
   const versions = caps.canAdmin ? (await apiGet<Version[]>("/tariff/versions")) ?? [] : [];
   const agreements = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/agreements")) ?? [] : [];
   const preferences = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/preferences")) ?? [] : [];
+  const iceMeasures = caps.canAdmin ? (await apiGet<unknown[]>("/tariff/ice-measures")) ?? [] : [];
 
   return (
     <>
@@ -64,6 +65,7 @@ export default async function TariffPage() {
           versions={versions}
           agreements={agreements as never[]}
           preferences={preferences as never[]}
+          iceMeasures={iceMeasures as never[]}
         />
       ) : null}
 

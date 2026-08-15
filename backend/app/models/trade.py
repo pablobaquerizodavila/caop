@@ -89,3 +89,29 @@ class CertificateOfOrigin(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     def is_valid_on(self, on: date) -> bool:
         return self.validation_status == "VALID" and (self.valid_until is None or self.valid_until >= on)
+
+
+class IceMeasure(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """ICE (Impuesto a los Consumos Especiales) por subpartida. 3 metodologías (LRTI):
+    específico (tarifa por unidad), ad valorem (% sobre base ex-aduana) o mixto.
+    Si una subpartida no tiene IceMeasure => NO sujeta a ICE (0, no 'faltante')."""
+
+    __tablename__ = "ice_measure"
+
+    hs_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)  # normalizado
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, default="AD_VALOREM")  # AD_VALOREM/SPECIFIC/MIXED
+    ad_valorem_pct: Mapped[Decimal | None] = mapped_column(Numeric(9, 4), nullable=True)
+    specific_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    # Unidad de la tarifa específica. UNIDAD => aplicable con la cantidad del ítem;
+    # otras (LITRO_ALCOHOL_PURO, GRAMO_AZUCAR, ...) requieren datos que el ítem no trae.
+    specific_unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    base_type: Mapped[str] = mapped_column(String(16), nullable=False, default="EX_ADUANA")  # EX_ADUANA/PVP/REFERENCIA
+    reference_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ACTIVE", index=True)
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNVERIFIED")
+    legal_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

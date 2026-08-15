@@ -31,6 +31,7 @@ from app.models.tax import TaxRule
 from app.models.trade import (
     CertificateOfOrigin,
     Country,
+    IceMeasure,
     TariffPreference,
     TradeAgreement,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "Document",
     "DocumentExtraction",
     "DocumentVersion",
+    "IceMeasure",
     "ElectronicInvoice",
     "Notification",
     "NotificationTemplate",

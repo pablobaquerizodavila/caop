@@ -36,7 +36,8 @@ async def _seed_general(session):
     ))
     session.add(TaxRule(
         tax_type="IVA", calculation_method="AD_VALOREM_PCT", percentage=Decimal("15"),
-        base_formula="CIF+AD_VALOREM+FODINFA", depends_on=["AD_VALOREM", "FODINFA"],
+        base_formula="CIF+AD_VALOREM+FODINFA+ICE+SAFEGUARD",
+        depends_on=["AD_VALOREM", "FODINFA", "ICE", "SAFEGUARD"],
         effective_from=date(2020, 1, 1), status="ACTIVE", version=1,
         verification_status="VERIFIED", verified_at=now, last_verified_at=now,
     ))
@@ -314,6 +315,53 @@ async def test_quote_preference_and_certificate(db_sessionmaker):
         await recompute_quote(s, q)
         await s.flush()
         assert q.items[0].preference["certificate_present"] is True  # certificado válido → aplicable
+
+
+@pytest.mark.asyncio
+async def test_ice_ad_valorem_chains_into_iva(db_sessionmaker):
+    from app.models.trade import IceMeasure
+    async with db_sessionmaker() as s:
+        await _ingest(s)  # 8471.30.00.00 Ad-Valorem 5%, FODINFA/IVA
+        s.add(IceMeasure(hs_prefix="847130", method="AD_VALOREM", ad_valorem_pct=Decimal("10"),
+                         base_type="EX_ADUANA", effective_from=date(2020, 1, 1),
+                         verification_status="VERIFIED"))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        comps = {c.tax_type: c.amount for c in ri.result.components}
+        assert comps.get("ICE") == Decimal("105.50")   # 10% de ex-aduana (1000+50+5)
+        assert comps.get("IVA") == Decimal("174.08")    # IVA sobre base que incluye ICE
+        assert ri.result.complete is True
+
+
+@pytest.mark.asyncio
+async def test_ice_not_subject(db_sessionmaker):
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        assert all(c.tax_type != "ICE" for c in ri.result.components)  # sin IceMeasure => no sujeto
+
+
+@pytest.mark.asyncio
+async def test_ice_insufficient_info(db_sessionmaker):
+    from app.models.trade import IceMeasure
+    async with db_sessionmaker() as s:
+        await _ingest(s)
+        s.add(IceMeasure(hs_prefix="847130", method="SPECIFIC", specific_rate=Decimal("10.41"),
+                         specific_unit="LITRO_ALCOHOL_PURO", effective_from=date(2020, 1, 1),
+                         verification_status="VERIFIED"))
+        await s.commit()
+    async with db_sessionmaker() as s:
+        ri = await resolve_item(
+            s, TaxItemInput(invoice_value=Decimal(1000), hs_code="8471.30.00.00"), date.today()
+        )
+        assert ri.result.complete is False
+        assert any("ICE_INFO_INSUFICIENTE" in w for w in ri.result.warnings)
 
 
 @pytest.mark.asyncio

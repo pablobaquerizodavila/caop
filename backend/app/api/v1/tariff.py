@@ -13,8 +13,10 @@ from app.core.security import require_admin
 from app.db.session import get_session
 from app.models.tariff import TariffCode, TariffImport, TariffVersion
 from app.models.tax import TaxRule
-from app.models.trade import Country, TariffPreference, TradeAgreement
+from app.models.trade import Country, IceMeasure, TariffPreference, TradeAgreement
 from app.schemas.tariff import (
+    IceMeasureCreate,
+    IceMeasureOut,
     PreferenceScenarioOut,
     SyncStatusOut,
     TariffCalcComponent,
@@ -413,3 +415,33 @@ async def delete_preference(pref_id: uuid.UUID, session: AsyncSession = Depends(
 async def list_countries(session: AsyncSession = Depends(get_session)) -> list[dict]:
     rows = await session.scalars(select(Country).where(Country.active).order_by(Country.name))
     return [{"iso2": c.iso2, "name": c.name} for c in rows]
+
+
+# ---------- ICE (Impuesto a los Consumos Especiales) ----------
+@router.get("/ice-measures", response_model=list[IceMeasureOut])
+async def list_ice(session: AsyncSession = Depends(get_session)) -> list[IceMeasure]:
+    return list(await session.scalars(
+        select(IceMeasure).order_by(IceMeasure.hs_prefix).limit(500)
+    ))
+
+
+@router.post("/ice-measures", response_model=IceMeasureOut, status_code=201,
+             dependencies=[Depends(require_admin)])
+async def create_ice(
+    payload: IceMeasureCreate, session: AsyncSession = Depends(get_session)
+) -> IceMeasure:
+    data = payload.model_dump()
+    data["hs_prefix"] = data["hs_prefix"].replace(".", "").strip()
+    m = IceMeasure(**data)
+    session.add(m)
+    await session.flush()
+    await session.refresh(m)
+    return m
+
+
+@router.delete("/ice-measures/{measure_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_ice(measure_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> None:
+    m = await session.get(IceMeasure, measure_id)
+    if m is not None:
+        await session.delete(m)
+        await session.flush()

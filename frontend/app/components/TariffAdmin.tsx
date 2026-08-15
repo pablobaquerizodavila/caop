@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  createIceMeasure,
   createTariffPreference,
+  deleteIceMeasure,
   deleteTariffPreference,
   importTariff,
   publishTariffVersion,
@@ -25,6 +27,11 @@ interface Preference {
   id: string; agreement_id: string; origin_country?: string | null; hs_prefix?: string | null;
   liberation_pct: string | number; requires_certificate: boolean; verification_status: string;
 }
+interface Ice {
+  id: string; hs_prefix: string; description?: string | null; method: string;
+  ad_valorem_pct?: string | number | null; specific_rate?: string | number | null;
+  specific_unit?: string | null; verification_status: string;
+}
 
 function statusPill(s: string): string {
   if (s === "ACTIVE") return "ok";
@@ -36,10 +43,12 @@ export function TariffAdmin({
   versions,
   agreements = [],
   preferences = [],
+  iceMeasures = [],
 }: {
   versions: Version[];
   agreements?: Agreement[];
   preferences?: Preference[];
+  iceMeasures?: Ice[];
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -92,6 +101,47 @@ export function TariffAdmin({
     setBusy(true);
     try {
       await deleteTariffPreference(id);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const [ni, setNi] = useState({
+    hs_prefix: "", description: "", method: "AD_VALOREM", ad_valorem_pct: "",
+    specific_rate: "", specific_unit: "UNIDAD", effective_from: "",
+  });
+
+  async function addIce() {
+    if (!ni.hs_prefix.trim() || !ni.effective_from) {
+      setMsg("Indica prefijo HS y fecha de vigencia para el ICE.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await createIceMeasure({
+        hs_prefix: ni.hs_prefix.trim(),
+        description: ni.description || null,
+        method: ni.method,
+        ad_valorem_pct: ni.ad_valorem_pct ? Number(ni.ad_valorem_pct) : null,
+        specific_rate: ni.specific_rate ? Number(ni.specific_rate) : null,
+        specific_unit: ni.specific_unit || null,
+        base_type: "EX_ADUANA",
+        effective_from: ni.effective_from,
+      });
+      if (!r.ok) setMsg(`Error: ${r.error}`);
+      else setNi({ ...ni, hs_prefix: "", description: "", ad_valorem_pct: "", specific_rate: "" });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeIce(id: string) {
+    if (!confirm("¿Eliminar esta medida de ICE?")) return;
+    setBusy(true);
+    try {
+      await deleteIceMeasure(id);
       router.refresh();
     } finally {
       setBusy(false);
@@ -272,6 +322,67 @@ export function TariffAdmin({
       ) : (
         <div className="empty">Siembra los acuerdos comerciales vigentes para empezar a cargar preferencias.</div>
       )}
+    </div>
+
+    <div className="card rise section-gap">
+      <div className="head"><h2>ICE (Impuesto a los Consumos Especiales)</h2>
+        <span className="count">{iceMeasures.length}</span>
+      </div>
+      <p style={{ color: "var(--muted)", fontSize: 12.5 }}>
+        Solo las subpartidas con una medida ICE se consideran sujetas. Métodos: ad valorem
+        (base ex-aduana), específico (por unidad) o mixto. Carga las tarifas del SRI.
+      </p>
+      <div className="form-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
+        <label className="field"><span>Prefijo HS</span>
+          <input value={ni.hs_prefix} placeholder="p. ej. 2203" onChange={(e) => setNi((p) => ({ ...p, hs_prefix: e.target.value }))} style={{ width: 110 }} />
+        </label>
+        <label className="field" style={{ minWidth: 150 }}><span>Descripción</span>
+          <input value={ni.description} onChange={(e) => setNi((p) => ({ ...p, description: e.target.value }))} />
+        </label>
+        <label className="field"><span>Método</span>
+          <select value={ni.method} onChange={(e) => setNi((p) => ({ ...p, method: e.target.value }))}>
+            <option value="AD_VALOREM">Ad valorem</option>
+            <option value="SPECIFIC">Específico</option>
+            <option value="MIXED">Mixto</option>
+          </select>
+        </label>
+        <label className="field"><span>% Ad valorem</span>
+          <input value={ni.ad_valorem_pct} onChange={(e) => setNi((p) => ({ ...p, ad_valorem_pct: e.target.value }))} style={{ width: 80 }} />
+        </label>
+        <label className="field"><span>Tarifa específica</span>
+          <input value={ni.specific_rate} onChange={(e) => setNi((p) => ({ ...p, specific_rate: e.target.value }))} style={{ width: 90 }} />
+        </label>
+        <label className="field"><span>Unidad</span>
+          <input value={ni.specific_unit} placeholder="UNIDAD" onChange={(e) => setNi((p) => ({ ...p, specific_unit: e.target.value }))} style={{ width: 120 }} />
+        </label>
+        <label className="field"><span>Vigente desde</span>
+          <input type="date" value={ni.effective_from} onChange={(e) => setNi((p) => ({ ...p, effective_from: e.target.value }))} />
+        </label>
+        <button className="btn" disabled={busy || !ni.hs_prefix.trim()} onClick={addIce}>Agregar ICE</button>
+      </div>
+
+      {iceMeasures.length ? (
+        <div style={{ marginTop: 14, overflowX: "auto" }}>
+          <table className="tbl" style={{ width: "100%" }}>
+            <thead><tr><th>Prefijo</th><th>Descripción</th><th>Método</th><th className="num">Ad val.</th>
+              <th className="num">Específico</th><th>Unidad</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              {iceMeasures.map((m) => (
+                <tr key={m.id}>
+                  <td className="mono">{m.hs_prefix}</td>
+                  <td style={{ fontSize: 12 }}>{m.description || "—"}</td>
+                  <td>{m.method}</td>
+                  <td className="num">{m.ad_valorem_pct != null ? `${m.ad_valorem_pct}%` : "—"}</td>
+                  <td className="num">{m.specific_rate != null ? String(m.specific_rate) : "—"}</td>
+                  <td style={{ fontSize: 11 }}>{m.specific_unit || "—"}</td>
+                  <td><span className={`pill ${m.verification_status === "VERIFIED" ? "ok" : "warn"}`}>{m.verification_status}</span></td>
+                  <td><button className="btn ghost" disabled={busy} onClick={() => removeIce(m.id)}>✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
     </>
   );

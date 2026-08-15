@@ -144,6 +144,37 @@ class TariffPreferenceCreate(BaseModel):
     legal_source: str | None = None
 
 
+class IceMeasureOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    hs_prefix: str
+    description: str | None = None
+    method: str
+    ad_valorem_pct: Decimal | None = None
+    specific_rate: Decimal | None = None
+    specific_unit: str | None = None
+    base_type: str
+    effective_from: date
+    effective_to: date | None = None
+    status: str
+    verification_status: str
+    legal_source: str | None = None
+
+
+class IceMeasureCreate(BaseModel):
+    hs_prefix: str
+    description: str | None = None
+    method: str = "AD_VALOREM"
+    ad_valorem_pct: Decimal | None = None
+    specific_rate: Decimal | None = None
+    specific_unit: str | None = None
+    base_type: str = "EX_ADUANA"
+    reference_price: Decimal | None = None
+    effective_from: date
+    effective_to: date | None = None
+    legal_source: str | None = None
+
+
 class TariffPreferenceUpdate(BaseModel):
     liberation_pct: Decimal | None = None
     preferential_rate: Decimal | None = None
