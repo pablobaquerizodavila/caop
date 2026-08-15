@@ -11,6 +11,7 @@ from app.models.einvoice import ElectronicInvoice
 from app.models.notification import Notification, NotificationTemplate
 from app.models.organization import Organization
 from app.models.quote import CostLine, Quote, QuoteItem, QuoteStatusHistory
+from app.models.reconciliation import TaxReconciliation
 from app.models.retention import RetentionLine, RetentionVoucher
 from app.models.role import Role, user_roles
 from app.models.role_privilege import RolePrivilege
@@ -83,6 +84,7 @@ __all__ = [
     "TariffImport",
     "TariffPreference",
     "TariffVersion",
+    "TaxReconciliation",
     "TaxRule",
     "TradeAgreement",
     "User",

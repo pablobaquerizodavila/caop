@@ -3,9 +3,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import Principal, get_current_principal
 from app.db.session import get_session
 from app.models.checklist import ChecklistItem, Requirement
 from app.models.quote import Quote
@@ -193,3 +195,39 @@ async def add_event(
     await session.flush()
     await session.refresh(event)
     return event
+
+
+# ---------- Reconciliación tributaria (estimado vs. liquidación SENAE) ----------
+class ReconciliationInput(BaseModel):
+    actual: dict[str, float]  # tax_type -> monto liquidado real
+    reason: str | None = None
+
+
+@router.get("/cases/{case_id}/reconciliation")
+async def get_case_reconciliation(
+    case_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> dict:
+    from app.services.reconciliation import get_reconciliation
+    case = await _load_case(session, case_id)
+    return await get_reconciliation(session, case)
+
+
+@router.put("/cases/{case_id}/reconciliation")
+async def set_case_reconciliation(
+    case_id: uuid.UUID,
+    payload: ReconciliationInput,
+    session: AsyncSession = Depends(get_session),
+    principal: Principal = Depends(get_current_principal),
+) -> dict:
+    from app.services.reconciliation import set_actual
+    case = await _load_case(session, case_id)
+    return await set_actual(
+        session, case, payload.actual, payload.reason,
+        principal.username or principal.subject,
+    )
+
+
+@router.get("/reconciliations/summary")
+async def reconciliation_summary(session: AsyncSession = Depends(get_session)) -> dict:
+    from app.services.reconciliation import summary
+    return await summary(session)
