@@ -67,6 +67,38 @@ async def test_create_quote_landed_cost(client):
 
 
 @pytest.mark.asyncio
+async def test_update_draft_adds_subpartida_and_recomputes(client):
+    await _setup_tax(client)
+    # Crea SIN subpartida -> incompleto, sin AD_VALOREM.
+    payload = _quote_payload()
+    payload["items"][0]["hs_code"] = None
+    created = (await client.post("/api/v1/quotes", json=payload)).json()
+    qid = created["id"]
+    assert created["items"][0]["tax_complete"] is False
+    types0 = {c["tax_type"] for c in created["items"][0]["tax_breakdown"]}
+    assert "AD_VALOREM" not in types0  # faltante ≠ 0%
+
+    # Edita agregando la subpartida -> recalcula con AD_VALOREM.
+    payload["items"][0]["hs_code"] = "8471.30.00"
+    r = await client.put(f"/api/v1/quotes/{qid}", json=payload)
+    assert r.status_code == 200, r.text
+    edited = r.json()
+    # El edit recomputa: ahora sí resuelve el AD_VALOREM de la subpartida.
+    types1 = {c["tax_type"] for c in edited["items"][0]["tax_breakdown"]}
+    assert {"AD_VALOREM", "FODINFA", "IVA"} <= types1
+    assert edited["items"][0]["hs_code"] == "8471.30.00"
+
+
+@pytest.mark.asyncio
+async def test_cannot_edit_non_draft(client):
+    await _setup_tax(client)
+    qid = (await client.post("/api/v1/quotes", json=_quote_payload())).json()["id"]
+    await client.post(f"/api/v1/quotes/{qid}/status", json={"status": "SENT"})
+    r = await client.put(f"/api/v1/quotes/{qid}", json=_quote_payload())
+    assert r.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_public_view_hides_margin(client):
     await _setup_tax(client)
     created = await client.post("/api/v1/quotes", json=_quote_payload())

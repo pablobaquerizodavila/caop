@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { generateQuotePdf, setQuoteStatus } from "@/app/lib/actions";
@@ -36,6 +37,11 @@ export function QuoteActions({ quoteId, status }: { quoteId: string; status: str
 
   return (
     <div className="actions">
+      {status === "DRAFT" ? (
+        <Link className="btn ghost" href={`/quotes/${quoteId}/edit`}>
+          Editar
+        </Link>
+      ) : null}
       {canSend ? (
         <button className="btn" disabled={busy} onClick={() => changeStatus("SENT")}>
           Enviar

@@ -82,6 +82,8 @@ class QuoteItemRead(BaseModel):
     unit: str | None
     unit_price: Decimal
     line_value: Decimal
+    freight_alloc: Decimal | None = None
+    insurance_alloc: Decimal | None = None
     cif_value: Decimal
     taxes_total: Decimal
     tax_breakdown: list | None

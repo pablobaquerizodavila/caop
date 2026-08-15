@@ -213,6 +213,28 @@ export async function createQuote(payload: unknown): Promise<Result> {
   return r;
 }
 
+/** Edita una cotización en DRAFT (reemplaza ítems/cabecera y recalcula). */
+export async function updateQuote(quoteId: string, payload: unknown): Promise<Result> {
+  const res = await fetch(`${API}/api/v1/quotes/${quoteId}`, {
+    method: "PUT",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${quoteId}`);
+  if (!res.ok) {
+    let error = `Error ${res.status}`;
+    try {
+      const b = await res.json();
+      if (typeof b.detail === "string") error = b.detail;
+    } catch { /* ignore */ }
+    return { ok: false, error };
+  }
+  const b = await res.json();
+  return { ok: true, id: b.id };
+}
+
 export async function updateTransport(caseId: string, data: unknown): Promise<Result> {
   const res = await fetch(`${API}/api/v1/cases/${caseId}/transport`, {
     method: "PATCH",

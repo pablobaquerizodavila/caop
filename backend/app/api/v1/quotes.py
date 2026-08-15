@@ -88,6 +88,53 @@ def _with_case(read: QuoteReadInternal, mapping: dict) -> QuoteReadInternal:
     return read
 
 
+def _items_from_payload(payload: QuoteCreate) -> list[QuoteItem]:
+    """Construye los ítems y prorratea flete/seguro. Compartido por crear/editar."""
+    tmp_items: list[QuoteItem] = []
+    for idx, it in enumerate(payload.items, start=1):
+        line_value = it.line_value if it.line_value is not None else (it.unit_price * it.quantity)
+        tmp_items.append(
+            QuoteItem(
+                line_no=idx,
+                description=it.description,
+                hs_code=it.hs_code,
+                hs_status=it.hs_status,
+                origin_country=it.origin_country or payload.origin_country,
+                commercial_agreement=it.commercial_agreement,
+                quantity=it.quantity,
+                unit=it.unit,
+                unit_price=it.unit_price,
+                line_value=line_value,
+                weight=it.weight,
+                freight_alloc=it.freight_alloc,
+                insurance_alloc=it.insurance_alloc,
+                attributes=it.attributes or None,
+            )
+        )
+    _allocate(tmp_items, payload.total_freight, payload.total_insurance)
+    return tmp_items
+
+
+def _cost_lines_from_payload(payload: QuoteCreate) -> list[CostLine]:
+    cost_lines: list[CostLine] = []
+    for cl in payload.cost_lines:
+        quoted = cl.quoted_amount
+        if quoted is None:
+            quoted = cl.estimated_amount * (Decimal(1) + cl.contingency_pct / Decimal(100))
+        cost_lines.append(
+            CostLine(
+                category=cl.category,
+                description=cl.description,
+                estimated_amount=cl.estimated_amount,
+                contingency_pct=cl.contingency_pct,
+                quoted_amount=quoted,
+                confidence=cl.confidence,
+                is_included=cl.is_included,
+            )
+        )
+    return cost_lines
+
+
 @router.post("", response_model=QuoteReadInternal, status_code=status.HTTP_201_CREATED)
 async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get_session)) -> Quote:
     calc_date = payload.calculation_date or date.today()
@@ -109,49 +156,11 @@ async def create_quote(payload: QuoteCreate, session: AsyncSession = Depends(get
         notes=payload.notes,
     )
 
-    # Ítems
-    tmp_items = []
-    for idx, it in enumerate(payload.items, start=1):
-        line_value = it.line_value if it.line_value is not None else (it.unit_price * it.quantity)
-        qi = QuoteItem(
-            line_no=idx,
-            description=it.description,
-            hs_code=it.hs_code,
-            hs_status=it.hs_status,
-            origin_country=it.origin_country or payload.origin_country,
-            commercial_agreement=it.commercial_agreement,
-            quantity=it.quantity,
-            unit=it.unit,
-            unit_price=it.unit_price,
-            line_value=line_value,
-            weight=it.weight,
-            freight_alloc=it.freight_alloc,
-            insurance_alloc=it.insurance_alloc,
-            attributes=it.attributes or None,
-        )
-        tmp_items.append(qi)
-    _allocate(tmp_items, payload.total_freight, payload.total_insurance)
-    quote.items = tmp_items
-
-    # Rubros de costo (asignar la lista completa: deja la colección "cargada"
-    # aun si viene vacía, evitando un lazy-load al recalcular).
-    cost_lines = []
-    for cl in payload.cost_lines:
-        quoted = cl.quoted_amount
-        if quoted is None:
-            quoted = cl.estimated_amount * (Decimal(1) + cl.contingency_pct / Decimal(100))
-        cost_lines.append(
-            CostLine(
-                category=cl.category,
-                description=cl.description,
-                estimated_amount=cl.estimated_amount,
-                contingency_pct=cl.contingency_pct,
-                quoted_amount=quoted,
-                confidence=cl.confidence,
-                is_included=cl.is_included,
-            )
-        )
-    quote.cost_lines = cost_lines
+    # Ítems (con prorrateo de flete/seguro) y rubros de costo.
+    quote.items = _items_from_payload(payload)
+    # Rubros de costo: asignar la lista completa deja la colección "cargada"
+    # aun si viene vacía, evitando un lazy-load al recalcular.
+    quote.cost_lines = _cost_lines_from_payload(payload)
 
     quote.status_history = [QuoteStatusHistory(status="DRAFT")]
     session.add(quote)
@@ -221,6 +230,39 @@ async def recompute(quote_id: uuid.UUID, session: AsyncSession = Depends(get_ses
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Solo se puede recalcular una cotización en DRAFT"
         )
+    await recompute_quote(session, quote)
+    await session.flush()
+    await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])
+    return quote
+
+
+@router.put("/{quote_id}", response_model=QuoteReadInternal)
+async def update_quote(
+    quote_id: uuid.UUID, payload: QuoteCreate, session: AsyncSession = Depends(get_session)
+) -> Quote:
+    """Edita una cotización en DRAFT: reemplaza cabecera, ítems y rubros, y recalcula."""
+    quote = await _load(session, quote_id)
+    if quote.status != "DRAFT":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Solo se puede editar una cotización en DRAFT"
+        )
+    quote.customer_id = payload.customer_id
+    quote.transport_mode = payload.transport_mode
+    quote.load_type = payload.load_type
+    quote.incoterm = payload.incoterm
+    quote.origin_country = payload.origin_country
+    quote.currency = payload.currency
+    quote.exchange_rate = payload.exchange_rate
+    quote.exchange_rate_date = payload.exchange_rate_date
+    if payload.calculation_date:
+        quote.calculation_date = payload.calculation_date
+    quote.expected_import_date = payload.expected_import_date
+    quote.valid_until = payload.valid_until
+    quote.notes = payload.notes
+    # Reemplaza ítems y rubros (cascade delete-orphan borra los anteriores).
+    quote.items = _items_from_payload(payload)
+    quote.cost_lines = _cost_lines_from_payload(payload)
+    await session.flush()
     await recompute_quote(session, quote)
     await session.flush()
     await session.refresh(quote, attribute_names=["items", "cost_lines", "status_history"])

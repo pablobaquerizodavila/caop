@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createQuote, extractPreview, type PreviewField } from "@/app/lib/actions";
+import { createQuote, extractPreview, updateQuote, type PreviewField } from "@/app/lib/actions";
 import type { PreviewLineItem } from "@/app/lib/actions";
 import { SubpartidaInput } from "@/app/components/SubpartidaInput";
 import type { CustomerSummary } from "@/app/lib/format";
@@ -20,30 +20,55 @@ interface Cost {
   estimated_amount: string;
 }
 
+export interface QuoteInitial {
+  header: {
+    customer_id: string;
+    transport_mode: string;
+    incoterm: string;
+    origin_country: string;
+    currency: string;
+    total_freight: string;
+    total_insurance: string;
+  };
+  items: Item[];
+  costs: Cost[];
+}
+
 const CATEGORIES = ["FEE", "FREIGHT", "INSURANCE", "PORT", "HANDLING", "TRANSPORT", "OTHER"];
 
-export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
+export function NewQuoteForm({
+  customers,
+  initial,
+  quoteId,
+}: {
+  customers: CustomerSummary[];
+  initial?: QuoteInitial;
+  quoteId?: string;
+}) {
   const router = useRouter();
+  const isEdit = Boolean(quoteId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrMsg, setOcrMsg] = useState<string | null>(null);
 
-  const [h, setH] = useState({
-    customer_id: "",
-    transport_mode: "OCEAN",
-    incoterm: "FOB",
-    origin_country: "",
-    currency: "USD",
-    total_freight: "",
-    total_insurance: "",
-  });
-  const [items, setItems] = useState<Item[]>([
-    { description: "", hs_code: "", quantity: "1", unit_price: "0" },
-  ]);
-  const [costs, setCosts] = useState<Cost[]>([
-    { category: "FEE", description: "Honorarios de despacho", estimated_amount: "0" },
-  ]);
+  const [h, setH] = useState(
+    initial?.header ?? {
+      customer_id: "",
+      transport_mode: "OCEAN",
+      incoterm: "FOB",
+      origin_country: "",
+      currency: "USD",
+      total_freight: "",
+      total_insurance: "",
+    },
+  );
+  const [items, setItems] = useState<Item[]>(
+    initial?.items?.length ? initial.items : [{ description: "", hs_code: "", quantity: "1", unit_price: "0" }],
+  );
+  const [costs, setCosts] = useState<Cost[]>(
+    initial?.costs?.length ? initial.costs : [{ category: "FEE", description: "Honorarios de despacho", estimated_amount: "0" }],
+  );
 
   const setHeader = (k: string, v: string) => setH((p) => ({ ...p, [k]: v }));
 
@@ -144,10 +169,14 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
         estimated_amount: c.estimated_amount || "0",
       })),
     };
-    const res = await createQuote(payload);
+    const res = isEdit ? await updateQuote(quoteId!, payload) : await createQuote(payload);
     setBusy(false);
-    if (res.ok) router.push("/quotes");
-    else setError(res.error ?? "No se pudo crear la cotización");
+    if (res.ok) {
+      router.push(isEdit ? `/quotes/${quoteId}` : "/quotes");
+      router.refresh();
+    } else {
+      setError(res.error ?? (isEdit ? "No se pudo guardar la cotización" : "No se pudo crear la cotización"));
+    }
   }
 
   return (
@@ -271,7 +300,7 @@ export function NewQuoteForm({ customers }: { customers: CustomerSummary[] }) {
 
       <div style={{ marginTop: 8 }}>
         <button className="btn" type="submit" disabled={busy}>
-          {busy ? "Calculando…" : "Crear cotización"}
+          {busy ? "Calculando…" : isEdit ? "Guardar cambios" : "Crear cotización"}
         </button>
       </div>
     </form>
