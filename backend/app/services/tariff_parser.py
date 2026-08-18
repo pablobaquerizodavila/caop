@@ -114,6 +114,31 @@ def _split_columns(tokens: list[tuple[float, str]]) -> tuple[str, str, str, str,
     )
 
 
+# Limpieza de descripciones extraídas del PDF (encabezados de página colados,
+# puntos suspensivos de índice, espaciado tras puntuación). No resuelve el pegado
+# genuino todo-minúsculas del origen (requeriría diccionario).
+_DESC_HEADER = re.compile(
+    r"\s*\d{0,4}\s*(?:Tarifa\s+Arancelaria|Arancel\s+del\s+Ecuador)\s*\d{0,4}", re.I
+)
+_DESC_DOTLEAD = re.compile(r"\s*\.{2,}\s*")
+_DESC_PUNCT_SP = re.compile(
+    r"([A-Za-zÁÉÍÓÚÑáéíóúñ0-9])([,;:])(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])"
+)
+
+
+def clean_description(s: str | None) -> str | None:
+    """Normaliza una descripción del arancel: quita encabezados de página, puntos
+    de índice y añade espacio tras comas/puntos y coma pegados. Conserva el texto
+    si al limpiar quedara vacío."""
+    if not s:
+        return s
+    t = _DESC_HEADER.sub(" ", s)
+    t = _DESC_DOTLEAD.sub(" ", t)
+    t = _DESC_PUNCT_SP.sub(r"\1\2 ", t)
+    t = re.sub(r"\s{2,}", " ", t).strip(" .,;:-\t")
+    return t or s
+
+
 def _parse_lines(pdf) -> list[tuple[str, str, str, str, str]]:
     """Devuelve tuplas (code, desc, uf, tar, obs) por línea visual del PDF."""
     from collections import defaultdict
@@ -173,6 +198,10 @@ def parse_arancel_pdf(path: str) -> list[TariffRecord]:
 
     records = _dedup(records)
     _link_hierarchy(records)
+    # Limpieza final de descripciones (encabezados, puntos de índice, puntuación).
+    for r in records:
+        r.description = clean_description(r.description) or r.description
+        r.full_description = clean_description(r.full_description)
     return records
 
 

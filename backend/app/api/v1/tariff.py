@@ -514,6 +514,14 @@ async def seed_countries_iso(session: AsyncSession = Depends(get_session)) -> di
     return await _seed_iso(session)
 
 
+@router.post("/clean-descriptions", dependencies=[Depends(require_admin)])
+async def clean_descriptions(session: AsyncSession = Depends(get_session)) -> dict:
+    """Limpia in situ las descripciones del arancel (encabezados, puntos, puntuación)."""
+    from app.services.tariff_clean import clean_existing_descriptions
+
+    return await clean_existing_descriptions(session)
+
+
 # ---------- ICE (Impuesto a los Consumos Especiales) ----------
 @router.get("/ice-measures", response_model=list[IceMeasureOut])
 async def list_ice(session: AsyncSession = Depends(get_session)) -> list[IceMeasure]:
