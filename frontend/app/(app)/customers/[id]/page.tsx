@@ -174,8 +174,11 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               </thead>
               <tbody>
                 {h.quotes.map((q) => (
-                  <tr key={q.id}>
-                    <td className="code">{q.quote_number}<span style={{ color: "var(--muted-2)" }}> v{q.version}</span></td>
+                  <tr key={q.id} className="row">
+                    <td>
+                      <Link href={`/quotes/${q.id}`} className="code">{q.quote_number}</Link>
+                      <span style={{ color: "var(--muted-2)" }}> v{q.version}</span>
+                    </td>
                     <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{q.case_number ?? "—"}</td>
                     <td><span className="pill">{q.status}</span></td>
                     <td className="num">{money(q.landed_cost_total, q.currency)}</td>
