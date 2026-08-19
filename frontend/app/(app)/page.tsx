@@ -18,6 +18,18 @@ import { SendDigestButton } from "@/app/components/SendDigestButton";
 
 export const dynamic = "force-dynamic";
 
+interface ExpiringDoc {
+  customer_id: string;
+  customer_name: string;
+  doc_type: string;
+  expiry_date: string;
+  days_left: number;
+  status: string;
+}
+const DOC_LABEL: Record<string, string> = {
+  RUC: "RUC", CEDULA: "Cédula", APPOINTMENT: "Nombramiento",
+};
+
 export default async function ControlTower() {
   const cases = (await apiGet<CaseSummary[]>("/cases?limit=200")) ?? null;
   const slas = (await apiGet<SlaRisk[]>("/sla?limit=500")) ?? [];
@@ -25,6 +37,7 @@ export default async function ControlTower() {
   const storage = (await apiGet<AtRiskStorage[]>("/warehouse/at-risk")) ?? [];
   const receivables = await apiGet<Receivables>("/analytics/receivables");
   const overdue = (receivables?.items ?? []).filter((r) => r.days_overdue > 0);
+  const expiringDocs = (await apiGet<ExpiringDoc[]>("/alerts/expiring-documents?within_days=45")) ?? [];
 
   if (cases === null) {
     return (
@@ -213,6 +226,34 @@ export default async function ControlTower() {
           </div>
         </div>
       ) : null}
+
+      <div className="card section-gap rise">
+        <div className="head">
+          <h2>Documentos por vencer</h2>
+          <span className="count">{expiringDocs.length}</span>
+        </div>
+        {expiringDocs.length === 0 ? (
+          <div className="empty">Ningún documento de cliente vencido o por vencer (45 días). 🟢</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl" style={{ width: "100%" }}>
+              <thead><tr><th>Cliente</th><th>Documento</th><th>Vence</th><th>Estado</th></tr></thead>
+              <tbody>
+                {expiringDocs.map((d, i) => (
+                  <tr key={i} className="row">
+                    <td><Link href={`/customers/${d.customer_id}`} style={{ color: "var(--text)" }}>{d.customer_name}</Link></td>
+                    <td>{DOC_LABEL[d.doc_type] ?? d.doc_type}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{new Date(d.expiry_date + "T00:00:00").toLocaleDateString("es-EC")}</td>
+                    <td>{d.days_left < 0
+                      ? <span className="pill crit">Vencido</span>
+                      : <span className="pill warn">Vence en {d.days_left}d</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="card exception section-gap rise">
         <div className="head">

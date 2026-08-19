@@ -6,12 +6,14 @@ El envío reutiliza el motor de notificaciones (plantilla ALERT_DIGEST).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.models.customer import Customer
+from app.models.document import Document, DocumentVersion
 from app.models.shipment import Container, CustomsCase, Shipment
 from app.models.sla import SLAInstance
 from app.models.vue import VuePermit
@@ -22,6 +24,48 @@ from app.services.payments_service import receivables as compute_receivables
 from app.services.warehouse import compute as compute_storage
 
 SLA_RISKY = ("AT_RISK", "CRITICAL", "BREACHED")
+
+
+async def expiring_documents(session: AsyncSession, within_days: int = 30) -> list[dict]:
+    """Documentos de clientes vencidos o por vencer (última versión) dentro de la
+    ventana. Usa la versión más reciente de cada documento con fecha de vencimiento."""
+    today = date.today()
+    horizon = today + timedelta(days=within_days)
+    latest = (
+        select(
+            DocumentVersion.document_id.label("doc_id"),
+            func.max(DocumentVersion.version).label("mv"),
+        )
+        .group_by(DocumentVersion.document_id)
+        .subquery()
+    )
+    stmt = (
+        select(DocumentVersion, Document.doc_type, Customer.id, Customer.legal_name)
+        .join(
+            latest,
+            (DocumentVersion.document_id == latest.c.doc_id)
+            & (DocumentVersion.version == latest.c.mv),
+        )
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .join(Customer, Customer.id == Document.customer_id)
+        .where(
+            DocumentVersion.expiry_date.is_not(None),
+            DocumentVersion.expiry_date <= horizon,
+        )
+        .order_by(DocumentVersion.expiry_date)
+    )
+    out: list[dict] = []
+    for dv, doc_type, cid, cname in (await session.execute(stmt)).all():
+        days = (dv.expiry_date - today).days
+        out.append({
+            "customer_id": str(cid),
+            "customer_name": cname,
+            "doc_type": doc_type,
+            "expiry_date": dv.expiry_date.isoformat(),
+            "days_left": days,
+            "status": "EXPIRED" if days < 0 else "SOON",
+        })
+    return out
 
 
 async def gather_exceptions(session: AsyncSession) -> dict:
@@ -95,13 +139,17 @@ async def gather_exceptions(session: AsyncSession) -> dict:
     rec = await compute_receivables(session)
     overdue = [r for r in rec["items"] if r["days_overdue"] > 0]
 
-    total = len(demurrage) + len(storage) + len(sla) + len(vue) + len(overdue)
+    # Documentos de clientes vencidos o por vencer (≤30 días)
+    documents = await expiring_documents(session, within_days=30)
+
+    total = len(demurrage) + len(storage) + len(sla) + len(vue) + len(overdue) + len(documents)
     return {
         "demurrage": demurrage, "storage": storage, "sla": sla, "vue": vue,
-        "receivables": overdue,
+        "receivables": overdue, "documents": documents,
         "counts": {
             "demurrage": len(demurrage), "storage": len(storage),
             "sla": len(sla), "vue": len(vue), "receivables": len(overdue),
+            "documents": len(documents),
         },
         "total": total,
     }
@@ -114,8 +162,18 @@ def build_digest_text(ex: dict) -> str:
     lines.append(
         f"Totales — Demurrage: {c['demurrage']} · Almacenaje: {c['storage']} · "
         f"SLA: {c['sla']} · Control previo (VUE): {c['vue']} · "
-        f"Cobranza vencida: {c.get('receivables', 0)}\n"
+        f"Cobranza vencida: {c.get('receivables', 0)} · "
+        f"Documentos por vencer: {c.get('documents', 0)}\n"
     )
+
+    if ex.get("documents"):
+        lines.append("DOCUMENTOS DE CLIENTES VENCIDOS / POR VENCER:")
+        for x in ex["documents"]:
+            estado = "VENCIDO" if x["status"] == "EXPIRED" else f"vence en {x['days_left']}d"
+            lines.append(
+                f"  - {x['customer_name']} · {x['doc_type']} · {x['expiry_date']} · {estado}"
+            )
+        lines.append("")
 
     if ex["demurrage"]:
         lines.append("DEMURRAGE EN RIESGO:")
