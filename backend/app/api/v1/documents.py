@@ -14,6 +14,7 @@ from app.models.document import Document, DocumentExtraction, DocumentVersion
 from app.models.shipment import CaseEvent
 from app.schemas.document import (
     CaseExtractionDoc,
+    DocumentDatesUpdate,
     DocumentExtractionRead,
     DocumentExtractionUpdate,
     DocumentRead,
@@ -257,6 +258,34 @@ async def add_version(
         session, storage, document, file, version=(max_version or 0) + 1,
         issued_date=issued_date, expiry_date=expiry_date,
     )
+    await session.flush()
+    await session.refresh(document)
+    return document
+
+
+@router.patch("/{document_id}/dates", response_model=DocumentRead)
+async def update_document_dates(
+    document_id: uuid.UUID,
+    payload: DocumentDatesUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> Document:
+    """Edita emisión/vencimiento de la ÚLTIMA versión del documento (sin re-subir)."""
+    document = await session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento no encontrado")
+    dv = await session.scalar(
+        select(DocumentVersion)
+        .where(DocumentVersion.document_id == document_id)
+        .order_by(DocumentVersion.version.desc())
+        .limit(1)
+    )
+    if dv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "El documento no tiene versiones")
+    fields = payload.model_dump(exclude_unset=True)
+    if "issued_date" in fields:
+        dv.issued_date = payload.issued_date
+    if "expiry_date" in fields:
+        dv.expiry_date = payload.expiry_date
     await session.flush()
     await session.refresh(document)
     return document

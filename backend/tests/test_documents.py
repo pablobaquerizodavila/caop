@@ -41,6 +41,22 @@ async def test_upload_with_expiry_date(client):
 
 
 @pytest.mark.asyncio
+async def test_set_document_dates_without_reupload(client):
+    # Documento cargado SIN fecha
+    up = await client.post(
+        "/api/v1/documents",
+        files={"file": ("ruc.pdf", b"x", "application/pdf")},
+        data={"doc_type": "RUC"},
+    )
+    doc_id = up.json()["id"]
+    assert up.json()["versions"][0]["expiry_date"] is None
+    # Se fija la fecha manualmente (sin re-subir)
+    r = await client.patch(f"/api/v1/documents/{doc_id}/dates", json={"expiry_date": "2028-03-15"})
+    assert r.status_code == 200, r.text
+    assert r.json()["versions"][-1]["expiry_date"] == "2028-03-15"
+
+
+@pytest.mark.asyncio
 async def test_expiring_documents_alert(client):
     cid = (await client.post(
         "/api/v1/customers", json={"ruc": "1712345675001", "legal_name": "Con Docs"}

@@ -49,6 +49,12 @@ class DocumentExtractionUpdate(BaseModel):
     verified_value: str | None = None
 
 
+class DocumentDatesUpdate(BaseModel):
+    """Edita fechas de emisión/vencimiento de la última versión (sin re-subir)."""
+    issued_date: date | None = None
+    expiry_date: date | None = None
+
+
 class ExtractedFieldPreview(BaseModel):
     field_name: str
     value: str | None

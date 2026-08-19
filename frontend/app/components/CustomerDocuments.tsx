@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   documentVersionUrl,
   replaceDocumentVersion,
+  setDocumentDates,
   uploadCustomerDocument,
 } from "@/app/lib/actions";
 import type { CustomerDoc } from "@/app/lib/format";
@@ -46,7 +47,6 @@ export function CustomerDocuments({
   const addRef = useRef<HTMLInputElement | null>(null);
   const [addType, setAddType] = useState("APPOINTMENT");
   const [addExpiry, setAddExpiry] = useState("");
-  const [rowExpiry, setRowExpiry] = useState<Record<string, string>>({});
 
   async function open(docId: string, version: number) {
     setBusy(docId);
@@ -66,10 +66,21 @@ export function CustomerDocuments({
     try {
       const fd = new FormData();
       fd.append("file", file, file.name);
-      if (rowExpiry[docId]) fd.append("expiry_date", rowExpiry[docId]);
       const r = await replaceDocumentVersion(docId, customerId, fd);
       setMsg(r.ok ? "Documento reemplazado (nueva versión)." : `Error: ${r.error}`);
       if (r.ok && replaceRefs.current[docId]) replaceRefs.current[docId]!.value = "";
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function saveExpiry(docId: string, value: string) {
+    setBusy(docId + ":date");
+    setMsg(null);
+    try {
+      const r = await setDocumentDates(docId, customerId, { expiry_date: value || null });
+      setMsg(r.ok ? "Fecha de vencimiento actualizada." : `Error: ${r.error}`);
       router.refresh();
     } finally {
       setBusy(null);
@@ -106,7 +117,7 @@ export function CustomerDocuments({
         <div style={{ overflowX: "auto" }}>
           <table className="tbl" style={{ width: "100%" }}>
             <thead>
-              <tr><th>Documento</th><th>Archivo</th><th>Vencimiento</th><th>Cargado</th><th></th>{canEdit ? <th>Reemplazar (opcional: fecha)</th> : null}</tr>
+              <tr><th>Documento</th><th>Archivo</th><th>Vencimiento</th><th>Cargado</th><th></th>{canEdit ? <th>Reemplazar</th> : null}</tr>
             </thead>
             <tbody>
               {docs.map((d) => {
@@ -115,7 +126,23 @@ export function CustomerDocuments({
                   <tr key={d.id}>
                     <td>{DOC_LABELS[d.doc_type] ?? d.doc_type}{d.versions?.length > 1 ? <span style={{ color: "var(--muted-2)", fontSize: 11 }}> · v{v?.version}</span> : null}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{v?.filename ?? "—"}</td>
-                    <td><ExpiryBadge expiry={v?.expiry_date} /></td>
+                    <td>
+                      {canEdit ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <input
+                            type="date"
+                            defaultValue={v?.expiry_date ?? ""}
+                            disabled={busy === d.id + ":date"}
+                            onChange={(e) => saveExpiry(d.id, e.target.value)}
+                            style={{ fontSize: 12, width: 150 }}
+                            title="Fecha de vencimiento (se guarda al cambiar)"
+                          />
+                          <ExpiryBadge expiry={v?.expiry_date} />
+                        </div>
+                      ) : (
+                        <ExpiryBadge expiry={v?.expiry_date} />
+                      )}
+                    </td>
                     <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>
                       {v?.created_at ? new Date(v.created_at).toLocaleDateString("es-EC") : "—"}
                     </td>
@@ -128,23 +155,14 @@ export function CustomerDocuments({
                     </td>
                     {canEdit ? (
                       <td>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            type="date"
-                            value={rowExpiry[d.id] ?? ""}
-                            onChange={(e) => setRowExpiry((p) => ({ ...p, [d.id]: e.target.value }))}
-                            style={{ fontSize: 12, width: 140 }}
-                            title="Nueva fecha de vencimiento (se aplica al reemplazar)"
-                          />
-                          <input
-                            ref={(el) => { replaceRefs.current[d.id] = el; }}
-                            type="file"
-                            accept={DOC_ACCEPT}
-                            disabled={busy === d.id}
-                            onChange={() => replace(d.id)}
-                            style={{ fontSize: 12 }}
-                          />
-                        </div>
+                        <input
+                          ref={(el) => { replaceRefs.current[d.id] = el; }}
+                          type="file"
+                          accept={DOC_ACCEPT}
+                          disabled={busy === d.id}
+                          onChange={() => replace(d.id)}
+                          style={{ fontSize: 12 }}
+                        />
                       </td>
                     ) : null}
                   </tr>

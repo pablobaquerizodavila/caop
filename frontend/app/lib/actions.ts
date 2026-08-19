@@ -113,6 +113,22 @@ export async function deleteCustomer(
   return { ok: false, status: res.status, error };
 }
 
+/** Fija/edita la fecha de vencimiento (y emisión) de la última versión, sin re-subir. */
+export async function setDocumentDates(
+  documentId: string,
+  customerId: string,
+  dates: { expiry_date?: string | null; issued_date?: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API}/api/v1/documents/${documentId}/dates`, {
+    method: "PATCH",
+    headers: { ...authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(dates),
+    cache: "no-store",
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return res.ok ? { ok: true } : { ok: false, error: `Error ${res.status}` };
+}
+
 /** Reemplaza un documento subiendo una nueva versión (conserva el historial). */
 export async function replaceDocumentVersion(
   documentId: string,
