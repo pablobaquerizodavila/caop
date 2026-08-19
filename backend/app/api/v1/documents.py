@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
@@ -75,6 +76,8 @@ async def _store_version(
     document: Document,
     file: UploadFile,
     version: int,
+    issued_date: date | None = None,
+    expiry_date: date | None = None,
 ) -> DocumentVersion:
     data = await file.read()
     if not data:
@@ -93,6 +96,8 @@ async def _store_version(
         size=len(data),
         content_type=file.content_type,
         filename=file.filename or "archivo",
+        issued_date=issued_date,
+        expiry_date=expiry_date,
     )
     session.add(dv)
     return dv
@@ -105,6 +110,8 @@ async def upload_document(
     customs_case_id: uuid.UUID | None = Form(None),
     doc_type: str = Form("UNCLASSIFIED"),
     source: str = Form("PORTAL"),
+    issued_date: date | None = Form(None),
+    expiry_date: date | None = Form(None),
     session: AsyncSession = Depends(get_session),
     storage: StorageService = Depends(get_storage),
 ) -> Document:
@@ -116,7 +123,10 @@ async def upload_document(
     )
     session.add(document)
     await session.flush()  # asigna document.id
-    dv = await _store_version(session, storage, document, file, version=1)
+    dv = await _store_version(
+        session, storage, document, file, version=1,
+        issued_date=issued_date, expiry_date=expiry_date,
+    )
     await session.flush()
     # AUTOMATION: si el doc pertenece a un expediente y su tipo calza, completa el checklist.
     await autolink_document(session, document)
@@ -229,6 +239,8 @@ async def attach_to_case(
 async def add_version(
     document_id: uuid.UUID,
     file: UploadFile = File(...),
+    issued_date: date | None = Form(None),
+    expiry_date: date | None = Form(None),
     session: AsyncSession = Depends(get_session),
     storage: StorageService = Depends(get_storage),
 ) -> Document:
@@ -241,7 +253,10 @@ async def add_version(
             DocumentVersion.document_id == document_id
         )
     )
-    await _store_version(session, storage, document, file, version=(max_version or 0) + 1)
+    await _store_version(
+        session, storage, document, file, version=(max_version or 0) + 1,
+        issued_date=issued_date, expiry_date=expiry_date,
+    )
     await session.flush()
     await session.refresh(document)
     return document

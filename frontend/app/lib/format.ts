@@ -217,6 +217,8 @@ export interface CustomerDocVersion {
   version: number;
   filename: string;
   content_type: string | null;
+  issued_date?: string | null;
+  expiry_date?: string | null;
   created_at: string;
 }
 

@@ -28,6 +28,18 @@ async def test_upload_creates_version_and_hash(client, storage):
 
 
 @pytest.mark.asyncio
+async def test_upload_with_expiry_date(client):
+    resp = await client.post(
+        "/api/v1/documents",
+        files={"file": ("ruc.pdf", b"ruc", "application/pdf")},
+        data={"doc_type": "RUC", "expiry_date": "2027-06-30"},
+    )
+    assert resp.status_code == 201, resp.text
+    v1 = resp.json()["versions"][0]
+    assert v1["expiry_date"] == "2027-06-30"
+
+
+@pytest.mark.asyncio
 async def test_versioning_increments(client):
     up = await client.post(
         "/api/v1/documents",

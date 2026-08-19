@@ -50,6 +50,7 @@ export function NewCustomerForm() {
   const rucFileRef = useRef<HTMLInputElement>(null);
   const cedulaFileRef = useRef<HTMLInputElement>(null);
   const nombramientoFileRef = useRef<HTMLInputElement>(null);
+  const [expiry, setExpiry] = useState({ ruc: "", cedula: "", appointment: "" });
 
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -147,6 +148,7 @@ export function NewCustomerForm() {
     if (rucFile) {
       const fd = new FormData();
       fd.append("file", rucFile, rucFile.name);
+      if (expiry.ruc) fd.append("expiry_date", expiry.ruc);
       const r = await uploadCustomerDocument(res.id, "RUC", fd);
       if (!r.ok) warnings.push("no se pudo subir el RUC escaneado");
     }
@@ -154,6 +156,7 @@ export function NewCustomerForm() {
     if (cedulaFile) {
       const fd = new FormData();
       fd.append("file", cedulaFile, cedulaFile.name);
+      if (expiry.cedula) fd.append("expiry_date", expiry.cedula);
       const r = await uploadCustomerDocument(res.id, "CEDULA", fd);
       if (!r.ok) warnings.push("no se pudo subir la cédula");
     }
@@ -162,6 +165,7 @@ export function NewCustomerForm() {
       if (nomFile) {
         const fd = new FormData();
         fd.append("file", nomFile, nomFile.name);
+        if (expiry.appointment) fd.append("expiry_date", expiry.appointment);
         const r = await uploadCustomerDocument(res.id, "APPOINTMENT", fd);
         if (!r.ok) warnings.push("no se pudo subir el nombramiento");
       }
@@ -340,15 +344,27 @@ export function NewCustomerForm() {
         ) : null}
       </fieldset>
 
-      <label className="field">
-        <span>RUC escaneado (PDF)</span>
-        <input ref={rucFileRef} type="file" accept={DOC_ACCEPT} />
-      </label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 170px", gap: 10, alignItems: "end" }}>
+        <label className="field">
+          <span>RUC escaneado (PDF)</span>
+          <input ref={rucFileRef} type="file" accept={DOC_ACCEPT} />
+        </label>
+        <label className="field">
+          <span>Vence (RUC)</span>
+          <input type="date" value={expiry.ruc} onChange={(e) => setExpiry((p) => ({ ...p, ruc: e.target.value }))} />
+        </label>
+      </div>
 
-      <label className="field">
-        <span>{isCompany ? "Cédula del representante legal (PDF)" : "Cédula de identidad (PDF)"}</span>
-        <input ref={cedulaFileRef} type="file" accept={DOC_ACCEPT} />
-      </label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 170px", gap: 10, alignItems: "end" }}>
+        <label className="field">
+          <span>{isCompany ? "Cédula del representante legal (PDF)" : "Cédula de identidad (PDF)"}</span>
+          <input ref={cedulaFileRef} type="file" accept={DOC_ACCEPT} />
+        </label>
+        <label className="field">
+          <span>Vence (cédula)</span>
+          <input type="date" value={expiry.cedula} onChange={(e) => setExpiry((p) => ({ ...p, cedula: e.target.value }))} />
+        </label>
+      </div>
 
       {isCompany ? (
         <fieldset className="stack" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
@@ -379,10 +395,16 @@ export function NewCustomerForm() {
             <span>Cédula / RUC del representante (opcional)</span>
             <input type="text" value={f.legal_rep_id} onChange={(e) => set("legal_rep_id", e.target.value)} />
           </label>
-          <label className="field">
-            <span>Nombramiento legal escaneado (PDF)</span>
-            <input ref={nombramientoFileRef} type="file" accept={DOC_ACCEPT} />
-          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 170px", gap: 10, alignItems: "end" }}>
+            <label className="field">
+              <span>Nombramiento legal escaneado (PDF)</span>
+              <input ref={nombramientoFileRef} type="file" accept={DOC_ACCEPT} />
+            </label>
+            <label className="field">
+              <span>Vence (nombramiento)</span>
+              <input type="date" value={expiry.appointment} onChange={(e) => setExpiry((p) => ({ ...p, appointment: e.target.value }))} />
+            </label>
+          </div>
         </fieldset>
       ) : null}
 

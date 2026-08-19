@@ -19,6 +19,17 @@ const DOC_LABELS: Record<string, string> = {
 const DOC_ACCEPT = ".pdf,.png,.jpg,.jpeg,application/pdf,image/*";
 const CANONICAL = ["RUC", "CEDULA", "APPOINTMENT"];
 
+/** Badge de vigencia según la fecha de vencimiento. */
+function ExpiryBadge({ expiry }: { expiry?: string | null }) {
+  if (!expiry) return <span style={{ color: "var(--muted-2)", fontSize: 12 }}>— sin fecha —</span>;
+  const d = new Date(expiry + "T00:00:00");
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+  const fecha = d.toLocaleDateString("es-EC");
+  if (days < 0) return <span><span className="pill crit">Vencido</span> <span className="mono" style={{ fontSize: 12 }}>{fecha}</span></span>;
+  if (days <= 30) return <span><span className="pill warn">Vence en {days}d</span> <span className="mono" style={{ fontSize: 12 }}>{fecha}</span></span>;
+  return <span><span className="pill ok">Vigente</span> <span className="mono" style={{ fontSize: 12 }}>{fecha}</span></span>;
+}
+
 export function CustomerDocuments({
   docs,
   customerId,
@@ -34,6 +45,8 @@ export function CustomerDocuments({
   const replaceRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const addRef = useRef<HTMLInputElement | null>(null);
   const [addType, setAddType] = useState("APPOINTMENT");
+  const [addExpiry, setAddExpiry] = useState("");
+  const [rowExpiry, setRowExpiry] = useState<Record<string, string>>({});
 
   async function open(docId: string, version: number) {
     setBusy(docId);
@@ -53,6 +66,7 @@ export function CustomerDocuments({
     try {
       const fd = new FormData();
       fd.append("file", file, file.name);
+      if (rowExpiry[docId]) fd.append("expiry_date", rowExpiry[docId]);
       const r = await replaceDocumentVersion(docId, customerId, fd);
       setMsg(r.ok ? "Documento reemplazado (nueva versión)." : `Error: ${r.error}`);
       if (r.ok && replaceRefs.current[docId]) replaceRefs.current[docId]!.value = "";
@@ -70,9 +84,11 @@ export function CustomerDocuments({
     try {
       const fd = new FormData();
       fd.append("file", file, file.name);
+      if (addExpiry) fd.append("expiry_date", addExpiry);
       const r = await uploadCustomerDocument(customerId, addType, fd);
       setMsg(r.ok ? "Documento agregado." : `Error: ${r.error}`);
       if (r.ok && addRef.current) addRef.current.value = "";
+      if (r.ok) setAddExpiry("");
       router.refresh();
     } finally {
       setBusy(null);
@@ -90,7 +106,7 @@ export function CustomerDocuments({
         <div style={{ overflowX: "auto" }}>
           <table className="tbl" style={{ width: "100%" }}>
             <thead>
-              <tr><th>Documento</th><th>Archivo</th><th>Cargado</th><th></th>{canEdit ? <th>Reemplazar</th> : null}</tr>
+              <tr><th>Documento</th><th>Archivo</th><th>Vencimiento</th><th>Cargado</th><th></th>{canEdit ? <th>Reemplazar (opcional: fecha)</th> : null}</tr>
             </thead>
             <tbody>
               {docs.map((d) => {
@@ -99,6 +115,7 @@ export function CustomerDocuments({
                   <tr key={d.id}>
                     <td>{DOC_LABELS[d.doc_type] ?? d.doc_type}{d.versions?.length > 1 ? <span style={{ color: "var(--muted-2)", fontSize: 11 }}> · v{v?.version}</span> : null}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{v?.filename ?? "—"}</td>
+                    <td><ExpiryBadge expiry={v?.expiry_date} /></td>
                     <td className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>
                       {v?.created_at ? new Date(v.created_at).toLocaleDateString("es-EC") : "—"}
                     </td>
@@ -111,14 +128,23 @@ export function CustomerDocuments({
                     </td>
                     {canEdit ? (
                       <td>
-                        <input
-                          ref={(el) => { replaceRefs.current[d.id] = el; }}
-                          type="file"
-                          accept={DOC_ACCEPT}
-                          disabled={busy === d.id}
-                          onChange={() => replace(d.id)}
-                          style={{ fontSize: 12 }}
-                        />
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            type="date"
+                            value={rowExpiry[d.id] ?? ""}
+                            onChange={(e) => setRowExpiry((p) => ({ ...p, [d.id]: e.target.value }))}
+                            style={{ fontSize: 12, width: 140 }}
+                            title="Nueva fecha de vencimiento (se aplica al reemplazar)"
+                          />
+                          <input
+                            ref={(el) => { replaceRefs.current[d.id] = el; }}
+                            type="file"
+                            accept={DOC_ACCEPT}
+                            disabled={busy === d.id}
+                            onChange={() => replace(d.id)}
+                            style={{ fontSize: 12 }}
+                          />
+                        </div>
                       </td>
                     ) : null}
                   </tr>
@@ -136,7 +162,10 @@ export function CustomerDocuments({
               {missing.map((t) => <option key={t} value={t}>{DOC_LABELS[t] ?? t}</option>)}
             </select>
           </label>
-          <label className="field" style={{ minWidth: 220 }}><span>Archivo (PDF)</span>
+          <label className="field"><span>Vence (opcional)</span>
+            <input type="date" value={addExpiry} onChange={(e) => setAddExpiry(e.target.value)} />
+          </label>
+          <label className="field" style={{ minWidth: 200 }}><span>Archivo (PDF)</span>
             <input ref={addRef} type="file" accept={DOC_ACCEPT} />
           </label>
           <button className="btn" disabled={busy === "add"} onClick={add}>Agregar</button>

@@ -123,6 +123,8 @@ export async function replaceDocumentVersion(
   if (!file || typeof file === "string") return { ok: false, error: "Sin archivo" };
   const fd = new FormData();
   fd.append("file", file, (file as File).name);
+  const expiry = String(formData.get("expiry_date") ?? "");
+  if (expiry) fd.append("expiry_date", expiry);
   const res = await fetch(`${API}/api/v1/documents/${documentId}/versions`, {
     method: "POST",
     headers: authHeader(),
@@ -145,6 +147,8 @@ export async function uploadCustomerDocument(
   fd.append("file", file, (file as File).name);
   fd.append("customer_id", customerId);
   fd.append("doc_type", docType);
+  const expiry = String(formData.get("expiry_date") ?? "");
+  if (expiry) fd.append("expiry_date", expiry);
   const res = await fetch(`${API}/api/v1/documents`, {
     method: "POST",
     headers: authHeader(),
