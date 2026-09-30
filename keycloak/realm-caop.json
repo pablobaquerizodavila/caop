@@ -30,9 +30,9 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://192.168.0.7:3000/*", "http://localhost:3000/*"],
-      "webOrigins": ["http://192.168.0.7:3000", "http://localhost:3000"],
-      "attributes": { "post.logout.redirect.uris": "http://192.168.0.7:3000/*##http://localhost:3000/*" }
+      "redirectUris": ["https://www.panamtrack.com/*", "http://192.168.0.7:3000/*", "http://localhost:3000/*"],
+      "webOrigins": ["https://www.panamtrack.com", "http://192.168.0.7:3000", "http://localhost:3000"],
+      "attributes": { "post.logout.redirect.uris": "http://192.168.0.7:3000/*##http://localhost:3000/*##https://www.panamtrack.com/*" }
     },
     {
       "clientId": "caop-backend",
