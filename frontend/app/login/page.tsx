@@ -44,11 +44,11 @@ export default function LoginPage({
             boxShadow: "0 0 22px var(--accent-glow)",
           }}
         >
-          C
+          PT
         </div>
-        <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>CAOP</h1>
+        <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>panamtrack</h1>
         <div className="eyebrow" style={{ marginBottom: 22 }}>
-          CONTROL TOWER · SENAE / ECUAPASS
+          PANAMERICAN TRACKING DISPATCH · SENAE / ECUAPASS
         </div>
 
         {err ? (
@@ -79,11 +79,14 @@ export default function LoginPage({
             textDecoration: "none",
           }}
         >
-          Ingresar con Keycloak
+          Ingresar
         </a>
         <p style={{ color: "var(--muted-2)", fontSize: 11.5, marginTop: 18 }}>
           Acceso restringido al personal autorizado.
         </p>
+        <a href="/" style={{ color: "var(--muted)", fontSize: 12, marginTop: 14, display: "inline-block" }}>
+          ← Volver al inicio
+        </a>
       </div>
     </div>
   );

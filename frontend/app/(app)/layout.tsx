@@ -24,7 +24,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
         <GlobalSearch />
         <nav className="nav">
-          <NavLink href="/">Torre de Control</NavLink>
+          <NavLink href="/panel">Torre de Control</NavLink>
           <NavLink href="/cases">Expedientes</NavLink>
           <NavLink href="/quotes">Cotizaciones</NavLink>
           <NavLink href="/tariff">Arancel</NavLink>

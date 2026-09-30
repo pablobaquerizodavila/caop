@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     "API_SERVICE", "AUDITOR",
   ];
   const isCustomerOnly = roles.includes("CUSTOMER") && !roles.some((r) => staffRoles.includes(r));
-  const res = NextResponse.redirect(`${APP_URL}${isCustomerOnly ? "/portal" : "/"}`);
+  const res = NextResponse.redirect(`${APP_URL}${isCustomerOnly ? "/portal" : "/panel"}`);
   const base = { httpOnly: true, sameSite: "lax" as const, path: "/" };
 
   res.cookies.set("access_token", tok.access_token, {

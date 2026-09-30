@@ -18,8 +18,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CAOP — Torre de Control",
-  description: "Customs Autonomous Operations Platform",
+  title: "Panamerican Tracking Dispatch — panamtrack",
+  description: "Agencia de aduanas en Ecuador: despachos aduaneros ante SENAE / ECUAPASS, clasificación arancelaria, landed cost y seguimiento en tiempo real.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

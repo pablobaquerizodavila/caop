@@ -36,6 +36,10 @@ function claimsFromJWT(token: string): { username: string; roles: string[] } {
 }
 
 export async function middleware(req: NextRequest) {
+  // La raíz "/" es la landing pública (marketing). No requiere sesión.
+  if (req.nextUrl.pathname === "/") {
+    return NextResponse.next();
+  }
   const at = req.cookies.get("access_token")?.value;
   if (at) {
     // Backfill de cookies de UI (roles) para sesiones abiertas antes del RBAC.

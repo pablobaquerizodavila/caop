@@ -100,7 +100,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   return (
     <>
       <div className="eyebrow" style={{ marginBottom: 10 }}>
-        <Link href="/" style={{ color: "var(--accent)" }}>
+        <Link href="/panel" style={{ color: "var(--accent)" }}>
           ← Torre de Control
         </Link>
       </div>
