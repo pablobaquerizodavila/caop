@@ -60,18 +60,6 @@
   ],
   "users": [
     {
-      "username": "agente",
-      "enabled": true,
-      "email": "agente@caop.local",
-      "emailVerified": true,
-      "firstName": "Agente",
-      "lastName": "Aduanero",
-      "credentials": [
-        { "type": "password", "value": "agente_dev", "temporary": false }
-      ],
-      "realmRoles": ["CUSTOMS_AGENT"]
-    },
-    {
       "username": "pbaquerizo",
       "enabled": true,
       "email": "pbaquerizo@panamtrack.com",
