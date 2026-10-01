@@ -45,11 +45,6 @@ export async function middleware(req: NextRequest) {
   ) {
     return NextResponse.next();
   }
-  if (pathname === "/panel") {
-    console.log(
-      `[mw-diag] host=${req.headers.get("host")} at=${req.cookies.get("access_token") ? "Y" : "N"} rt=${req.cookies.get("refresh_token") ? "Y" : "N"} cookies=${[...req.cookies.getAll()].map((c) => c.name).join("|")}`,
-    );
-  }
   const at = req.cookies.get("access_token")?.value;
   if (at) {
     // Backfill de cookies de UI (roles) para sesiones abiertas antes del RBAC.
