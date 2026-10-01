@@ -39,7 +39,7 @@ export default function Landing() {
       </header>
 
       <section className="px-hero">
-        <div className="px-wrap px-hero-in">
+        <div className="px-wrap"><div className="px-hero-in">
           <div className="px-eyebrow">Agencia de aduanas · Ecuador</div>
           <h1 className="px-h1">Despachos<br />aduaneros</h1>
           <p className="px-body">
@@ -55,7 +55,7 @@ export default function Landing() {
             <span>Integrado con</span>
             <b>SENAE</b><b>ECUAPASS</b><b>Arancel</b><b>VUE</b>
           </div>
-        </div>
+        </div></div>
       </section>
 
       <section id="servicios" className="px-sec">
@@ -150,11 +150,12 @@ const CSS = `
 
 /* HERO */
 .px-hero{ display:flex; align-items:center; min-height:calc(100vh - 62px); padding:60px 0; }
-.px-hero-in{ max-width:560px; }
+.px-hero > .px-wrap{ width:100%; }
+.px-hero-in{ max-width:620px; }
 .px-eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; color:var(--steel); margin-bottom:30px; }
 .px-h1{
-  font-weight:700; font-size:clamp(52px,9vw,96px); line-height:0.98; letter-spacing:0.02em;
-  text-transform:uppercase; margin:0 0 30px;
+  font-weight:700; font-size:clamp(44px,6.5vw,72px); line-height:1.0; letter-spacing:0.02em;
+  text-transform:uppercase; margin:0 0 30px; overflow-wrap:break-word;
 }
 .px-body{
   font-size:13px; font-weight:400; letter-spacing:0.10em; line-height:1.7; color:var(--white);
