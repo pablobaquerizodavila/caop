@@ -36,7 +36,7 @@ export default async function AdminPage() {
           color: "var(--muted)",
         }}
       >
-        Panel exclusivo del <b>super administrador</b>. <b>admin-caop</b> (rol
+        Panel exclusivo del <b>super administrador</b>. <b>pbaquerizo</b> (rol
         SUPER_ADMIN) mantiene poder total y no es editable. Aquí se gestionan las cuentas
         del personal, sus roles y las capacidades de cada rol.
       </div>

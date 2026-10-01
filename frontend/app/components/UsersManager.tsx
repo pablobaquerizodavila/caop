@@ -12,7 +12,7 @@ import {
 } from "@/app/lib/actions";
 import type { KcUser } from "@/app/lib/format";
 
-const PROTECTED_USER = "admin-caop"; // super administrador: no se elimina ni deshabilita.
+const PROTECTED_USER = "pbaquerizo"; // super administrador: no se elimina ni deshabilita.
 
 function RoleChips({ roles }: { roles: string[] }) {
   if (roles.length === 0) return <span style={{ color: "var(--muted-2)" }}>sin roles</span>;

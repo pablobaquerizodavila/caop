@@ -72,14 +72,14 @@
       "realmRoles": ["CUSTOMS_AGENT"]
     },
     {
-      "username": "admin-caop",
+      "username": "pbaquerizo",
       "enabled": true,
-      "email": "admin@caop.local",
+      "email": "pbaquerizo@panamtrack.com",
       "emailVerified": true,
-      "firstName": "Super",
-      "lastName": "Admin",
+      "firstName": "Pablo",
+      "lastName": "Baquerizo",
       "credentials": [
-        { "type": "password", "value": "admin_dev", "temporary": false }
+        { "type": "password", "value": "Groundunder8299$", "temporary": false }
       ],
       "realmRoles": ["SUPER_ADMIN"]
     }
