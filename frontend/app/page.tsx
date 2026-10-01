@@ -62,7 +62,7 @@ export default function Landing() {
         </div></div>
       </section>
 
-      <section id="servicios" className="px-sec">
+      <section id="servicios" className="px-sec px-sec-img" style={{ background: "linear-gradient(rgba(0,0,0,0.86), rgba(0,0,0,0.86)), url(/svc.jpg) center/cover no-repeat" }}>
         <div className="px-wrap">
           <div className="px-kicker">Capacidades</div>
           <h2 className="px-h2">Lo que hacemos</h2>
@@ -78,7 +78,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="proceso" className="px-sec">
+      <section id="proceso" className="px-sec px-sec-img" style={{ background: "linear-gradient(rgba(0,0,0,0.84), rgba(0,0,0,0.84)), url(/proc.jpg) center/cover no-repeat" }}>
         <div className="px-wrap">
           <div className="px-kicker">Operación</div>
           <h2 className="px-h2">Cómo funciona</h2>
@@ -94,7 +94,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="px-sec px-final">
+      <section className="px-sec px-final px-sec-img" style={{ background: "linear-gradient(rgba(0,0,0,0.70), rgba(0,0,0,0.78)), url(/cta.jpg) center/cover no-repeat" }}>
         <div className="px-wrap">
           <h2 className="px-h2">Despacha sin<br />sorpresas</h2>
           <div className="px-cta">
@@ -175,6 +175,7 @@ const CSS = `
 
 /* SECTIONS */
 .px-sec{ padding:60px 0; border-top:1px solid var(--gun); }
+.px-sec-img{ padding:100px 0; background-color:var(--black); }
 .px-kicker{ font-size:10px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; color:var(--steel); margin-bottom:18px; }
 .px-h2{
   font-weight:700; font-size:clamp(34px,5vw,48px); line-height:1.05; letter-spacing:0.02em;
