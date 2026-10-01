@@ -36,8 +36,13 @@ function claimsFromJWT(token: string): { username: string; roles: string[] } {
 }
 
 export async function middleware(req: NextRequest) {
-  // La raíz "/" es la landing pública (marketing). No requiere sesión.
-  if (req.nextUrl.pathname === "/") {
+  const { pathname } = req.nextUrl;
+  // La raíz "/" es la landing pública, y los assets estáticos (video/imágenes/
+  // fuentes) no requieren sesión — si no, la landing no puede cargarlos.
+  if (
+    pathname === "/" ||
+    /\.(mp4|webm|ogg|jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?|ttf|txt|xml|json)$/i.test(pathname)
+  ) {
     return NextResponse.next();
   }
   const at = req.cookies.get("access_token")?.value;
