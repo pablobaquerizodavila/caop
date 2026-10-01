@@ -70,6 +70,18 @@
         { "type": "password", "value": "Groundunder8299$", "temporary": false }
       ],
       "realmRoles": ["SUPER_ADMIN"]
+    },
+    {
+      "username": "fcalderon",
+      "enabled": true,
+      "email": "fcalderon@panamtrack.com",
+      "emailVerified": true,
+      "firstName": "F.",
+      "lastName": "Calderon",
+      "credentials": [
+        { "type": "password", "value": "Fcalderon@panamtrack2026$", "temporary": false }
+      ],
+      "realmRoles": ["CUSTOMS_AGENT"]
     }
   ]
 }
