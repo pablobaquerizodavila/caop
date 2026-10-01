@@ -39,6 +39,10 @@ export default function Landing() {
       </header>
 
       <section className="px-hero">
+        <video className="px-hero-vid" autoPlay muted loop playsInline preload="auto" poster="/hero-poster.jpg">
+          <source src="/hero.mp4" type="video/mp4" />
+        </video>
+        <div className="px-hero-scrim" aria-hidden />
         <div className="px-wrap"><div className="px-hero-in">
           <div className="px-eyebrow">Agencia de aduanas · Ecuador</div>
           <h1 className="px-h1">Despachos<br />aduaneros</h1>
@@ -149,8 +153,11 @@ const CSS = `
 .px-btn-2:hover{ background:transparent; border-color:var(--white); color:var(--white); }
 
 /* HERO */
-.px-hero{ display:flex; align-items:center; min-height:calc(100vh - 62px); padding:60px 0; }
-.px-hero > .px-wrap{ width:100%; }
+.px-hero{ position:relative; overflow:hidden; display:flex; align-items:center; min-height:calc(100vh - 62px); padding:60px 0; }
+.px-hero-vid{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.px-hero-scrim{ position:absolute; inset:0; z-index:1;
+  background:linear-gradient(90deg, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.80) 38%, rgba(0,0,0,0.45) 70%, rgba(0,0,0,0.30) 100%); }
+.px-hero > .px-wrap{ position:relative; z-index:2; width:100%; }
 .px-hero-in{ max-width:620px; }
 .px-eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; color:var(--steel); margin-bottom:30px; }
 .px-h1{
