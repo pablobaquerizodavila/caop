@@ -42,6 +42,10 @@ export async function GET(req: NextRequest) {
   }
 
   const tok = await tokenRes.json();
+  // DIAGNOSTICO TEMPORAL: tamanos de token para descartar cookie > 4KB.
+  console.log(
+    `[auth-diag] access=${(tok.access_token ?? "").length} refresh=${(tok.refresh_token ?? "").length}`,
+  );
   const roles = rolesFromToken(tok.access_token);
   const staffRoles = [
     "SUPER_ADMIN", "OPERATIONS_MANAGER", "CUSTOMS_AGENT", "CUSTOMS_ASSISTANT",
