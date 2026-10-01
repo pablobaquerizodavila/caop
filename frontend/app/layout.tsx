@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Barlow, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -16,6 +16,13 @@ const mono = IBM_Plex_Mono({
   variable: "--font-mono",
   display: "swap",
 });
+// Barlow: sustituto libre de D-DIN (geométrica industrial) para la cara pública.
+const din = Barlow({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-din",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Panamerican Tracking Dispatch — panamtrack",
@@ -24,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="es" className={`${sans.variable} ${mono.variable} ${din.variable}`}>
       <body>{children}</body>
     </html>
   );

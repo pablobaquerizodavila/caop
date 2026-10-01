@@ -7,87 +7,43 @@ export default function LoginPage({
 }) {
   const err = searchParams.error;
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "2rem",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 380,
-          textAlign: "center",
-          background: "var(--surface)",
-          border: "1px solid var(--border-soft)",
-          borderRadius: "var(--radius)",
-          padding: "38px 32px",
-          boxShadow: "var(--shadow)",
-        }}
-      >
-        <div
-          className="mark"
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: 12,
-            margin: "0 auto 18px",
-            display: "grid",
-            placeItems: "center",
-            fontFamily: "var(--mono)",
-            fontWeight: 700,
-            color: "#04201d",
-            fontSize: 20,
-            background: "radial-gradient(circle at 30% 30%, var(--accent), var(--accent-dim))",
-            boxShadow: "0 0 22px var(--accent-glow)",
-          }}
-        >
-          PT
-        </div>
-        <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>panamtrack</h1>
-        <div className="eyebrow" style={{ marginBottom: 22 }}>
-          PANAMERICAN TRACKING DISPATCH · SENAE / ECUAPASS
-        </div>
+    <div className="pxl">
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="pxl-box">
+        <a href="/" className="pxl-logo">PANAMTRACK</a>
+        <div className="pxl-eyebrow">Panamerican Tracking Dispatch · SENAE / ECUAPASS</div>
 
         {err ? (
-          <div
-            style={{
-              background: "rgba(248,113,113,0.1)",
-              border: "1px solid rgba(248,113,113,0.3)",
-              color: "#ffc9c9",
-              borderRadius: 8,
-              padding: "8px 12px",
-              fontSize: 12.5,
-              marginBottom: 16,
-            }}
-          >
-            No se pudo iniciar sesión ({err}). Intenta nuevamente.
-          </div>
+          <div className="pxl-err">No se pudo iniciar sesión ({err}). Intenta nuevamente.</div>
         ) : null}
 
-        <a
-          href="/api/auth/login"
-          style={{
-            display: "block",
-            background: "var(--accent)",
-            color: "#04201d",
-            fontWeight: 600,
-            padding: "11px 16px",
-            borderRadius: 8,
-            textDecoration: "none",
-          }}
-        >
-          Ingresar
-        </a>
-        <p style={{ color: "var(--muted-2)", fontSize: 11.5, marginTop: 18 }}>
-          Acceso restringido al personal autorizado.
-        </p>
-        <a href="/" style={{ color: "var(--muted)", fontSize: 12, marginTop: 14, display: "inline-block" }}>
-          ← Volver al inicio
-        </a>
+        <a href="/api/auth/login" className="pxl-btn">Ingresar →</a>
+
+        <p className="pxl-note">Acceso restringido al personal autorizado.</p>
+        <a href="/" className="pxl-back">← Volver al inicio</a>
       </div>
     </div>
   );
 }
+
+const CSS = `
+.pxl{
+  --black:#000000; --white:#f0f0fa; --steel:#545457; --gun:#404040;
+  --din: var(--font-din), "Barlow", ui-sans-serif, system-ui, sans-serif;
+  min-height:100vh; display:grid; place-items:center; padding:2rem;
+  background:var(--black); color:var(--white); font-family:var(--din);
+}
+.pxl-box{ width:100%; max-width:380px; text-align:center; }
+.pxl-logo{ font-weight:700; font-size:22px; letter-spacing:0.14em; text-transform:uppercase; color:var(--white); text-decoration:none; display:inline-block; }
+.pxl-eyebrow{ font-size:10px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; color:var(--steel); margin:14px 0 30px; }
+.pxl-err{ border:1px solid var(--steel); color:var(--white); font-size:11px; letter-spacing:0.06em; padding:10px 12px; margin-bottom:20px; border-radius:4px; }
+.pxl-btn{
+  display:block; border:1px solid var(--white); border-radius:4px; background:transparent; color:var(--white);
+  font-size:13px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; padding:14px 16px;
+  text-decoration:none; transition:background .15s, color .15s;
+}
+.pxl-btn:hover{ background:var(--white); color:var(--black); }
+.pxl-note{ color:var(--steel); font-size:10px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; margin-top:22px; }
+.pxl-back{ color:var(--steel); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; margin-top:14px; display:inline-block; text-decoration:none; }
+.pxl-back:hover{ color:var(--white); }
+`;
